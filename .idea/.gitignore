@@ -1,0 +1,15 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+/.bundle/
+/coverage/
+/pkg/
+/spec/reports/
+/tmp/
+.idea/
+.DS_Store
+key
+key.out
+/out/
+*.iml
+Gemfile.lock
