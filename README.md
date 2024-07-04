@@ -102,9 +102,3 @@ step do
   end
 end
 ```
-
-## TO DO
-
-1. Implement error handling for various edge cases.
-
-2. Improve user feedback during script execution.
