@@ -9,18 +9,20 @@ module Integrations
 
   class ShellCommandRunner
     class << self
+      # Executes a shell command in the specified directory
       def run(cmd:, chdir: Dir.pwd, hide_output: false, sanitize_credentials: false, quiet: false)
         puts "Running Shell Command (#{chdir}): #{cmd}" unless quiet
 
         output = nil
         Open3.popen3(cmd, chdir: chdir) do |_, stdout, stderr, wait_thr|
           out_thr, output = read_stdout(stdout, hide_output, sanitize_credentials)
+          err_thr, error_output = read_stderr(stderr, hide_output)
 
-          in_thr, error_output = read_stderr(stderr, hide_output)
-          # Gotta wait for all output to be read from the shell command
-          in_thr.join
+          # Wait for all output to be read
           out_thr.join
+          err_thr.join
 
+          # Verify the output code of the command
           raise ShellCommandError, error_output unless wait_thr.value.success?
         end
         output
@@ -28,29 +30,38 @@ module Integrations
 
       private
 
+      # Reads and processes the standard output of the command
       def read_stdout(stdout, hide_output, sanitize_credentials)
-        out = ''
-        thr = Thread.new do
-          while (line = stdout.gets)
-            out << line
-            if sanitize_credentials && %w[ClientId client-id client-secret ClientSecret].any? { |word| line.include?(word) }
-              line = line.gsub! line[line.index(':') + 1, line.length - 1], ' "*****",'
-            end
+        output = ''
+        thread = Thread.new do
+          stdout.each_line do |line|
+            output << line
+            line = sanitize_line(line) if sanitize_credentials
             puts 'OUT: '.colorize(:blue) + line unless hide_output
           end
         end
-        [thr, out]
+        [thread, output]
       end
 
+      # Reads and processes the error output from the command
       def read_stderr(stderr, hide_output)
-        err = ''
-        thr = Thread.new do
-          while (line = stderr.gets)
-            err << line
+        error_output = ''
+        thread = Thread.new do
+          stderr.each_line do |line|
+            error_output << line
             puts 'ERR: '.colorize(:red) + line unless hide_output
           end
         end
-        [thr, err]
+        [thread, error_output]
+      end
+
+      # Sanitizes a line of text by removing sensitive credentials
+      def sanitize_line(line)
+        sensitive_words = %w[ClientId client-id client-secret ClientSecret]
+        sensitive_words.each do |word|
+          line.gsub!(/(#{word}:?\s*["']?).+?(["']?,?)/, '\1*****\2') if line.include?(word)
+        end
+        line
       end
     end
   end
