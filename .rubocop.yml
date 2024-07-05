@@ -1,0 +1,28 @@
+Layout/EndOfLine: 
+  Enabled: false
+Style/Documentation:
+  Enabled: false
+Security/YAMLLoad:
+  Enabled: false
+Metrics/MethodLength:
+  Max: 25
+Metrics/ModuleLength:
+  Max: 200
+Metrics/ClassLength:
+  Max: 200
+Metrics/BlockLength:
+  Max: 125
+Layout/LineLength:
+  Max: 125
+Style/FrozenStringLiteralComment:
+  Enabled: false
+GlobalVars:
+  AllowedVariables:
+    - $stack
+AllCops:
+  SuggestExtensions: false
+  NewCops: disable
+  Exclude:
+    - 'spec/fixtures/**/*'
+    - 'private/**/*'
+    - 'tty_menu/**/*'
