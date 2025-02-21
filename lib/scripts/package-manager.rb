@@ -6,6 +6,13 @@ class PackageManager
   HOMEBREW_INSTALL_CMD = '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
   FLATPAK_INSTALL_CMD = "sudo apt update && sudo apt install flatpak -y && sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo"
 
+  def initialize
+    Signal.trap("INT") do
+      puts "\n\nInterrupt detected. Exiting the program...".red
+      exit
+    end
+  end
+
   # Function to list supported operating systems
   def list_operating_systems
     ["Windows", "macOS", "Linux"]
@@ -88,7 +95,7 @@ def main
   if os
     package_manager.install_package_manager(os)
   else
-    puts "\nInvalid selection. Exiting.".red
+    puts "\nInvalid selection. Exiting...".red
   end
 end
 
