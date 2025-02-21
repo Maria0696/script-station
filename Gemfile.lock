@@ -81,7 +81,8 @@ GEM
     wisper (2.0.1)
 
 PLATFORMS
-  x64-mingw-ucrt
+  ruby
+  x64-unknown
   x86_64-linux
 
 DEPENDENCIES
