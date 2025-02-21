@@ -14,7 +14,6 @@ end
 
 desc 'Run all tests'
 task test: %w[test:spec]
-# Define RuboCop task if available
 begin
   RuboCop::RakeTask.new
 rescue LoadError
