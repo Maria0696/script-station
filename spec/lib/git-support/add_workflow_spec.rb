@@ -2,8 +2,7 @@ require 'spec_helper'
 require 'fileutils'
 require 'yaml'
 require 'webmock/rspec'
-
-require_relative '../../../lib/git-support/add-workflow'
+require './lib/git-support/add-workflow'
 
 RSpec.describe AddWorkflow do
   let(:prompt) { instance_double('Prompt') }

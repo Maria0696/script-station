@@ -9,6 +9,7 @@ SimpleCov.start do
   minimum_coverage 90
 
   add_group 'Git Support', 'lib/git-support'
+  add_group 'Installation Support', 'lib/installation-support'
   add_group 'Utils', 'lib/utils'
 end
 
@@ -69,6 +70,7 @@ RSpec.configure do |config|
 
     description = description
       .gsub('AddWorkflow', 'add-workflow')
+      .gsub('InstallationSupport::PackageManager', 'package-manager')
       .gsub('#', ' → ')
       .gsub(/\s+/, ' ')
       .strip
@@ -109,6 +111,7 @@ RSpec.configure do |config|
 
     description = description
       .gsub('AddWorkflow', 'add-workflow')
+      .gsub('InstallationSupport::PackageManager', 'package-manager')
       .gsub('#', ' → ')
       .gsub(/\s+/, ' ')
       .strip
