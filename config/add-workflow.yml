@@ -1,6 +1,6 @@
 org: test-org
 github_token: fake-token
-repo_list_path: examples/repos.txt
-workflow_template_path: examples/ci.yml
+repo_list_path: spec/fixtures/examples/repos.txt
+workflow_template_path: spec/fixtures/examples/ci.yml
 branch_suffix: ci
 dry_run: true
