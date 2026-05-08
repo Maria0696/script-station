@@ -17,6 +17,8 @@ Layout/EndOfLine:
 
 Layout/LineLength:
   Max: 125
+  AllowedPatterns:
+    - '^#'
 
 Style/Documentation:
   Enabled: false

@@ -8,27 +8,33 @@ class Utils
   DATE_PATTERN_ = '%Y%m%d%H%M%S'.freeze
 
   class << self
-    # Formats a task name to be more readable by capitalizing it, removing the '.rb' suffix, and replacing underscores with spaces
+    # Formats a task name to be more readable by capitalizing it,
+    # removing the '.rb' suffix, and replacing underscores with spaces
     def wizard_format_task_name(task_name)
       task_name.capitalize.chomp('.rb').gsub('_', ' ')
     end
 
-    # Converts a wizard formatted task name to a file name by downcasing it, replacing spaces with underscores, and adding the '.rb' suffix
+    # Converts a wizard formatted task name to a file name
+    # by downcasing it, replacing spaces with underscores,
+    # and adding the '.rb' suffix
     def convert_to_file_name(wizard_formatted_task_name)
       wizard_formatted_task_name.downcase.gsub(' ', '_').concat('.rb')
     end
 
-    # Converts a wizard formatted task name to an operation name by downcasing it and replacing spaces with underscores
+    # Converts a wizard formatted task name to an operation name
+    # by downcasing it and replacing spaces with underscores
     def convert_to_operation_name(wizard_formatted_task_name)
       wizard_formatted_task_name.downcase.gsub(' ', '_')
     end
 
-    # Converts an operation name to a wizard formatted task name by replacing underscores with spaces and capitalizing it
+    # Converts an operation name to a wizard formatted task name
+    # by replacing underscores with spaces and capitalizing it
     def operation_name_to_wizard_name(wizard_formatted_task_name)
       wizard_formatted_task_name.gsub('_', ' ').capitalize
     end
 
-    # Converts a wizard formatted task name to a class name by titleizing it and removing spaces
+    # Converts a wizard formatted task name to a class name
+    # by titleizing it and removing spaces
     def convert_to_class_name(wizard_formatted_task_name)
       wizard_formatted_task_name.titleize.gsub(' ', '')
     end
@@ -43,10 +49,12 @@ class Utils
     |____/ \___|_|  |_| .__/ \__|    |____/ \__\__,_|\__|_|\___/|_| |_|
                       |_|
       BANNER
+
       puts 'Use arrows to navigate and enter to select option'.yellow
     end
 
-    # Returns the current date and time in UTC formatted as '%Y%m%d%H%M%S'
+    # Returns the current date and time in UTC
+    # formatted as '%Y%m%d%H%M%S'
     def now_date_time
       Time.now.utc.strftime(DATE_PATTERN_)
     end

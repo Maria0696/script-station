@@ -1,10 +1,27 @@
 #!/usr/bin/env ruby
+
 require 'colorize'
 
 class PackageManager
-  CHOCOLATEY_INSTALL_CMD = "@powershell -NoProfile -ExecutionPolicy Bypass -Command \"[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))\"".freeze
-  HOMEBREW_INSTALL_CMD = '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'.freeze
-  FLATPAK_INSTALL_CMD = 'sudo apt update && sudo apt install flatpak -y && sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo'.freeze
+  CHOCOLATEY_INSTALL_CMD = [
+    '@powershell -NoProfile -ExecutionPolicy Bypass -Command ',
+    '"[System.Net.ServicePointManager]::SecurityProtocol = ',
+    '[System.Net.ServicePointManager]::SecurityProtocol -bor 3072; ',
+    "iex ((New-Object System.Net.WebClient).DownloadString('",
+    "https://chocolatey.org/install.ps1'))\""
+  ].join.freeze
+
+  HOMEBREW_INSTALL_CMD = [
+    '/bin/bash -c "$(curl -fsSL ',
+    'https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+  ].join.freeze
+
+  FLATPAK_INSTALL_CMD = [
+    'sudo apt update && ',
+    'sudo apt install flatpak -y && ',
+    'sudo flatpak remote-add --if-not-exists flathub ',
+    'https://flathub.org/repo/flathub.flatpakrepo'
+  ].join.freeze
 
   def initialize
     Signal.trap('INT') do
@@ -92,6 +109,7 @@ end
 def main
   package_manager = PackageManager.new
   os = prompt_user_for_os(package_manager.list_operating_systems)
+
   if os
     package_manager.install_package_manager(os)
   else
@@ -102,11 +120,15 @@ end
 # Function to prompt the user for the operating system
 def prompt_user_for_os(os_list)
   puts "\nPlease select your operating system:"
+
   os_list.each_with_index do |os, index|
     puts "#{index + 1}. #{os}"
   end
+
   print "\nEnter the number of your choice: ".yellow
+
   choice = gets.chomp.to_i
+
   os_list[choice - 1] if choice.between?(1, os_list.length)
 end
 
