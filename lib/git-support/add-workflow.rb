@@ -266,14 +266,14 @@ class AddWorkflow
 
       puts
       if errors.include?('A pull request already exists')
-              puts '→ Pull request already exists'.yellow
+        puts '→ Pull request already exists'.yellow
 
-              log("PR ALREADY EXISTS #{@org}/#{repo}")
-            else
-              puts '→ Failed to create PR'.red
-              puts response.body.red
+        log("PR ALREADY EXISTS #{@org}/#{repo}")
+      else
+        puts '→ Failed to create PR'.red
+        puts response.body.red
 
-              log("FAILED PR #{@org}/#{repo}")
+        log("FAILED PR #{@org}/#{repo}")
       end
     else
       puts
