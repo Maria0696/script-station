@@ -69,11 +69,11 @@ RSpec.configure do |config|
     description = example.full_description
 
     description = description
-      .gsub('AddWorkflow', 'add-workflow')
-      .gsub('InstallationSupport::PackageManager', 'package-manager')
-      .gsub('#', ' → ')
-      .gsub(/\s+/, ' ')
-      .strip
+                  .gsub('AddWorkflow', 'add-workflow')
+                  .gsub('InstallationSupport::PackageManager', 'package-manager')
+                  .gsub('#', ' → ')
+                  .gsub(/\s+/, ' ')
+                  .strip
 
     begin
       silence_output do
@@ -110,11 +110,11 @@ RSpec.configure do |config|
     description = example.full_description
 
     description = description
-      .gsub('AddWorkflow', 'add-workflow')
-      .gsub('InstallationSupport::PackageManager', 'package-manager')
-      .gsub('#', ' → ')
-      .gsub(/\s+/, ' ')
-      .strip
+                  .gsub('AddWorkflow', 'add-workflow')
+                  .gsub('InstallationSupport::PackageManager', 'package-manager')
+                  .gsub('#', ' → ')
+                  .gsub(/\s+/, ' ')
+                  .strip
 
     puts description.light_red
 

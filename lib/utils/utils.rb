@@ -4,8 +4,8 @@ require 'active_support/core_ext'
 require 'colorize'
 
 class Utils
-  OUTPUT_DIR = 'output'
-  DATE_PATTERN_ = '%Y%m%d%H%M%S'
+  OUTPUT_DIR = 'output'.freeze
+  DATE_PATTERN_ = '%Y%m%d%H%M%S'.freeze
 
   class << self
     # Formats a task name to be more readable by capitalizing it, removing the '.rb' suffix, and replacing underscores with spaces

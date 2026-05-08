@@ -23,9 +23,7 @@ class AddWorkflow
       manual_input
     end
 
-    unless @dry_run
-      return unless validate_token
-    end
+    return if !@dry_run && !validate_token
 
     unless File.exist?(@repo_list_path)
       puts
@@ -193,12 +191,12 @@ class AddWorkflow
 
       puts "Finished #{@org}/#{repo}".green
       log("SUCCESS #{@org}/#{repo}")
-    rescue StandardError => error
+    rescue StandardError => e
       puts
       puts "Error processing #{repo}".red
-      puts error.message.red
+      puts e.message.red
 
-      log("ERROR #{@org}/#{repo} - #{error.message}")
+      log("ERROR #{@org}/#{repo} - #{e.message}")
     ensure
       Dir.chdir('..') if Dir.pwd.end_with?(repo)
       FileUtils.rm_rf(repo)
@@ -263,20 +261,19 @@ class AddWorkflow
       log("PR CREATED #{body['html_url']}")
     elsif body['errors']
       errors = body['errors']
-        .map { |error| error['message'] || error.to_s }
-        .join(', ')
+               .map { |error| error['message'] || error.to_s }
+               .join(', ')
 
+      puts
       if errors.include?('A pull request already exists')
-        puts
-        puts '→ Pull request already exists'.yellow
+              puts '→ Pull request already exists'.yellow
 
-        log("PR ALREADY EXISTS #{@org}/#{repo}")
-      else
-        puts
-        puts '→ Failed to create PR'.red
-        puts response.body.red
+              log("PR ALREADY EXISTS #{@org}/#{repo}")
+            else
+              puts '→ Failed to create PR'.red
+              puts response.body.red
 
-        log("FAILED PR #{@org}/#{repo}")
+              log("FAILED PR #{@org}/#{repo}")
       end
     else
       puts
@@ -293,7 +290,7 @@ class AddWorkflow
     begin
       attempts += 1
       yield
-    rescue StandardError => error
+    rescue StandardError => e
       if attempts < max_attempts
         puts
         puts "Retrying... Attempt #{attempts}/#{max_attempts}".yellow
@@ -301,7 +298,7 @@ class AddWorkflow
         retry
       end
 
-      raise error
+      raise e
     end
   end
 

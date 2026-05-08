@@ -7,7 +7,7 @@ RSpec.describe InstallationSupport::PackageManager do
   describe '#list_operating_systems' do
     it 'returns supported operating systems' do
       expect(package_manager.list_operating_systems).to eq(
-        ['Windows', 'macOS', 'Linux']
+        %w[Windows macOS Linux]
       )
     end
   end
