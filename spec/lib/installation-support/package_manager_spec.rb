@@ -4,6 +4,14 @@ require './lib/installation-support/package-manager'
 RSpec.describe InstallationSupport::PackageManager do
   subject(:package_manager) { described_class.new }
 
+  describe '#initialize' do
+    it 'registers INT signal handler' do
+      expect(Signal).to receive(:trap).with('INT')
+
+      described_class.new
+    end
+  end
+
   describe '#list_operating_systems' do
     it 'returns supported operating systems' do
       expect(package_manager.list_operating_systems).to eq(
@@ -208,6 +216,35 @@ RSpec.describe InstallationSupport::PackageManager do
       end.to output(
         /You are not on Windows/
       ).to_stdout
+    end
+  end
+
+  describe '.main' do
+    before do
+      stub_const('TTY::Prompt', Class.new)
+
+      prompt = instance_double(TTY::Prompt)
+      manager = instance_double(described_class)
+
+      allow(TTY::Prompt).to receive(:new)
+        .and_return(prompt)
+
+      allow(described_class).to receive(:new)
+        .and_return(manager)
+
+      allow(manager).to receive(:list_operating_systems)
+        .and_return(%w[Windows macOS Linux])
+
+      allow(prompt).to receive(:select)
+        .and_return('Linux')
+
+      allow(manager).to receive(:install_package_manager)
+    end
+
+    it 'runs package manager flow' do
+      expect do
+        main
+      end.not_to raise_error
     end
   end
 end
