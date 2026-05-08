@@ -82,6 +82,7 @@ GEM
 
 PLATFORMS
   ruby
+  x64-mingw-ucrt
   x64-unknown
   x86_64-linux
 
