@@ -1,0 +1,11 @@
+# Coverage reports
+coverage/
+
+# RSpec
+.rspec_status
+
+# Logs
+logs/
+
+# Temporary files
+tmp/
