@@ -1,5 +1,6 @@
 require './lib/utils/prompt'
 require './lib/git-support/add-workflow'
+require './lib/git-support/get-members-profile'
 
 class GithubManager
   def initialize(prompt)
@@ -8,7 +9,8 @@ class GithubManager
 
   def run
     github_scripts = {
-      'Add workflow' => AddWorkflow
+      'Add workflow' => AddWorkflow,
+      'Get members profile' => GetMembersProfile
     }
 
     selected_script = @prompt.select('Which GitHub script do you want to execute?', filter: true) do |menu|
