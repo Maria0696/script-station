@@ -17,15 +17,9 @@ class AddWorkflow
   def run
     config_mode = @prompt.yes?('Do you want to use a config.yml file?')
 
-    if config_mode
-      load_config
-    else
-      manual_input
-    end
+    config_mode ? load_config : manual_input
 
-    unless @dry_run
-      return unless validate_token
-    end
+    return if !@dry_run && !validate_token
 
     unless File.exist?(@repo_list_path)
       puts
@@ -193,12 +187,12 @@ class AddWorkflow
 
       puts "Finished #{@org}/#{repo}".green
       log("SUCCESS #{@org}/#{repo}")
-    rescue StandardError => error
+    rescue StandardError => e
       puts
       puts "Error processing #{repo}".red
-      puts error.message.red
+      puts e.message.red
 
-      log("ERROR #{@org}/#{repo} - #{error.message}")
+      log("ERROR #{@org}/#{repo} - #{e.message}")
     ensure
       Dir.chdir('..') if Dir.pwd.end_with?(repo)
       FileUtils.rm_rf(repo)
@@ -232,17 +226,20 @@ class AddWorkflow
   end
 
   def create_pull_request(repo:, branch_name:, default_branch:, workflow_filename:)
+    return dry_run_pull_request(repo, branch_name) if @dry_run
+
+    response = github_pull_request_request(
+      repo: repo,
+      branch_name: branch_name,
+      default_branch: default_branch,
+      workflow_filename: workflow_filename
+    )
+
+    handle_pull_request_response(response, repo)
+  end
+
+  def github_pull_request_request(repo:, branch_name:, default_branch:, workflow_filename:)
     uri = URI("https://api.github.com/repos/#{@org}/#{repo}/pulls")
-
-    payload = {
-      title: "Add workflow: #{workflow_filename}",
-      head: branch_name,
-      base: default_branch,
-      body: "Add workflow #{workflow_filename} via automation"
-    }
-
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = true
 
     request = Net::HTTP::Post.new(uri.path)
 
@@ -250,41 +247,72 @@ class AddWorkflow
     request['Accept'] = 'application/vnd.github+json'
     request['Content-Type'] = 'application/json'
 
-    request.body = payload.to_json
+    request.body = pull_request_payload(
+      branch_name: branch_name,
+      default_branch: default_branch,
+      workflow_filename: workflow_filename
+    ).to_json
 
-    response = http.request(request)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
 
+    http.request(request)
+  end
+
+  def pull_request_payload(branch_name:, default_branch:, workflow_filename:)
+    {
+      title: "Add workflow: #{workflow_filename}",
+      head: branch_name,
+      base: default_branch,
+      body: pull_request_body(workflow_filename)
+    }
+  end
+
+  def pull_request_body(workflow_filename)
+    <<~BODY
+      Add workflow #{workflow_filename} via automation.
+
+      Generated automatically by script-station.
+    BODY
+  end
+
+  def handle_pull_request_response(response, repo)
     body = JSON.parse(response.body)
 
-    if body['html_url']
-      puts
-      puts "→ PR created: #{body['html_url']}".green
+    return log_pull_request_success(body) if body['html_url']
 
-      log("PR CREATED #{body['html_url']}")
-    elsif body['errors']
-      errors = body['errors']
-        .map { |error| error['message'] || error.to_s }
-        .join(', ')
+    handle_pull_request_error(body, response, repo)
+  end
 
-      if errors.include?('A pull request already exists')
-        puts
-        puts '→ Pull request already exists'.yellow
+  def log_pull_request_success(body)
+    puts
+    puts "→ PR created: #{body['html_url']}".green
 
-        log("PR ALREADY EXISTS #{@org}/#{repo}")
-      else
-        puts
-        puts '→ Failed to create PR'.red
-        puts response.body.red
+    log("PR CREATED #{body['html_url']}")
+  end
 
-        log("FAILED PR #{@org}/#{repo}")
-      end
+  def handle_pull_request_error(body, response, repo)
+    puts
+    if pull_request_already_exists?(body)
+      puts '→ Pull request already exists'.yellow
+
+      log("PR ALREADY EXISTS #{@org}/#{repo}")
     else
-      puts
       puts '→ Failed to create PR'.red
       puts response.body.red
 
       log("FAILED PR #{@org}/#{repo}")
     end
+  end
+
+  def pull_request_already_exists?(body)
+    body['errors']&.any? do |error|
+      error['message']&.include?('A pull request already exists')
+    end
+  end
+
+  def dry_run_pull_request(repo, branch_name)
+    puts "[DRY RUN] Would create PR for #{repo} from #{branch_name}".yellow
   end
 
   def with_retry(max_attempts = 3)
@@ -293,7 +321,7 @@ class AddWorkflow
     begin
       attempts += 1
       yield
-    rescue StandardError => error
+    rescue StandardError => e
       if attempts < max_attempts
         puts
         puts "Retrying... Attempt #{attempts}/#{max_attempts}".yellow
@@ -301,7 +329,7 @@ class AddWorkflow
         retry
       end
 
-      raise error
+      raise e
     end
   end
 

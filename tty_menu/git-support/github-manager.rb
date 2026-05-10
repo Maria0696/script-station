@@ -8,7 +8,7 @@ class GithubManager
 
   def run
     github_scripts = {
-      'Add workflow' => AddWorkflow
+      'Add workflow' => AddWorkflow,
     }
 
     selected_script = @prompt.select('Which GitHub script do you want to execute?', filter: true) do |menu|

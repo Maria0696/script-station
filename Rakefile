@@ -22,7 +22,7 @@ end
 
 namespace :test do
   require 'rspec/core/rake_task'
-    RSpec::Core::RakeTask.new(:spec)
-  rescue LoadError
-    puts 'RSpec is not available'
+  RSpec::Core::RakeTask.new(:spec)
+rescue LoadError
+  puts 'RSpec is not available'
 end

@@ -6,12 +6,13 @@ require 'stringio'
 SimpleCov.start do
   add_filter '/spec/'
 
-  minimum_coverage 90
-
   add_group 'Git Support', 'lib/git-support'
   add_group 'Installation Support', 'lib/installation-support'
   add_group 'Utils', 'lib/utils'
 end
+
+SimpleCov.minimum_coverage 90
+SimpleCov.minimum_coverage_by_file 80
 
 module OutputSilencer
   def silence_output
@@ -69,11 +70,12 @@ RSpec.configure do |config|
     description = example.full_description
 
     description = description
-      .gsub('AddWorkflow', 'add-workflow')
-      .gsub('InstallationSupport::PackageManager', 'package-manager')
-      .gsub('#', ' → ')
-      .gsub(/\s+/, ' ')
-      .strip
+                  .gsub('AddWorkflow', 'add-workflow')
+                  .gsub('InstallationSupport::PackageManager', 'package-manager')
+                  .gsub('Scanner', 'Scanner')
+                  .gsub('#', ' → ')
+                  .gsub(/\s+/, ' ')
+                  .strip
 
     begin
       silence_output do
@@ -110,11 +112,12 @@ RSpec.configure do |config|
     description = example.full_description
 
     description = description
-      .gsub('AddWorkflow', 'add-workflow')
-      .gsub('InstallationSupport::PackageManager', 'package-manager')
-      .gsub('#', ' → ')
-      .gsub(/\s+/, ' ')
-      .strip
+                  .gsub('AddWorkflow', 'add-workflow')
+                  .gsub('InstallationSupport::PackageManager', 'package-manager')
+                  .gsub('Scanner', 'Scanner')
+                  .gsub('#', ' → ')
+                  .gsub(/\s+/, ' ')
+                  .strip
 
     puts description.light_red
 

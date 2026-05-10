@@ -1,4 +1,4 @@
-name: RSpec
+name: Quality Checks
 
 on:
   pull_request:
@@ -6,13 +6,8 @@ on:
       - main
 
 jobs:
-  rspec:
+  quality_checks:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        ruby-version:
-          - '3.4'
 
     steps:
       - name: Checkout repository
@@ -21,7 +16,7 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: ${{ matrix.ruby-version }}
+          ruby-version: '3.4'
           bundler-cache: true
 
       - name: Install dependencies

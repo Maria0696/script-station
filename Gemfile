@@ -1,11 +1,10 @@
 source 'https://rubygems.org'
 
 gem 'activesupport'
+gem 'benchmark'
 gem 'colorize'
 gem 'rake'
 gem 'tty-prompt'
-
-gem 'benchmark'
 
 gem 'rubocop', require: false
 gem 'rubocop-rake', require: false

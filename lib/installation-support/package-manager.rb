@@ -1,27 +1,51 @@
+require 'tty-prompt'
 require 'colorize'
 
 module InstallationSupport
   class PackageManager
-    CHOCOLATEY_INSTALL_CMD = "@powershell -NoProfile -ExecutionPolicy Bypass -Command \"[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))\""
-    HOMEBREW_INSTALL_CMD = '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
-    FLATPAK_INSTALL_CMD = "sudo apt update && sudo apt install flatpak -y && sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo"
+    CHOCOLATEY_INSTALL_CMD = [
+      '@powershell -NoProfile -ExecutionPolicy Bypass -Command ',
+      '"[System.Net.ServicePointManager]::SecurityProtocol = ',
+      '[System.Net.ServicePointManager]::SecurityProtocol -bor 3072; ',
+      "iex ((New-Object System.Net.WebClient).DownloadString('",
+      "https://chocolatey.org/install.ps1'))\""
+    ].join.freeze
+
+    HOMEBREW_INSTALL_CMD = [
+      '/bin/bash -c "$(curl -fsSL ',
+      'https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+    ].join.freeze
+
+    FLATPAK_INSTALL_CMD = [
+      'sudo apt update && ',
+      'sudo apt install flatpak -y && ',
+      'sudo flatpak remote-add --if-not-exists flathub ',
+      'https://flathub.org/repo/flathub.flatpakrepo'
+    ].join.freeze
+
+    def initialize
+      Signal.trap('INT') do
+        puts "\nExiting package manager installer...".red
+        exit
+      end
+    end
 
     # Function to list supported operating systems
     def list_operating_systems
-      ["Windows", "macOS", "Linux"]
+      %w[Windows macOS Linux]
     end
 
     # Function to install the appropriate package manager based on the OS
     def install_package_manager(os)
       case os
-      when "Windows"
+      when 'Windows'
         install_chocolatey
-      when "macOS"
+      when 'macOS'
         install_homebrew
-      when "Linux"
+      when 'Linux'
         install_flatpak
       else
-        puts "Operating system not recognized. Unable to proceed with installation."
+        puts 'Operating system not recognized. Unable to proceed with installation.'
       end
     end
 
@@ -34,7 +58,7 @@ module InstallationSupport
         system(CHOCOLATEY_INSTALL_CMD)
         puts "\nInstallation completed.".green
       else
-        print_os_error("Windows")
+        print_os_error('Windows')
       end
     end
 
@@ -45,7 +69,7 @@ module InstallationSupport
         system(HOMEBREW_INSTALL_CMD)
         puts "\nInstallation completed.".green
       else
-        print_os_error("macOS")
+        print_os_error('macOS')
       end
     end
 
@@ -56,7 +80,7 @@ module InstallationSupport
         system(FLATPAK_INSTALL_CMD)
         puts "\nInstallation completed.".green
       else
-        print_os_error("Linux")
+        print_os_error('Linux')
       end
     end
 
@@ -81,3 +105,17 @@ module InstallationSupport
     end
   end
 end
+
+def main
+  prompt = TTY::Prompt.new
+  manager = InstallationSupport::PackageManager.new
+
+  operating_system = prompt.select(
+    'Select your operating system:',
+    manager.list_operating_systems
+  )
+
+  manager.install_package_manager(operating_system)
+end
+
+main if $PROGRAM_NAME == __FILE__

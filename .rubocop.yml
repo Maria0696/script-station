@@ -1,26 +1,27 @@
+require:
+  - rubocop-rake
+
+AllCops:
+  SuggestExtensions: false
+  NewCops: disable
+
+  Exclude:
+    - 'coverage/**/*'
+    - 'vendor/**/*'
+    - 'spec/fixtures/**/*'
+    - 'private/**/*'
+    - 'tty_menu/**/*'
+
 Layout/EndOfLine:
   Enabled: false
 
-Style/Documentation:
-  Enabled: false
-
-Security/YAMLLoad:
-  Enabled: false
-
-Metrics/MethodLength:
-  Max: 25
-
-Metrics/ModuleLength:
-  Max: 200
-
-Metrics/ClassLength:
-  Max: 200
-
-Metrics/BlockLength:
-  Max: 125
-
 Layout/LineLength:
   Max: 125
+  AllowedPatterns:
+    - '^#'
+
+Style/Documentation:
+  Enabled: false
 
 Style/FrozenStringLiteralComment:
   Enabled: false
@@ -29,11 +30,32 @@ Style/GlobalVars:
   AllowedVariables:
     - $stack
 
-AllCops:
-  SuggestExtensions: false
-  NewCops: disable
+Security/YAMLLoad:
+  Enabled: false
 
+Metrics/MethodLength:
+  Max: 50
+
+Metrics/ClassLength:
+  Max: 400
+
+Metrics/ModuleLength:
+  Max: 400
+
+Metrics/BlockLength:
+  Max: 400
+
+Metrics/AbcSize:
+  Max: 40
+
+Metrics/CyclomaticComplexity:
+  Max: 15
+
+Metrics/PerceivedComplexity:
+  Max: 15
+
+Naming/FileName:
   Exclude:
-    - 'spec/fixtures/**/*'
-    - 'private/**/*'
-    - 'tty_menu/**/*'
+    - 'lib/git-support/add-workflow.rb'
+    - 'lib/git-support/get-members-profile.rb'
+    - 'lib/installation-support/package-manager.rb'
