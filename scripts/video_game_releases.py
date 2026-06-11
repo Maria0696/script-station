@@ -103,8 +103,8 @@ def build_message(games):
 
     header = (
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "               🚀 <b>NEW GAMES OUT TODAY</b>\n"
-        f"                     📅 {today}\n"
+        "                         🚀 <b>NEW GAMES OUT TODAY</b>\n"
+        f"                                   {today}\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
     )
 
