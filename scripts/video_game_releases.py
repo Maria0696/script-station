@@ -73,32 +73,28 @@ def get_games_released_today(token):
     return response.json()
 
 
-def platform_icon(platform_name):
-    platform_name = platform_name.lower()
+def normalize_platform(platform_name):
+    name = platform_name.lower()
 
-    if "playstation" in platform_name:
-        return "🔵"
+    if "playstation" in name:
+        return "🔵 PS5"
 
-    if "xbox" in platform_name:
-        return "🟢"
+    if "xbox" in name:
+        return "🟢 Xbox"
 
-    if "switch" in platform_name or "nintendo" in platform_name:
-        return "🔴"
+    if "switch" in name or "nintendo" in name:
+        return "🔴 Switch"
 
-    if (
-        "pc" in platform_name
-        or "windows" in platform_name
-        or "steam" in platform_name
-    ):
-        return "💻"
+    if "windows" in name or "pc" in name:
+        return "💻 PC"
 
-    if "mac" in platform_name:
-        return "🍎"
+    if "mac" in name:
+        return "🍎 Mac"
 
-    if "linux" in platform_name:
-        return "🐧"
+    if "linux" in name:
+        return "🐧 Linux"
 
-    return "🎮"
+    return None
 
 
 def build_message(games):
@@ -113,14 +109,18 @@ def build_message(games):
     message = f"🎮 Video Game Releases ({today})\n\n"
 
     for game in games:
+        platforms = []
+
+        for platform in game.get("platforms", []):
+            normalized = normalize_platform(platform["name"])
+
+            if normalized and normalized not in platforms:
+                platforms.append(normalized)
+
         message += f"• {game['name']}\n"
 
-        platforms = game.get("platforms", [])
-
         if platforms:
-            for platform in platforms:
-                icon = platform_icon(platform["name"])
-                message += f"  {icon} {platform['name']}\n"
+            message += f"  {' | '.join(platforms)}\n"
 
         message += "\n"
 
