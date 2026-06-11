@@ -1,4 +1,5 @@
 import os
+from html import escape
 from datetime import datetime, timezone
 
 import requests
@@ -97,26 +98,19 @@ def normalize_platform(platform_name):
     return None
 
 
-def escape_markdown(text):
-    chars = r"_*[]()~`>#+-=|{}.!"
-    for char in chars:
-        text = text.replace(char, f"\\{char}")
-    return text
-
-
 def build_message(games):
     today = datetime.now().strftime("%Y-%m-%d")
 
     if not games:
         return (
-            f"🎮 *Video Game Releases ({today})*\n\n"
+            f"🎮 <b>Video Game Releases ({today})</b>\n\n"
             "No releases found today."
         )
 
-    message = f"🎮 *Video Game Releases ({today})*\n\n"
+    message = f"🎮 <b>Video Game Releases ({today})</b>\n\n"
 
     for game in games:
-        game_name = escape_markdown(game["name"])
+        game_name = escape(game["name"])
 
         platforms = []
 
@@ -126,7 +120,7 @@ def build_message(games):
             if normalized and normalized not in platforms:
                 platforms.append(normalized)
 
-        message += f"🎮 *{game_name}*\n"
+        message += f"🎮 <b>{game_name}</b>\n"
 
         if platforms:
             message += f"   {' | '.join(platforms)}\n"
@@ -142,10 +136,14 @@ def send_telegram(text):
         json={
             "chat_id": CHAT_ID,
             "text": text,
-            "parse_mode": "MarkdownV2",
+            "parse_mode": "HTML",
         },
         timeout=30,
     )
+
+    # útil para depurar futuros errores
+    print(response.status_code)
+    print(response.text)
 
     response.raise_for_status()
 
