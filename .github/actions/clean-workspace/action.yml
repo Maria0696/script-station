@@ -1,0 +1,14 @@
+name: "Clean Workspace"
+description: "Deletes all files in GitHub Actions workspace to ensure a clean environment for subsequent jobs."
+branding:
+  icon: 'delete'
+  color: 'red'
+runs:
+  using: 'composite'
+  steps:
+    - run: |
+        echo "Clean Workspace: ${{ github.workspace }}"
+        rm -rf ${{ github.workspace }}/* || true
+        rm -rf ${{ github.workspace }}/.??* || true
+        echo "Workspace cleanup finished."
+      shell: bash
