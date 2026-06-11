@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 from datetime import datetime, timezone
 
 import requests
@@ -46,12 +47,15 @@ def get_games_released_today(token):
     )
 
     query = f"""
-    fields name,
-           first_release_date,
-           platforms.name;
+    fields
+        name,
+        first_release_date,
+        platforms.name;
+
     where first_release_date >= {start_ts}
       & first_release_date <= {end_ts};
-    limit 50;
+
+    limit 100;
     sort first_release_date asc;
     """
 
@@ -70,6 +74,28 @@ def get_games_released_today(token):
     return response.json()
 
 
+def platform_group(platform_name):
+    platform_name = platform_name.lower()
+
+    if "switch" in platform_name or "nintendo" in platform_name:
+        return "🔴 Nintendo"
+
+    if "playstation" in platform_name or "ps5" in platform_name:
+        return "🔵 PlayStation"
+
+    if "xbox" in platform_name:
+        return "🟢 Xbox"
+
+    if (
+        "pc" in platform_name
+        or "windows" in platform_name
+        or "steam" in platform_name
+    ):
+        return "💻 PC"
+
+    return None
+
+
 def build_message(games):
     today = datetime.now().strftime("%Y-%m-%d")
 
@@ -79,20 +105,43 @@ def build_message(games):
             "No releases found today."
         )
 
-    message = f"🎮 Video Game Releases ({today})\n\n"
+    grouped_games = defaultdict(set)
 
     for game in games:
-        message += f"• {game['name']}\n"
+        game_name = game["name"]
 
-        platforms = game.get("platforms", [])
+        for platform in game.get("platforms", []):
+            group = platform_group(platform["name"])
 
-        if platforms:
-            platform_names = ", ".join(
-                p["name"] for p in platforms
-            )
-            message += f"  🎯 {platform_names}\n"
+            if group:
+                grouped_games[group].add(game_name)
+
+    order = [
+        "🔴 Nintendo",
+        "🔵 PlayStation",
+        "🟢 Xbox",
+        "💻 PC",
+    ]
+
+    message = f"🎮 Video Game Releases ({today})\n\n"
+
+    found = False
+
+    for section in order:
+        if section not in grouped_games:
+            continue
+
+        found = True
+
+        message += f"{section}\n"
+
+        for game_name in sorted(grouped_games[section]):
+            message += f"• {game_name}\n"
 
         message += "\n"
+
+    if not found:
+        message += "No major platform releases found."
 
     return message[:4000]
 
@@ -112,6 +161,7 @@ def send_telegram(text):
 
 def main():
     token = get_access_token()
+
     games = get_games_released_today(token)
 
     message = build_message(games)
