@@ -99,15 +99,19 @@ def normalize_platform(platform_name):
 
 
 def build_message(games):
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%d-%m-%Y")
+
+    header = (
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "🚀 <b>NEW GAMES OUT TODAY</b>\n"
+        f"📅 {today}\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+    )
 
     if not games:
-        return (
-            f"🎮 <b>Video Game Releases ({today})</b>\n\n"
-            "No releases found today."
-        )
+        return header + "No releases found today."
 
-    message = f"🎮 <b>Video Game Releases ({today})</b>\n\n"
+    message = header
 
     for game in games:
         game_name = escape(game["name"])
@@ -141,9 +145,9 @@ def send_telegram(text):
         timeout=30,
     )
 
-    # útil para depurar futuros errores
-    print(response.status_code)
-    print(response.text)
+    if not response.ok:
+        print(response.status_code)
+        print(response.text)
 
     response.raise_for_status()
 
