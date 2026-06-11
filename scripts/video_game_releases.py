@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timezone
+from html import escape
 
 import requests
 
@@ -124,7 +125,9 @@ def build_message(games):
         message += "━━━━━━━━━━━━━━━\n\n"
 
         for game in items[:10]:
-            message += f"🎯 <b>{game['name']}</b>\n"
+            game_name = escape(game["name"])
+
+            message += f"🎯 <b>{game_name}</b>\n"
 
             rating = game.get("total_rating")
 
@@ -133,48 +136,31 @@ def build_message(games):
 
             message += "\n"
 
-    return message[:900]
+    return message[:1000]
 
 
 def get_featured_cover(games):
     for game in games:
         cover = game.get("cover")
 
-        if cover and cover.get("image_id"):
-            image_id = cover["image_id"]
+        if not cover:
+            continue
 
-            return (
-                f"https://images.igdb.com/igdb/image/upload/"
-                f"t_cover_big/{image_id}.jpg"
-            )
+        image_id = cover.get("image_id")
+
+        if not image_id:
+            continue
+
+        return (
+            "https://images.igdb.com/igdb/image/upload/"
+            f"t_cover_big/{image_id}.jpg"
+        )
 
     return None
 
 
-def send_release_message(message, cover_url):
-    if cover_url:
-        image = requests.get(cover_url, timeout=30)
-
-        requests.post(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto",
-            data={
-                "chat_id": CHAT_ID,
-                "caption": message,
-                "parse_mode": "HTML",
-            },
-            files={
-                "photo": (
-                    "cover.jpg",
-                    image.content,
-                    "image/jpeg",
-                )
-            },
-            timeout=60,
-        ).raise_for_status()
-
-        return
-
-    requests.post(
+def send_message(message):
+    response = requests.post(
         f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
         json={
             "chat_id": CHAT_ID,
@@ -182,7 +168,56 @@ def send_release_message(message, cover_url):
             "parse_mode": "HTML",
         },
         timeout=30,
-    ).raise_for_status()
+    )
+
+    print(response.text)
+
+    response.raise_for_status()
+
+
+def send_photo(message, cover_url):
+    image = requests.get(cover_url, timeout=30)
+
+    print(f"Cover URL: {cover_url}")
+    print(f"Cover status: {image.status_code}")
+
+    image.raise_for_status()
+
+    response = requests.post(
+        f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto",
+        data={
+            "chat_id": CHAT_ID,
+            "caption": message,
+            "parse_mode": "HTML",
+        },
+        files={
+            "photo": (
+                "cover.jpg",
+                image.content,
+                "image/jpeg",
+            )
+        },
+        timeout=60,
+    )
+
+    print(response.text)
+
+    response.raise_for_status()
+
+
+def send_release_message(message, cover_url):
+    if not cover_url:
+        send_message(message)
+        return
+
+    try:
+        send_photo(message, cover_url)
+    except Exception as error:
+        print("Photo send failed")
+        print(error)
+        print("Falling back to text message")
+
+        send_message(message)
 
 
 def main():
