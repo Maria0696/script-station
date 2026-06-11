@@ -1,5 +1,4 @@
 import os
-from collections import defaultdict
 from datetime import datetime, timezone
 
 import requests
@@ -74,26 +73,32 @@ def get_games_released_today(token):
     return response.json()
 
 
-def platform_group(platform_name):
+def platform_icon(platform_name):
     platform_name = platform_name.lower()
 
-    if "switch" in platform_name or "nintendo" in platform_name:
-        return "🔴 Nintendo"
-
-    if "playstation" in platform_name or "ps5" in platform_name:
-        return "🔵 PlayStation"
+    if "playstation" in platform_name:
+        return "🔵"
 
     if "xbox" in platform_name:
-        return "🟢 Xbox"
+        return "🟢"
+
+    if "switch" in platform_name or "nintendo" in platform_name:
+        return "🔴"
 
     if (
         "pc" in platform_name
         or "windows" in platform_name
         or "steam" in platform_name
     ):
-        return "💻 PC"
+        return "💻"
 
-    return None
+    if "mac" in platform_name:
+        return "🍎"
+
+    if "linux" in platform_name:
+        return "🐧"
+
+    return "🎮"
 
 
 def build_message(games):
@@ -105,43 +110,19 @@ def build_message(games):
             "No releases found today."
         )
 
-    grouped_games = defaultdict(set)
-
-    for game in games:
-        game_name = game["name"]
-
-        for platform in game.get("platforms", []):
-            group = platform_group(platform["name"])
-
-            if group:
-                grouped_games[group].add(game_name)
-
-    order = [
-        "🔴 Nintendo",
-        "🔵 PlayStation",
-        "🟢 Xbox",
-        "💻 PC",
-    ]
-
     message = f"🎮 Video Game Releases ({today})\n\n"
 
-    found = False
+    for game in games:
+        message += f"• {game['name']}\n"
 
-    for section in order:
-        if section not in grouped_games:
-            continue
+        platforms = game.get("platforms", [])
 
-        found = True
-
-        message += f"{section}\n"
-
-        for game_name in sorted(grouped_games[section]):
-            message += f"• {game_name}\n"
+        if platforms:
+            for platform in platforms:
+                icon = platform_icon(platform["name"])
+                message += f"  {icon} {platform['name']}\n"
 
         message += "\n"
-
-    if not found:
-        message += "No major platform releases found."
 
     return message[:4000]
 
