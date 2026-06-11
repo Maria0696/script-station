@@ -97,18 +97,27 @@ def normalize_platform(platform_name):
     return None
 
 
+def escape_markdown(text):
+    chars = r"_*[]()~`>#+-=|{}.!"
+    for char in chars:
+        text = text.replace(char, f"\\{char}")
+    return text
+
+
 def build_message(games):
     today = datetime.now().strftime("%Y-%m-%d")
 
     if not games:
         return (
-            f"🎮 Video Game Releases ({today})\n\n"
+            f"🎮 *Video Game Releases ({today})*\n\n"
             "No releases found today."
         )
 
-    message = f"🎮 Video Game Releases ({today})\n\n"
+    message = f"🎮 *Video Game Releases ({today})*\n\n"
 
     for game in games:
+        game_name = escape_markdown(game["name"])
+
         platforms = []
 
         for platform in game.get("platforms", []):
@@ -117,10 +126,10 @@ def build_message(games):
             if normalized and normalized not in platforms:
                 platforms.append(normalized)
 
-        message += f"• {game['name']}\n"
+        message += f"🎮 *{game_name}*\n"
 
         if platforms:
-            message += f"  {' | '.join(platforms)}\n"
+            message += f"   {' | '.join(platforms)}\n"
 
         message += "\n"
 
@@ -133,6 +142,7 @@ def send_telegram(text):
         json={
             "chat_id": CHAT_ID,
             "text": text,
+            "parse_mode": "MarkdownV2",
         },
         timeout=30,
     )
