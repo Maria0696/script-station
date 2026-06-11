@@ -46,13 +46,18 @@ def get_games_released_today(token):
     )
 
     query = f"""
-    fields name,
-           first_release_date,
-           platforms.name;
+    fields
+        name,
+        total_rating,
+        cover.image_id,
+        platforms.name,
+        first_release_date;
+
     where first_release_date >= {start_ts}
       & first_release_date <= {end_ts};
-    limit 50;
-    sort first_release_date asc;
+
+    sort total_rating desc;
+    limit 100;
     """
 
     response = requests.post(
@@ -70,53 +75,126 @@ def get_games_released_today(token):
     return response.json()
 
 
+def classify_platform(game):
+    platforms = game.get("platforms", [])
+
+    names = [p["name"].lower() for p in platforms]
+
+    if any("playstation" in p for p in names):
+        return "🔵 PLAYSTATION"
+
+    if any("xbox" in p for p in names):
+        return "🟢 XBOX"
+
+    if any("switch" in p or "nintendo" in p for p in names):
+        return "🔴 NINTENDO"
+
+    if any("pc" in p or "windows" in p for p in names):
+        return "⚫ PC"
+
+    return "🎲 OTHER"
+
+
 def build_message(games):
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%d %b %Y")
 
-    if not games:
-        return (
-            f"🎮 Video Game Releases ({today})\n\n"
-            "No releases found today."
-        )
-
-    message = f"🎮 Video Game Releases ({today})\n\n"
+    sections = {
+        "🔵 PLAYSTATION": [],
+        "🟢 XBOX": [],
+        "🔴 NINTENDO": [],
+        "⚫ PC": [],
+        "🎲 OTHER": [],
+    }
 
     for game in games:
-        message += f"• {game['name']}\n"
+        sections[classify_platform(game)].append(game)
 
-        platforms = game.get("platforms", [])
+    message = (
+        "🎮━━━━━━━━━━━━━━━━━━━━━━🎮\n"
+        "      <b>RELEASES TODAY</b>\n"
+        f"          {today}\n"
+        "🎮━━━━━━━━━━━━━━━━━━━━━━🎮\n\n"
+    )
 
-        if platforms:
-            platform_names = ", ".join(
-                p["name"] for p in platforms
+    for platform, items in sections.items():
+        if not items:
+            continue
+
+        message += f"{platform}\n"
+        message += "━━━━━━━━━━━━━━━\n\n"
+
+        for game in items[:10]:
+            message += f"🎯 <b>{game['name']}</b>\n"
+
+            rating = game.get("total_rating")
+
+            if rating:
+                message += f"⭐ {round(rating)} IGDB\n"
+
+            message += "\n"
+
+    return message[:900]
+
+
+def get_featured_cover(games):
+    for game in games:
+        cover = game.get("cover")
+
+        if cover and cover.get("image_id"):
+            image_id = cover["image_id"]
+
+            return (
+                f"https://images.igdb.com/igdb/image/upload/"
+                f"t_cover_big/{image_id}.jpg"
             )
-            message += f"  🎯 {platform_names}\n"
 
-        message += "\n"
-
-    return message[:4000]
+    return None
 
 
-def send_telegram(text):
-    response = requests.post(
+def send_release_message(message, cover_url):
+    if cover_url:
+        image = requests.get(cover_url, timeout=30)
+
+        requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto",
+            data={
+                "chat_id": CHAT_ID,
+                "caption": message,
+                "parse_mode": "HTML",
+            },
+            files={
+                "photo": (
+                    "cover.jpg",
+                    image.content,
+                    "image/jpeg",
+                )
+            },
+            timeout=60,
+        ).raise_for_status()
+
+        return
+
+    requests.post(
         f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
         json={
             "chat_id": CHAT_ID,
-            "text": text,
+            "text": message,
+            "parse_mode": "HTML",
         },
         timeout=30,
-    )
-
-    response.raise_for_status()
+    ).raise_for_status()
 
 
 def main():
     token = get_access_token()
+
     games = get_games_released_today(token)
 
     message = build_message(games)
 
-    send_telegram(message)
+    cover_url = get_featured_cover(games)
+
+    send_release_message(message, cover_url)
 
 
 if __name__ == "__main__":
