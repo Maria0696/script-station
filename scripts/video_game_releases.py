@@ -102,10 +102,10 @@ def build_message(games):
     today = datetime.now().strftime("%d-%m-%Y")
 
     header = (
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        "                              🚀 <b>NEW GAMES OUT TODAY</b>\n"
-        f"                                              {today}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "                         🚀 <b>NEW GAMES OUT TODAY</b>\n"
+        f"                                         {today}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━\n\n"
     )
 
     if not games:
