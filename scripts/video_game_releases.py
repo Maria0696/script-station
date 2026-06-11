@@ -1,4 +1,5 @@
 import os
+from html import escape
 from datetime import datetime, timezone
 
 import requests
@@ -46,12 +47,15 @@ def get_games_released_today(token):
     )
 
     query = f"""
-    fields name,
-           first_release_date,
-           platforms.name;
+    fields
+        name,
+        first_release_date,
+        platforms.name;
+
     where first_release_date >= {start_ts}
       & first_release_date <= {end_ts};
-    limit 50;
+
+    limit 100;
     sort first_release_date asc;
     """
 
@@ -70,27 +74,60 @@ def get_games_released_today(token):
     return response.json()
 
 
+def normalize_platform(platform_name):
+    name = platform_name.lower()
+
+    if "playstation" in name:
+        return "🔵 PS5"
+
+    if "xbox" in name:
+        return "🟢 Xbox"
+
+    if "switch" in name or "nintendo" in name:
+        return "🔴 Switch"
+
+    if "windows" in name or "pc" in name:
+        return "💻 PC"
+
+    if "mac" in name:
+        return "🍎 Mac"
+
+    if "linux" in name:
+        return "🐧 Linux"
+
+    return None
+
+
 def build_message(games):
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%d-%m-%Y")
+
+    header = (
+        "━━━━━━━━━━━━━━━━━━━\n"
+        "         🚀 <b>NEW GAMES OUT TODAY</b>\n"
+        f"                         {today}\n"
+        "━━━━━━━━━━━━━━━━━━━\n\n"
+    )
 
     if not games:
-        return (
-            f"🎮 Video Game Releases ({today})\n\n"
-            "No releases found today."
-        )
+        return header + "No releases found today."
 
-    message = f"🎮 Video Game Releases ({today})\n\n"
+    message = header
 
     for game in games:
-        message += f"• {game['name']}\n"
+        game_name = escape(game["name"])
 
-        platforms = game.get("platforms", [])
+        platforms = []
+
+        for platform in game.get("platforms", []):
+            normalized = normalize_platform(platform["name"])
+
+            if normalized and normalized not in platforms:
+                platforms.append(normalized)
+
+        message += f"<b>{game_name}</b>\n"
 
         if platforms:
-            platform_names = ", ".join(
-                p["name"] for p in platforms
-            )
-            message += f"  🎯 {platform_names}\n"
+            message += f"   {' | '.join(platforms)}\n"
 
         message += "\n"
 
@@ -103,15 +140,21 @@ def send_telegram(text):
         json={
             "chat_id": CHAT_ID,
             "text": text,
+            "parse_mode": "HTML",
         },
         timeout=30,
     )
+
+    if not response.ok:
+        print(response.status_code)
+        print(response.text)
 
     response.raise_for_status()
 
 
 def main():
     token = get_access_token()
+
     games = get_games_released_today(token)
 
     message = build_message(games)
