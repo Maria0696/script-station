@@ -120,7 +120,7 @@ def build_message(games):
             if normalized and normalized not in platforms:
                 platforms.append(normalized)
 
-        message += f"🎮 <b>{game_name}</b>\n"
+        message += f"<b>{game_name}</b>\n"
 
         if platforms:
             message += f"   {' | '.join(platforms)}\n"
