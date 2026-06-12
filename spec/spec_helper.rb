@@ -27,7 +27,7 @@ module OutputSilencer
 end
 
 module CoverageGate
-  MINIMUM_TOTAL = 90
+  MINIMUM_TOTAL = 100
   MINIMUM_PER_FILE = 80
 
   module_function
