@@ -42,7 +42,3 @@ jobs:
           name: coverage-report
           path: coverage/
           if-no-files-found: ignore
-
-      - name: Clean Workspace
-        if: always()
-        uses: ./.github/actions/clean-workspace
