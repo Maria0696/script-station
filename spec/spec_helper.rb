@@ -11,9 +11,6 @@ SimpleCov.start do
   add_group 'Utils', 'lib/utils'
 end
 
-SimpleCov.minimum_coverage 90
-SimpleCov.minimum_coverage_by_file 80
-
 module OutputSilencer
   def silence_output
     original_stdout = $stdout
@@ -26,6 +23,44 @@ module OutputSilencer
   ensure
     $stdout = original_stdout
     $stderr = original_stderr
+  end
+end
+
+module CoverageGate
+  MINIMUM_TOTAL = 90
+  MINIMUM_PER_FILE = 80
+
+  module_function
+
+  def enforce!(result)
+    violations = collect_violations(result)
+
+    return if violations.empty?
+
+    puts
+    puts 'COVERAGE CHECK FAILED'.red.bold
+    violations.each { |violation| puts "  - #{violation}".red }
+    puts
+
+    exit 1
+  end
+
+  def collect_violations(result)
+    violations = []
+
+    total = result.covered_percent.round(2)
+    if total < MINIMUM_TOTAL
+      violations << "Total coverage #{total}% is below the minimum #{MINIMUM_TOTAL}%"
+    end
+
+    result.files.each do |file|
+      file_coverage = file.covered_percent.round(2)
+      next if file_coverage >= MINIMUM_PER_FILE
+
+      violations << "#{file.filename} at #{file_coverage}% is below the minimum #{MINIMUM_PER_FILE}%"
+    end
+
+    violations
   end
 end
 
@@ -145,14 +180,16 @@ RSpec.configure do |config|
 
     puts
 
-    if coverage >= 90
+    if coverage >= CoverageGate::MINIMUM_TOTAL
       puts "Coverage: #{coverage}%".green.bold
-    elsif coverage >= 80
+    elsif coverage >= CoverageGate::MINIMUM_PER_FILE
       puts "Coverage: #{coverage}%".yellow.bold
     else
       puts "Coverage: #{coverage}%".red.bold
     end
 
     puts
+
+    CoverageGate.enforce!(result)
   end
 end
