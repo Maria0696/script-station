@@ -1,5 +1,7 @@
 # Script-Station
 
+[![Quality Checks](https://github.com/Maria0696/script-station/actions/workflows/quality-checks.yml/badge.svg)](https://github.com/Maria0696/script-station/actions/workflows/quality-checks.yml)
+
 Script-Station is an interactive script repository designed to simplify and automate tasks through an intuitive and user-friendly interface.
 
 ## Description
@@ -52,6 +54,56 @@ Script-Station centralizes a collection of scripts that enable users to execute 
 2. Select the script you wish to execute from the interactive menu.
 
 3. Follow on-screen instructions to complete the execution of the selected script.
+
+## Available Scripts
+
+### GitHub support → Add workflow
+
+Bulk-adds a workflow file to multiple repositories and opens a pull request in each one.
+
+Run it from the interactive menu:
+
+`git-support` → `Github Manager` → `Add workflow`
+
+You can answer the prompts manually or point it to a `config.yml`:
+
+```yaml
+org: my-org
+github_token: ghp_xxx            # token with the 'repo' scope
+repo_list_path: repos.txt        # one repository name per line
+workflow_template_path: templates/workflows/update-readme-profile.yml
+branch_suffix: ci
+dry_run: true                    # true = print the plan without changing anything
+```
+
+- With `dry_run: true` nothing is cloned, pushed or created — it only prints what it would do.
+- With `dry_run: false` it clones each repo (authenticating with the token), creates a branch, copies the workflow, commits, pushes and opens a PR.
+- The token is used for cloning/pushing and is masked in the logs.
+
+> Do not commit a real `config.yml`: it contains your token.
+
+### Daily Video Game Releases (Telegram bot)
+
+`scripts/video_game_releases.py` queries the IGDB API for games released that day and posts a report to Telegram. It runs automatically via the `Daily Video Game Releases` GitHub Action (scheduled daily, and on demand via *workflow_dispatch*).
+
+It requires these repository secrets:
+
+| Secret | Description |
+| --- | --- |
+| `IGDB_CLIENT_ID` | IGDB / Twitch client id |
+| `IGDB_CLIENT_SECRET` | IGDB / Twitch client secret |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token |
+| `TELEGRAM_CHAT_ID` | Target Telegram chat id |
+
+## Testing
+
+Run the test suite and the linter:
+
+`bundle exec rspec`   (or `rake test`)
+
+`bundle exec rubocop`
+
+Both run automatically in CI (`Quality Checks`). The suite enforces a coverage gate: the build fails if total coverage drops below **90%** or any single file below **80%**. An HTML coverage report is uploaded as a build artifact (`coverage-report`).
 
 ## Contributing
 
