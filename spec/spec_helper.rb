@@ -49,9 +49,7 @@ module CoverageGate
     violations = []
 
     total = result.covered_percent.round(2)
-    if total < MINIMUM_TOTAL
-      violations << "Total coverage #{total}% is below the minimum #{MINIMUM_TOTAL}%"
-    end
+    violations << "Total coverage #{total}% is below the minimum #{MINIMUM_TOTAL}%" if total < MINIMUM_TOTAL
 
     result.files.each do |file|
       file_coverage = file.covered_percent.round(2)
