@@ -59,41 +59,24 @@ Script-Station centralizes a collection of scripts that enable users to execute 
 
 ### GitHub support → Add workflow
 
-Bulk-adds a workflow file to multiple repositories and opens a pull request in each one.
+Drop the same workflow into a bunch of repos and open a PR in each, all in one go. From the menu: `git-support` → `Github Manager` → `Add workflow`.
 
-Run it from the interactive menu:
-
-`git-support` → `Github Manager` → `Add workflow`
-
-You can answer the prompts manually or point it to a `config.yml`:
+Answer the prompts, or hand it a `config.yml`:
 
 ```yaml
 org: my-org
-github_token: ghp_xxx            # token with the 'repo' scope
-repo_list_path: repos.txt        # one repository name per line
+github_token: ghp_xxx       # token with 'repo' scope
+repo_list_path: repos.txt   # one repo name per line
 workflow_template_path: templates/workflows/update-readme-profile.yml
 branch_suffix: ci
-dry_run: true                    # true = print the plan without changing anything
+dry_run: true               # true = just preview, touch nothing
 ```
 
-- With `dry_run: true` nothing is cloned, pushed or created — it only prints what it would do.
-- With `dry_run: false` it clones each repo (authenticating with the token), creates a branch, copies the workflow, commits, pushes and opens a PR.
-- The token is used for cloning/pushing and is masked in the logs.
-
-> Do not commit a real `config.yml`: it contains your token.
+Flip `dry_run: false` to really clone, branch, commit, push and open the PRs (the token is masked in logs). **Never commit a real `config.yml` — it holds your token.**
 
 ### Daily Video Game Releases (Telegram bot)
 
-`scripts/video_game_releases.py` queries the IGDB API for games released that day and posts a report to Telegram. It runs automatically via the `Daily Video Game Releases` GitHub Action (scheduled daily, and on demand via *workflow_dispatch*).
-
-It requires these repository secrets:
-
-| Secret | Description |
-| --- | --- |
-| `IGDB_CLIENT_ID` | IGDB / Twitch client id |
-| `IGDB_CLIENT_SECRET` | IGDB / Twitch client secret |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token |
-| `TELEGRAM_CHAT_ID` | Target Telegram chat id |
+`scripts/video_game_releases.py` checks IGDB for today's releases and pings them to Telegram — automatically every day (or on demand) via the `Daily Video Game Releases` Action. Just add four secrets: `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
 
 ## Testing
 
