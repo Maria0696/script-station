@@ -51,10 +51,10 @@ jobs:
             echo "coverage/ MISSING"
           fi
           echo "::endgroup::"
-          if [ -d coverage ] && [ -n "$(find coverage -type f 2>/dev/null)" ]; then
-            echo "RESULT=COVERAGE_PRESENT"
+          if [ -f coverage/index.html ]; then
+            echo "RESULT=HTML_PRESENT"
           else
-            echo "RESULT=COVERAGE_ABSENT"
+            echo "RESULT=HTML_MISSING"
             exit 1
           fi
 
