@@ -139,7 +139,9 @@ RSpec.configure do |config|
     puts 'TEST SUITE FINISHED'.green.bold
     puts '═' * 80
 
-    coverage = SimpleCov.result.covered_percent.round(2)
+    result = SimpleCov.result
+    result.format!
+    coverage = result.covered_percent.round(2)
 
     puts
 
