@@ -260,16 +260,64 @@ RSpec.describe AddWorkflow do
         script.send(:execute, 'bad command')
       end.to raise_error(/Command failed/)
     end
+
+    it 'does not leak the token in the executing output' do
+      script.instance_variable_set(:@github_token, 'secret-token')
+
+      allow(Open3).to receive(:capture3)
+        .and_return(['ok', '', double(success?: true)])
+
+      expect do
+        script.send(
+          :execute,
+          'git clone https://x-access-token:secret-token@github.com/o/r.git'
+        )
+      end.to output(/x-access-token:\*\*\*@/).to_stdout
+    end
+
+    it 'masks the token in the failure error message' do
+      script.instance_variable_set(:@github_token, 'secret-token')
+
+      allow(Open3).to receive(:capture3)
+        .and_return(['', 'boom', double(success?: false)])
+
+      expect do
+        script.send(
+          :execute,
+          'git push https://x-access-token:secret-token@github.com/o/r.git'
+        )
+      end.to raise_error(%r{Command failed: git push https://x-access-token:\*\*\*@})
+    end
+  end
+
+  describe '#mask_secrets' do
+    it 'masks the github token in text' do
+      script.instance_variable_set(:@github_token, 'secret-token')
+
+      masked = script.send(
+        :mask_secrets,
+        'https://x-access-token:secret-token@github.com/o/r.git'
+      )
+
+      expect(masked).to eq('https://x-access-token:***@github.com/o/r.git')
+    end
+
+    it 'returns text unchanged when token is not set' do
+      script.instance_variable_set(:@github_token, nil)
+
+      expect(script.send(:mask_secrets, 'plain text')).to eq('plain text')
+    end
   end
 
   describe '#clone_repository' do
     before do
       script.instance_variable_set(:@org, 'test-org')
+      script.instance_variable_set(:@github_token, 'token')
     end
 
-    it 'executes clone command' do
+    it 'executes clone command with token authentication' do
       expect(script).to receive(:execute)
-        .with('git clone https://github.com/test-org/repo-one.git')
+        .with('git clone https://x-access-token:token@github.com/test-org/repo-one.git')
 
       script.send(:clone_repository, 'repo-one')
     end

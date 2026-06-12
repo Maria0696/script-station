@@ -201,20 +201,28 @@ class AddWorkflow
 
   def execute(command)
     puts
-    puts "Executing: #{command}".cyan
+    puts "Executing: #{mask_secrets(command)}".cyan
 
     stdout, stderr, status = Open3.capture3(command)
 
     unless status.success?
-      puts stderr.red
-      raise "Command failed: #{command}"
+      puts mask_secrets(stderr).red
+      raise "Command failed: #{mask_secrets(command)}"
     end
 
     stdout
   end
 
+  def mask_secrets(text)
+    return text if @github_token.nil? || @github_token.empty?
+
+    text.gsub(@github_token, '***')
+  end
+
   def clone_repository(repo)
-    execute("git clone https://github.com/#{@org}/#{repo}.git")
+    execute(
+      "git clone https://x-access-token:#{@github_token}@github.com/#{@org}/#{repo}.git"
+    )
   end
 
   def default_branch_name
