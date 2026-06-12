@@ -3,7 +3,7 @@ name: Daily Video Game Releases
 on:
   schedule:
     # 08:00 en invierno, 9:00 en verano
-    - cron: '*/5 * * * *'
+    - cron: '0 7 * * *'
   workflow_dispatch:
 
 jobs:
