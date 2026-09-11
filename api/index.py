@@ -27,17 +27,17 @@ WATCHLIST_PATH = "data/watchlist.json"
 
 # IDs de plataformas de IGDB
 PLATFORM_LABELS = {
-    167: "🔵 PS5",
-    508: "🔴 Switch 2",
-    6: "💻 PC",
-    169: "🟢 Xbox Series",
-    48: "🔵 PS4",
-    49: "🟢 Xbox One",
-    130: "🔴 Switch",
-    390: "🥽 PS VR2",
-    471: "🥽 Meta Quest",  # Meta Quest 3
-    386: "🥽 Meta Quest",  # Meta Quest 2
-    163: "🥽 SteamVR",
+    167: "PS5",
+    508: "Switch 2",
+    6: "PC",
+    169: "Xbox Series",
+    48: "PS4",
+    49: "Xbox One",
+    130: "Switch",
+    390: "PS VR2",
+    471: "Meta Quest",  # Meta Quest 3
+    386: "Meta Quest",  # Meta Quest 2
+    163: "SteamVR",
 }
 
 
@@ -460,7 +460,7 @@ def build_watchlist_message():
         ):
             for platform in platforms:
                 lines.append(
-                    f"{platform['label']} — "
+                    f"      {platform['label']} — "
                     f"{display_release_date(platform.get('release_date'))}"
                 )
 
@@ -471,20 +471,14 @@ def build_watchlist_message():
             )
 
             lines.append(
-                f"📅 {release_date}"
-            )
-
-            lines.append(
-                " | ".join(platforms)
+                f"      {' | '.join(platforms)} — "
+                f"{release_date}"
             )
 
         else:
             lines.append(
-                f"📅 {display_release_date(game.get('release_date'))}"
-            )
-
-            lines.append(
-                "🎮 Plataformas por confirmar"
+                "      Plataformas por confirmar — "
+                f"{display_release_date(game.get('release_date'))}"
             )
 
         lines.append("")
@@ -688,17 +682,14 @@ async def telegram_webhook(request_data: Request):
                 if platforms:
                     for platform in platforms:
                         lines.append(
-                            f"{platform['label']} — "
+                            f"      {platform['label']} — "
                             f"{display_release_date(platform.get('release_date'))}"
                         )
 
                 else:
                     lines.append(
-                        f"📅 {display_release_date(game.get('release_date'))}"
-                    )
-
-                    lines.append(
-                        "🎮 Plataformas por confirmar"
+                        "      Plataformas por confirmar — "
+                        f"{display_release_date(game.get('release_date'))}"
                     )
 
                 send_telegram_message(
