@@ -30,6 +30,9 @@ MADRID_TIMEZONE = ZoneInfo(
 
 NEXT_GAME_LIMIT = 5
 
+# Ancho visual de los encabezados
+TITLE_WIDTH = 28
+
 
 def build_title(
     title,
@@ -37,12 +40,18 @@ def build_title(
     icon="",
 ):
     # Formato común para los encabezados
-    line = "━━━━━━━━━━━━━━━━━━━"
+    line = "━━━━━━━━━━━━━━━━━━━━━━"
 
-    if icon:
-        title_line = f"          {icon} {title}"
-    else:
-        title_line = f"          {title}"
+    title_text = (
+        f"{icon} {title}"
+        if icon
+        else title
+    )
+
+    # Centra visualmente el título
+    title_line = title_text.center(
+        TITLE_WIDTH
+    )
 
     lines = [
         line,
@@ -51,7 +60,9 @@ def build_title(
 
     if subtitle:
         lines.append(
-            f"            {subtitle}"
+            subtitle.center(
+                TITLE_WIDTH
+            )
         )
 
     lines.extend(
@@ -171,7 +182,9 @@ def build_watchlist_message():
     ).rstrip()
 
 
-def parse_release_date(date_string):
+def parse_release_date(
+    date_string,
+):
     # Convierte YYYY-MM-DD a date
     if not date_string:
         return None
@@ -213,8 +226,10 @@ def get_upcoming_games():
             )
         ):
             for platform in platforms:
-                date_string = platform.get(
-                    "release_date"
+                date_string = (
+                    platform.get(
+                        "release_date"
+                    )
                 )
 
                 release_date = (
@@ -360,7 +375,9 @@ def build_next_message():
     ).rstrip()
 
 
-def build_search_keyboard(games):
+def build_search_keyboard(
+    games,
+):
     # Crea botones con resultados de IGDB
     buttons = []
 
