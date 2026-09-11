@@ -48,9 +48,6 @@ jobs:
           git commit -m "chore: update watchlist release dates"
           git push
 
-      - name: Test failure alert
-        run: exit 1
-
       - name: Notify Heimdall on failure
         if: ${{ always() && failure() }}
         run: |
