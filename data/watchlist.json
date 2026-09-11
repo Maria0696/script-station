@@ -10,32 +10,5 @@
         "release_date": "2026-09-15"
       }
     ]
-  },
-  {
-    "id": 133236,
-    "name": "Final Fantasy VII Rebirth",
-    "release_date": "2024-02-29",
-    "platforms": [
-      {
-        "id": 167,
-        "label": "PS5",
-        "release_date": "2024-02-29"
-      },
-      {
-        "id": 508,
-        "label": "Switch 2",
-        "release_date": "2026-06-03"
-      },
-      {
-        "id": 6,
-        "label": "PC",
-        "release_date": "2025-01-23"
-      },
-      {
-        "id": 169,
-        "label": "Xbox Series",
-        "release_date": "2026-06-03"
-      }
-    ]
   }
 ]
