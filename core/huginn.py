@@ -33,39 +33,20 @@ NEXT_GAME_LIMIT = 5
 
 def build_title(
     title,
-    subtitle=None,
     icon="",
 ):
-    # Encabezado con desplazamiento manual
-    line = "━━━━━━━━━━━━━━━━━━━━━━"
-
+    # Encabezado común de Huginn
     title_text = (
         f"{icon} {title}"
         if icon
         else title
     )
 
-    # Desplaza solo el título a la derecha
-    title_line = f"        {title_text}"
-
-    lines = [
-        line,
-        title_line,
-    ]
-
-    if subtitle:
-        lines.append(
-            f"             {subtitle}"
-        )
-
-    lines.extend(
-        [
-            line,
-            "",
-        ]
+    return (
+        "━━━━━━━━━━━━━━━━━━━\n"
+        f"         {title_text}\n"
+        "━━━━━━━━━━━━━━━━━━━\n\n"
     )
-
-    return "\n".join(lines)
 
 
 def build_help_message():
@@ -219,10 +200,8 @@ def get_upcoming_games():
             )
         ):
             for platform in platforms:
-                date_string = (
-                    platform.get(
-                        "release_date"
-                    )
+                date_string = platform.get(
+                    "release_date"
                 )
 
                 release_date = (
