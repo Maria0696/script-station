@@ -21,8 +21,13 @@ PLATFORM_LABELS = {
     48: "🔵 PS4",
     49: "🟢 Xbox One",
     130: "🔴 Switch",
+    390: "🥽 PS VR2",
+    471: "🥽 Meta Quest",  # Meta Quest 3
+    386: "🥽 Meta Quest",  # Meta Quest 2
+    163: "🥽 SteamVR",
 }
 
+# Orden en el que aparecerán las plataformas
 PLATFORM_ORDER = [
     167,  # PS5
     508,  # Switch 2
@@ -31,15 +36,20 @@ PLATFORM_ORDER = [
     48,   # PS4
     49,   # Xbox One
     130,  # Switch
+    390,  # PlayStation VR2
+    471,  # Meta Quest 3
+    386,  # Meta Quest 2
+    163,  # SteamVR
 ]
 
+# Solo lanzamientos correspondientes a Europa o lanzamientos mundiales
 VALID_REGIONS = {
     "europe",
     "worldwide",
 }
 
+# Dejamos margen respecto al límite de 4096 de Telegram
 MAX_TELEGRAM_LENGTH = 3900
-
 
 def get_access_token():
     response = requests.post(
@@ -56,11 +66,11 @@ def get_access_token():
 
     return response.json()["access_token"]
 
-
 def get_igdb_headers(token):
     return {
         "Client-ID": CLIENT_ID,
         "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
     }
 
 def get_releases_today(token):
@@ -98,7 +108,6 @@ def get_releases_today(token):
     releases = response.json()
 
     return filter_and_group_releases(releases)
-
 
 def filter_and_group_releases(releases):
     games = {}
@@ -143,6 +152,19 @@ def filter_and_group_releases(releases):
         key=lambda game: game["name"].lower(),
     )
 
+def get_platform_labels(platform_ids):
+    platforms = []
+
+    for platform_id in PLATFORM_ORDER:
+        if platform_id not in platform_ids:
+            continue
+
+        label = PLATFORM_LABELS[platform_id]
+
+        if label not in platforms:
+            platforms.append(label)
+
+    return platforms
 
 def build_messages(games):
     today = datetime.now(MADRID_TZ).strftime("%d-%m-%Y")
@@ -165,11 +187,9 @@ def build_messages(games):
     for game in games:
         game_name = escape(game["name"])
 
-        platforms = [
-            PLATFORM_LABELS[platform_id]
-            for platform_id in PLATFORM_ORDER
-            if platform_id in game["platforms"]
-        ]
+        platforms = get_platform_labels(
+            game["platforms"]
+        )
 
         game_block = (
             f"<b>{game_name}</b>\n"
@@ -190,7 +210,6 @@ def build_messages(games):
 
     return messages
 
-
 def send_telegram(text):
     response = requests.post(
         f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
@@ -208,7 +227,6 @@ def send_telegram(text):
 
     response.raise_for_status()
 
-
 def main():
     token = get_access_token()
 
@@ -218,7 +236,6 @@ def main():
 
     for message in messages:
         send_telegram(message)
-
 
 if __name__ == "__main__":
     main()
