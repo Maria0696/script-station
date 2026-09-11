@@ -37,9 +37,6 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           DEBUG: ${{ inputs.debug || 'false' }}
-      
-      - name: Test failure alert
-        run: exit 1
 
       - name: Notify Heimdall on failure
         if: ${{ always() && failure() }}
