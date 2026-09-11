@@ -43,11 +43,8 @@ jobs:
           path: coverage/
           if-no-files-found: ignore
       
-      - name: Test failure alert
-        run: exit 1
-      
       - name: Notify Heimdall on failure
-        if: ${{ always() && failure() }}
+        if: ${{ always() && failure() && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
         run: |
           MESSAGE="⚠️ WORKFLOW FAILED
 
