@@ -1,17 +1,20 @@
-name: Watchlist Release Monitor
+name: Daily Video Game Releases
 
 on:
   schedule:
-    # 08:15 en invierno, 09:15 en verano
-    - cron: '15 7 * * *'
+    # 08:00 en invierno, 09:00 en verano
+    - cron: '0 7 * * *'
 
   workflow_dispatch:
-
-permissions:
-  contents: write
+    inputs:
+      debug:
+        description: "Enable detailed popularity logs"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
-  monitor-watchlist:
+  send-release-report:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,27 +29,17 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
-      - name: Check watchlist release dates
-        run: python scripts/watchlist_monitor.py
+      - name: Send daily release report
+        run: python scripts/video_game_releases.py
         env:
           IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-
-      - name: Save release date changes
-        run: |
-          if git diff --quiet data/watchlist.json; then
-            echo "No release date changes."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add data/watchlist.json
-          git commit -m "chore: update watchlist release dates"
-          git push
+          DEBUG: ${{ inputs.debug || 'false' }}
+      
+      - name: Test failure alert
+        run: exit 1
 
       - name: Notify Heimdall on failure
         if: ${{ always() && failure() }}
