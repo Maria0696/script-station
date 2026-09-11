@@ -4,14 +4,17 @@ from html import escape
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+
 # Credenciales desde GitHub Secrets
 CLIENT_ID = os.environ["IGDB_CLIENT_ID"]
 CLIENT_SECRET = os.environ["IGDB_CLIENT_SECRET"]
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
+
 # Zona horaria usada para definir "hoy"
 MADRID_TZ = ZoneInfo("Europe/Madrid")
+
 
 # IDs de plataformas de IGDB y nombre mostrado en Telegram
 PLATFORM_LABELS = {
@@ -28,6 +31,7 @@ PLATFORM_LABELS = {
     163: "🥽 SteamVR",
 }
 
+
 # Orden en el que se muestran las plataformas
 PLATFORM_ORDER = [
     167,  # PS5
@@ -43,19 +47,23 @@ PLATFORM_ORDER = [
     163,  # SteamVR
 ]
 
+
 # Regiones válidas si IGDB informa una región
 VALID_REGIONS = {
     "europe",
     "worldwide",
 }
 
+
 # Criterios para marcar un juego con ⭐
 FEATURED_HYPES_MIN = 25
 FEATURED_RATING_COUNT_MIN = 100
 MAX_FEATURED_GAMES = 3
 
+
 # Dejamos margen respecto al límite de Telegram
 MAX_TELEGRAM_LENGTH = 3900
+
 
 def get_access_token():
     # Obtiene token temporal de Twitch para usar IGDB
@@ -73,6 +81,7 @@ def get_access_token():
 
     return response.json()["access_token"]
 
+
 def get_igdb_headers(token):
     # Cabeceras necesarias para consultar IGDB
     return {
@@ -80,6 +89,7 @@ def get_igdb_headers(token):
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
     }
+
 
 def get_releases_today(token):
     # Fecha actual según Madrid
@@ -205,6 +215,7 @@ def filter_and_group_releases(releases):
 
     return list(games.values())
 
+
 def get_importance_score(game):
     # Da más peso al interés previo al lanzamiento
     return (
@@ -212,7 +223,19 @@ def get_importance_score(game):
         + game["rating_count"]
     )
 
+
 def mark_featured_games(games):
+    # Log temporal para estudiar los umbrales
+    print("Popularity data:")
+
+    for game in games:
+        print(
+            f"- {game['name']} | "
+            f"Hypes: {game['hypes']} | "
+            f"Ratings: {game['rating_count']} | "
+            f"Score: {get_importance_score(game)}"
+        )
+
     # Juegos que cumplen un mínimo de relevancia
     candidates = [
         game
@@ -250,6 +273,7 @@ def mark_featured_games(games):
         ),
     )
 
+
 def get_platform_labels(platform_ids):
     platforms = []
 
@@ -265,6 +289,7 @@ def get_platform_labels(platform_ids):
             platforms.append(label)
 
     return platforms
+
 
 def build_messages(games):
     # Fecha mostrada en Telegram
@@ -318,6 +343,7 @@ def build_messages(games):
 
     return messages
 
+
 def send_telegram(text):
     # Envía un mensaje al chat de Telegram
     response = requests.post(
@@ -337,6 +363,7 @@ def send_telegram(text):
 
     response.raise_for_status()
 
+
 def main():
     # 1. Autenticación con IGDB
     token = get_access_token()
@@ -350,6 +377,7 @@ def main():
     # 4. Enviar mensajes a Telegram
     for message in messages:
         send_telegram(message)
+
 
 # Ejecuta main solo si lanzamos este archivo directamente
 if __name__ == "__main__":
