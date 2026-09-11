@@ -2,7 +2,11 @@
   "rewrites": [
     {
       "source": "/api/telegram",
-      "destination": "/api/index"
+      "destination": "/api/index?bot=huginn"
+    },
+    {
+      "source": "/api/heimdall",
+      "destination": "/api/index?bot=heimdall"
     }
   ]
 }
