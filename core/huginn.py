@@ -34,8 +34,9 @@ NEXT_GAME_LIMIT = 5
 def build_title(
     title,
     icon="",
+    indent=0,
 ):
-    # Encabezado común de Huginn
+    # Encabezado con posición configurable
     title_text = (
         f"{icon} {title}"
         if icon
@@ -44,7 +45,7 @@ def build_title(
 
     return (
         "━━━━━━━━━━━━━━━━━━━\n"
-        f"                      {title_text}\n"
+        f"{' ' * indent}{title_text}\n"
         "━━━━━━━━━━━━━━━━━━━\n\n"
     )
 
@@ -55,6 +56,7 @@ def build_help_message():
         build_title(
             "COMANDOS",
             icon="🤖",
+            indent=24,
         )
         + "/watch nombre\n"
         + "Añade un juego a tu watchlist.\n\n"
@@ -70,7 +72,7 @@ def build_help_message():
 
 
 def build_watchlist_message():
-    # Construye el mensaje de /watchlist
+    # Construye /watchlist
     watchlist, _ = get_watchlist()
 
     if not watchlist:
@@ -80,6 +82,7 @@ def build_watchlist_message():
         build_title(
             "MY WATCHLIST",
             icon="👀",
+            indent=19,
         ).rstrip(),
         "",
     ]
@@ -200,8 +203,10 @@ def get_upcoming_games():
             )
         ):
             for platform in platforms:
-                date_string = platform.get(
-                    "release_date"
+                date_string = (
+                    platform.get(
+                        "release_date"
+                    )
                 )
 
                 release_date = (
@@ -304,7 +309,7 @@ def get_upcoming_games():
 
 
 def build_next_message():
-    # Construye el mensaje de /next
+    # Construye /next
     upcoming_games = (
         get_upcoming_games()
     )
@@ -319,6 +324,7 @@ def build_next_message():
         build_title(
             "PRÓXIMOS LANZAMIENTOS",
             icon="⏭️",
+            indent=2,
         ).rstrip(),
         "",
     ]
@@ -350,7 +356,7 @@ def build_next_message():
 def build_search_keyboard(
     games,
 ):
-    # Crea botones con resultados de IGDB
+    # Botones con resultados de IGDB
     buttons = []
 
     for game in games:
@@ -374,7 +380,7 @@ def build_search_keyboard(
 def build_unwatch_keyboard(
     watchlist,
 ):
-    # Crea botones para eliminar juegos
+    # Botones para eliminar juegos
     buttons = []
 
     for game in watchlist:
@@ -449,7 +455,6 @@ def add_game_to_watchlist(
         sha,
     )
 
-    # Datos usados en la respuesta
     game["release_date"] = (
         release_date
     )
@@ -512,7 +517,6 @@ def handle_watch_callback(
                 "encontrar el juego."
             ),
         )
-
         return
 
     if not added:
@@ -523,7 +527,6 @@ def handle_watch_callback(
                 "en tu watchlist."
             ),
         )
-
         return
 
     lines = [
@@ -583,7 +586,6 @@ def handle_unwatch_callback(
                 "en tu watchlist."
             ),
         )
-
         return
 
     send_huginn_message(
