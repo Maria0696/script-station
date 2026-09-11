@@ -253,6 +253,21 @@ def save_watchlist(watchlist, sha):
     )
 
 
+def build_help_message():
+    # Lista de comandos disponibles
+    return (
+        "🤖 COMANDOS DISPONIBLES\n\n"
+        "/watch nombre\n"
+        "Añade un juego a tu watchlist.\n\n"
+        "/watchlist\n"
+        "Muestra los juegos guardados.\n\n"
+        "/unwatch\n"
+        "Elimina un juego de tu watchlist.\n\n"
+        "/help\n"
+        "Muestra esta ayuda."
+    )
+
+
 def build_watchlist_message():
     # Construye el mensaje de /watchlist
     watchlist, _ = get_watchlist()
@@ -357,7 +372,6 @@ def add_game_to_watchlist(game_id):
         sha,
     )
 
-    # Añadimos la fecha al objeto para usarla en Telegram
     game["release_date"] = release_date
 
     return game, True
@@ -537,8 +551,15 @@ async def telegram_webhook(request_data: Request):
     if chat_id != ALLOWED_CHAT_ID:
         return {"ok": True}
 
+    # Mostrar ayuda
+    if text == "/help":
+        send_telegram_message(
+            chat_id,
+            build_help_message(),
+        )
+
     # Mostrar watchlist
-    if text == "/watchlist":
+    elif text == "/watchlist":
         send_telegram_message(
             chat_id,
             build_watchlist_message(),
