@@ -1,7 +1,7 @@
 import os
 import requests
 from html import escape
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 CLIENT_ID = os.environ["IGDB_CLIENT_ID"]
@@ -12,7 +12,6 @@ CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 MADRID_TZ = ZoneInfo("Europe/Madrid")
 
-# IDs oficiales de plataformas en IGDB
 PLATFORM_LABELS = {
     167: "🔵 PS5",
     508: "🔴 Switch 2",
@@ -27,7 +26,6 @@ PLATFORM_LABELS = {
     163: "🥽 SteamVR",
 }
 
-# Orden en el que aparecerán las plataformas
 PLATFORM_ORDER = [
     167,  # PS5
     508,  # Switch 2
@@ -42,13 +40,11 @@ PLATFORM_ORDER = [
     163,  # SteamVR
 ]
 
-# Solo lanzamientos correspondientes a Europa o lanzamientos mundiales
 VALID_REGIONS = {
     "europe",
     "worldwide",
 }
 
-# Dejamos margen respecto al límite de 4096 de Telegram
 MAX_TELEGRAM_LENGTH = 3900
 
 def get_access_token():
@@ -76,6 +72,21 @@ def get_igdb_headers(token):
 def get_releases_today(token):
     today = datetime.now(MADRID_TZ).date()
 
+    start_datetime = datetime(
+        today.year,
+        today.month,
+        today.day,
+        0,
+        0,
+        0,
+        tzinfo=MADRID_TZ,
+    )
+
+    end_datetime = start_datetime + timedelta(days=1)
+
+    start_ts = int(start_datetime.timestamp())
+    end_ts = int(end_datetime.timestamp())
+
     platform_ids = ",".join(
         str(platform_id)
         for platform_id in PLATFORM_ORDER
@@ -86,15 +97,23 @@ def get_releases_today(token):
         game.id,
         game.name,
         platform,
-        release_region.region;
+        release_region.region,
+        date,
+        human;
 
-    where y = {today.year}
-        & m = {today.month}
-        & d = {today.day}
+    where date >= {start_ts}
+        & date < {end_ts}
         & platform = ({platform_ids});
 
     limit 500;
+    sort date asc;
     """
+
+    print(f"Date used: {today}")
+    print(f"Start timestamp: {start_ts}")
+    print(f"End timestamp: {end_ts}")
+    print("IGDB query:")
+    print(query)
 
     response = requests.post(
         "https://api.igdb.com/v4/release_dates",
@@ -103,12 +122,14 @@ def get_releases_today(token):
         timeout=30,
     )
 
+    if not response.ok:
+        print(response.status_code)
+        print(response.text)
+
     response.raise_for_status()
 
     releases = response.json()
 
-    # Logs temporales para comprobar qué devuelve IGDB
-    print(f"Date used: {today}")
     print(f"Releases received from IGDB: {len(releases)}")
     print(releases)
 
@@ -120,8 +141,8 @@ def filter_and_group_releases(releases):
     for release in releases:
         region = release.get("release_region")
 
-        # Si IGDB especifica región: solo aceptamos Europe o Worldwide.
-        # Si NO especifica ninguna región: aceptamos igualmente el lanzamiento.
+        # Si IGDB especifica región, solo aceptamos Europe o Worldwide.
+        # Si no indica región, aceptamos el lanzamiento.
         if isinstance(region, dict):
             region_name = region.get("region", "").lower()
 
@@ -171,7 +192,6 @@ def get_platform_labels(platform_ids):
 
         label = PLATFORM_LABELS[platform_id]
 
-        # Evita Meta Quest duplicado
         if label not in platforms:
             platforms.append(label)
 
