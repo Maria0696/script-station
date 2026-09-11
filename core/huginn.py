@@ -82,7 +82,7 @@ def build_watchlist_message():
         build_title(
             "Mi listado de juegos",
             icon="👀",
-            indent=19,
+            indent=15,
         ).rstrip(),
         "",
     ]
