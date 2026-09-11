@@ -56,7 +56,7 @@ def build_help_message():
         build_title(
             "COMANDOS",
             icon="🤖",
-            indent=24,
+            indent=22,
         )
         + "/watch nombre\n"
         + "Añade un juego a tu watchlist.\n\n"
