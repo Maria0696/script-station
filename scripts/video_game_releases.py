@@ -16,6 +16,10 @@ CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 
+# Muestra logs detallados de popularidad
+DEBUG = False
+
+
 # IDs de plataformas de IGDB y nombre mostrado en Telegram
 PLATFORM_LABELS = {
     167: "🔵 PS5",
@@ -71,7 +75,7 @@ FEATURED_RELATIVE_THRESHOLD = 0.75
 MAX_FEATURED_GAMES = 3
 
 
-# Solo para mostrar los scores de forma legible en logs
+# Solo para mostrar scores legibles en logs
 LOG_SCORE_MULTIPLIER = 1_000_000
 
 
@@ -301,23 +305,24 @@ def mark_featured_games(games):
     if not games:
         return games
 
-    # Muestra los datos para poder afinar el sistema
-    print("PopScore data:")
+    # Logs detallados solo en modo debug
+    if DEBUG:
+        print("PopScore data:")
 
-    for game in sorted(
-        games,
-        key=lambda game: game["popularity_score"],
-        reverse=True,
-    ):
-        display_score = (
-            game["popularity_score"]
-            * LOG_SCORE_MULTIPLIER
-        )
+        for game in sorted(
+            games,
+            key=lambda game: game["popularity_score"],
+            reverse=True,
+        ):
+            display_score = (
+                game["popularity_score"]
+                * LOG_SCORE_MULTIPLIER
+            )
 
-        print(
-            f"- {game['name']} | "
-            f"Score: {display_score:.2f}"
-        )
+            print(
+                f"- {game['name']} | "
+                f"Score: {display_score:.2f}"
+            )
 
     # Juego más popular del día
     best_score = max(
@@ -325,7 +330,7 @@ def mark_featured_games(games):
         for game in games
     )
 
-    # El mínimo depende también del líder del día
+    # Umbral relativo respecto al líder
     relative_min = (
         best_score * FEATURED_RELATIVE_THRESHOLD
     )
@@ -421,7 +426,7 @@ def build_messages(games):
             game["platforms"]
         )
 
-        # Añade ⭐ solo a los juegos destacados
+        # ⭐ solo para juegos destacados
         star = "⭐ " if game["featured"] else ""
 
         game_block = (
