@@ -17,7 +17,7 @@ MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 
 # Muestra logs detallados de popularidad
-DEBUG = False
+DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
 
 # IDs de plataformas de IGDB y nombre mostrado en Telegram
