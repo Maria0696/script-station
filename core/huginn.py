@@ -30,16 +30,13 @@ MADRID_TIMEZONE = ZoneInfo(
 
 NEXT_GAME_LIMIT = 5
 
-# Ancho visual de los encabezados
-TITLE_WIDTH = 28
-
 
 def build_title(
     title,
     subtitle=None,
     icon="",
 ):
-    # Formato común para los encabezados
+    # Encabezado con desplazamiento manual
     line = "━━━━━━━━━━━━━━━━━━━━━━"
 
     title_text = (
@@ -48,10 +45,8 @@ def build_title(
         else title
     )
 
-    # Centra visualmente el título
-    title_line = title_text.center(
-        TITLE_WIDTH
-    )
+    # Desplaza solo el título a la derecha
+    title_line = f"        {title_text}"
 
     lines = [
         line,
@@ -60,9 +55,7 @@ def build_title(
 
     if subtitle:
         lines.append(
-            subtitle.center(
-                TITLE_WIDTH
-            )
+            f"             {subtitle}"
         )
 
     lines.extend(
