@@ -44,7 +44,7 @@ def build_title(
 
     return (
         "━━━━━━━━━━━━━━━━━━━\n"
-        f"             {title_text}\n"
+        f"                   {title_text}\n"
         "━━━━━━━━━━━━━━━━━━━\n\n"
     )
 
