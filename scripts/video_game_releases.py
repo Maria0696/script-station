@@ -107,6 +107,11 @@ def get_releases_today(token):
 
     releases = response.json()
 
+    # Logs temporales para comprobar qué devuelve IGDB
+    print(f"Date used: {today}")
+    print(f"Releases received from IGDB: {len(releases)}")
+    print(releases)
+
     return filter_and_group_releases(releases)
 
 def filter_and_group_releases(releases):
@@ -115,13 +120,16 @@ def filter_and_group_releases(releases):
     for release in releases:
         region = release.get("release_region")
 
-        if not isinstance(region, dict):
-            continue
+        # Si IGDB especifica región: solo aceptamos Europe o Worldwide.
+        # Si NO especifica ninguna región: aceptamos igualmente el lanzamiento.
+        if isinstance(region, dict):
+            region_name = region.get("region", "").lower()
 
-        region_name = region.get("region", "").lower()
-
-        if region_name not in VALID_REGIONS:
-            continue
+            if (
+                region_name
+                and region_name not in VALID_REGIONS
+            ):
+                continue
 
         game = release.get("game")
 
@@ -147,6 +155,8 @@ def filter_and_group_releases(releases):
 
         games[game_id]["platforms"].add(platform_id)
 
+    print(f"Games after filtering: {len(games)}")
+
     return sorted(
         games.values(),
         key=lambda game: game["name"].lower(),
@@ -161,6 +171,7 @@ def get_platform_labels(platform_ids):
 
         label = PLATFORM_LABELS[platform_id]
 
+        # Evita Meta Quest duplicado
         if label not in platforms:
             platforms.append(label)
 
