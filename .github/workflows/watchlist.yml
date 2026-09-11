@@ -1,0 +1,49 @@
+name: Watchlist Release Monitor
+
+on:
+  schedule:
+    # 08:15 en invierno, 09:15 en verano
+    - cron: '15 7 * * *'
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  monitor-watchlist:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Check watchlist release dates
+        run: python scripts/watchlist_monitor.py
+        env:
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Save release date changes
+        run: |
+          if git diff --quiet data/watchlist.json; then
+            echo "No release date changes."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add data/watchlist.json
+          git commit -m "chore: update watchlist release dates"
+          git push
