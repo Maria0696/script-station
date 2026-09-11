@@ -71,6 +71,10 @@ FEATURED_RELATIVE_THRESHOLD = 0.75
 MAX_FEATURED_GAMES = 3
 
 
+# Solo para mostrar los scores de forma legible en logs
+LOG_SCORE_MULTIPLIER = 1_000_000
+
+
 # Margen respecto al límite de Telegram
 MAX_TELEGRAM_LENGTH = 3900
 
@@ -305,11 +309,14 @@ def mark_featured_games(games):
         key=lambda game: game["popularity_score"],
         reverse=True,
     ):
+        display_score = (
+            game["popularity_score"]
+            * LOG_SCORE_MULTIPLIER
+        )
+
         print(
             f"- {game['name']} | "
-            f"Visits: {game['visits']:.8f} | "
-            f"Want: {game['want_to_play']:.8f} | "
-            f"Score: {game['popularity_score']:.8f}"
+            f"Score: {display_score:.2f}"
         )
 
     # Juego más popular del día
@@ -323,6 +330,7 @@ def mark_featured_games(games):
         best_score * FEATURED_RELATIVE_THRESHOLD
     )
 
+    # Se usa el umbral más exigente
     featured_threshold = max(
         FEATURED_SCORE_MIN,
         relative_min,
@@ -330,7 +338,7 @@ def mark_featured_games(games):
 
     print(
         f"Featured threshold: "
-        f"{featured_threshold:.8f}"
+        f"{featured_threshold * LOG_SCORE_MULTIPLIER:.2f}"
     )
 
     # Solo juegos suficientemente relevantes
