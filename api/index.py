@@ -1,8 +1,7 @@
+import base64
 import json
 import os
-from pathlib import Path
-from urllib import request
-
+from urllib import parse, request
 from fastapi import FastAPI, Request
 
 
@@ -13,58 +12,205 @@ app = FastAPI()
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 ALLOWED_CHAT_ID = str(os.environ["TELEGRAM_CHAT_ID"])
 
+IGDB_CLIENT_ID = os.environ["IGDB_CLIENT_ID"]
+IGDB_CLIENT_SECRET = os.environ["IGDB_CLIENT_SECRET"]
 
-# Archivo donde guardamos la watchlist
-WATCHLIST_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "data"
-    / "watchlist.json"
-)
+GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 
 
-def send_telegram_message(chat_id, text):
-    # Envía un mensaje mediante la API de Telegram
+# Repositorio donde guardamos la watchlist
+GITHUB_REPO = "Maria0696/script-station"
+GITHUB_BRANCH = "master"
+WATCHLIST_PATH = "data/watchlist.json"
+
+
+def telegram_api(method, data):
+    # Ejecuta una llamada a la API de Telegram
     url = (
         f"https://api.telegram.org/"
-        f"bot{BOT_TOKEN}/sendMessage"
+        f"bot{BOT_TOKEN}/{method}"
     )
 
-    data = json.dumps(
-        {
-            "chat_id": chat_id,
-            "text": text,
-        }
-    ).encode("utf-8")
+    body = json.dumps(data).encode("utf-8")
 
     req = request.Request(
         url,
-        data=data,
+        data=body,
         headers={
             "Content-Type": "application/json"
         },
         method="POST",
     )
 
-    with request.urlopen(req, timeout=30):
-        pass
+    with request.urlopen(req, timeout=30) as response:
+        return json.loads(response.read())
 
 
-def load_watchlist():
-    # Lee la watchlist del repositorio
-    if not WATCHLIST_PATH.exists():
-        return []
+def send_telegram_message(
+    chat_id,
+    text,
+    reply_markup=None,
+):
+    # Envía un mensaje al chat
+    data = {
+        "chat_id": chat_id,
+        "text": text,
+    }
 
-    with open(
-        WATCHLIST_PATH,
-        "r",
-        encoding="utf-8",
-    ) as file:
-        return json.load(file)
+    if reply_markup:
+        data["reply_markup"] = reply_markup
+
+    return telegram_api(
+        "sendMessage",
+        data,
+    )
+
+
+def answer_callback_query(callback_query_id):
+    # Cierra la animación del botón pulsado
+    telegram_api(
+        "answerCallbackQuery",
+        {
+            "callback_query_id": callback_query_id
+        },
+    )
+
+
+def get_igdb_token():
+    # Obtiene un token temporal para IGDB
+    params = parse.urlencode(
+        {
+            "client_id": IGDB_CLIENT_ID,
+            "client_secret": IGDB_CLIENT_SECRET,
+            "grant_type": "client_credentials",
+        }
+    )
+
+    url = (
+        "https://id.twitch.tv/oauth2/token?"
+        + params
+    )
+
+    req = request.Request(
+        url,
+        method="POST",
+    )
+
+    with request.urlopen(req, timeout=30) as response:
+        return json.loads(
+            response.read()
+        )["access_token"]
+
+
+def search_igdb_games(game_name):
+    # Busca juegos por nombre en IGDB
+    token = get_igdb_token()
+
+    safe_name = (
+        game_name
+        .replace("\\", "\\\\")
+        .replace('"', '\\"')
+    )
+
+    query = f"""
+    search "{safe_name}";
+    fields
+        id,
+        name,
+        first_release_date;
+    limit 5;
+    """
+
+    req = request.Request(
+        "https://api.igdb.com/v4/games",
+        data=query.encode("utf-8"),
+        headers={
+            "Client-ID": IGDB_CLIENT_ID,
+            "Authorization": f"Bearer {token}",
+        },
+        method="POST",
+    )
+
+    with request.urlopen(req, timeout=30) as response:
+        return json.loads(response.read())
+
+
+def github_request(
+    method,
+    path,
+    data=None,
+):
+    # Ejecuta una llamada a la API de GitHub
+    url = (
+        f"https://api.github.com/repos/"
+        f"{GITHUB_REPO}/{path}"
+    )
+
+    body = None
+
+    if data is not None:
+        body = json.dumps(data).encode("utf-8")
+
+    req = request.Request(
+        url,
+        data=body,
+        headers={
+            "Authorization": f"Bearer {GITHUB_TOKEN}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "Content-Type": "application/json",
+        },
+        method=method,
+    )
+
+    with request.urlopen(req, timeout=30) as response:
+        return json.loads(response.read())
+
+
+def get_watchlist():
+    # Lee watchlist.json desde GitHub
+    result = github_request(
+        "GET",
+        (
+            f"contents/{WATCHLIST_PATH}"
+            f"?ref={GITHUB_BRANCH}"
+        ),
+    )
+
+    content = base64.b64decode(
+        result["content"]
+    ).decode("utf-8")
+
+    return json.loads(content), result["sha"]
+
+
+def save_watchlist(watchlist, sha):
+    # Actualiza watchlist.json en GitHub
+    content = json.dumps(
+        watchlist,
+        ensure_ascii=False,
+        indent=2,
+    )
+
+    encoded_content = base64.b64encode(
+        content.encode("utf-8")
+    ).decode("utf-8")
+
+    github_request(
+        "PUT",
+        f"contents/{WATCHLIST_PATH}",
+        {
+            "message": "chore: update game watchlist",
+            "content": encoded_content,
+            "sha": sha,
+            "branch": GITHUB_BRANCH,
+        },
+    )
 
 
 def build_watchlist_message():
     # Construye el mensaje de /watchlist
-    watchlist = load_watchlist()
+    watchlist, _ = get_watchlist()
 
     if not watchlist:
         return "👀 Tu watchlist está vacía."
@@ -82,6 +228,81 @@ def build_watchlist_message():
     return "\n".join(lines)
 
 
+def build_search_keyboard(games):
+    # Crea un botón por cada resultado de IGDB
+    buttons = []
+
+    for game in games:
+        buttons.append(
+            [
+                {
+                    "text": game["name"],
+                    "callback_data": (
+                        f"watch:{game['id']}"
+                    ),
+                }
+            ]
+        )
+
+    return {
+        "inline_keyboard": buttons
+    }
+
+
+def add_game_to_watchlist(game_id):
+    # Busca el juego exacto por ID
+    token = get_igdb_token()
+
+    query = f"""
+    fields id,name;
+    where id = {game_id};
+    limit 1;
+    """
+
+    req = request.Request(
+        "https://api.igdb.com/v4/games",
+        data=query.encode("utf-8"),
+        headers={
+            "Client-ID": IGDB_CLIENT_ID,
+            "Authorization": f"Bearer {token}",
+        },
+        method="POST",
+    )
+
+    with request.urlopen(req, timeout=30) as response:
+        games = json.loads(response.read())
+
+    if not games:
+        return None, False
+
+    game = games[0]
+
+    watchlist, sha = get_watchlist()
+
+    # Evita añadir el mismo juego dos veces
+    already_exists = any(
+        item["id"] == game["id"]
+        for item in watchlist
+    )
+
+    if already_exists:
+        return game, False
+
+    watchlist.append(
+        {
+            "id": game["id"],
+            "name": game["name"],
+        }
+    )
+
+    save_watchlist(
+        watchlist,
+        sha,
+    )
+
+    return game, True
+
+
 # Para comprobar el endpoint:
 # https://script-station.vercel.app/api/telegram
 @app.get("/api/telegram")
@@ -95,20 +316,85 @@ def health_check():
 
 @app.post("/api/telegram")
 @app.post("/api/index")
-async def telegram_webhook(request: Request):
+async def telegram_webhook(request_data: Request):
     # Recibe el update enviado por Telegram
-    update = await request.json()
+    update = await request_data.json()
 
+    # Pulsación de un botón
+    callback = update.get("callback_query")
+
+    if isinstance(callback, dict):
+        callback_id = callback.get("id")
+        callback_data = callback.get("data", "")
+
+        message = callback.get(
+            "message",
+            {},
+        )
+
+        chat_id = str(
+            message
+            .get("chat", {})
+            .get("id", "")
+        )
+
+        # Ignora usuarios no autorizados
+        if chat_id != ALLOWED_CHAT_ID:
+            return {"ok": True}
+
+        if callback_id:
+            answer_callback_query(
+                callback_id
+            )
+
+        # Añadir juego seleccionado
+        if callback_data.startswith("watch:"):
+            game_id = int(
+                callback_data.split(":")[1]
+            )
+
+            game, added = (
+                add_game_to_watchlist(
+                    game_id
+                )
+            )
+
+            if not game:
+                send_telegram_message(
+                    chat_id,
+                    "❌ No he podido encontrar el juego.",
+                )
+
+            elif added:
+                send_telegram_message(
+                    chat_id,
+                    (
+                        "✅ Añadido a tu watchlist\n\n"
+                        f"🎮 {game['name']}"
+                    ),
+                )
+
+            else:
+                send_telegram_message(
+                    chat_id,
+                    (
+                        "ℹ️ Ese juego ya está "
+                        "en tu watchlist."
+                    ),
+                )
+
+        return {"ok": True}
+
+    # Mensaje normal
     message = update.get("message")
 
-    # Ignora updates que no sean mensajes
     if not isinstance(message, dict):
         return {"ok": True}
 
-    chat = message.get("chat", {})
-
     chat_id = str(
-        chat.get("id", "")
+        message
+        .get("chat", {})
+        .get("id", "")
     )
 
     text = message.get(
@@ -116,15 +402,56 @@ async def telegram_webhook(request: Request):
         "",
     ).strip()
 
-    # Solo permite comandos desde nuestro chat
+    # Solo acepta nuestro chat
     if chat_id != ALLOWED_CHAT_ID:
         return {"ok": True}
 
-    # Muestra la watchlist
+    # Mostrar watchlist
     if text == "/watchlist":
         send_telegram_message(
             chat_id,
             build_watchlist_message(),
+        )
+
+    # Buscar juego para añadir
+    elif text.startswith("/watch "):
+        search_term = (
+            text[len("/watch "):]
+            .strip()
+        )
+
+        if not search_term:
+            send_telegram_message(
+                chat_id,
+                "Uso: /watch nombre del juego",
+            )
+
+            return {"ok": True}
+
+        games = search_igdb_games(
+            search_term
+        )
+
+        if not games:
+            send_telegram_message(
+                chat_id,
+                (
+                    "❌ No he encontrado "
+                    "ningún juego."
+                ),
+            )
+
+        else:
+            send_telegram_message(
+                chat_id,
+                "🔎 ¿Qué juego quieres añadir?",
+                build_search_keyboard(games),
+            )
+
+    elif text == "/watch":
+        send_telegram_message(
+            chat_id,
+            "Uso: /watch nombre del juego",
         )
 
     return {"ok": True}
