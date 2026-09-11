@@ -20,8 +20,6 @@ PLATFORM_ORDER = [
     "🔵 PS4",
     "🟢 Xbox One",
     "🔴 Switch",
-    "🍎 Mac",
-    "🐧 Linux",
 ]
 
 def get_access_token():
@@ -111,12 +109,6 @@ def normalize_platform(platform_name):
     # PC
     if name == "pc (microsoft windows)":
         return "💻 PC"
-
-    if "mac" in name:
-        return "🍎 Mac"
-
-    if "linux" in name:
-        return "🐧 Linux"
 
     return None
 
