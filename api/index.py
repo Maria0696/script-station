@@ -3,7 +3,6 @@ import json
 import os
 from datetime import datetime, timezone
 from urllib import parse, request
-
 from fastapi import FastAPI, Request
 
 
@@ -24,6 +23,45 @@ GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 GITHUB_REPO = "Maria0696/script-station"
 GITHUB_BRANCH = "master"
 WATCHLIST_PATH = "data/watchlist.json"
+
+
+# IDs de plataformas de IGDB
+PLATFORM_LABELS = {
+    167: "🔵 PS5",
+    508: "🔴 Switch 2",
+    6: "💻 PC",
+    169: "🟢 Xbox Series",
+    48: "🔵 PS4",
+    49: "🟢 Xbox One",
+    130: "🔴 Switch",
+    390: "🥽 PS VR2",
+    471: "🥽 Meta Quest",  # Meta Quest 3
+    386: "🥽 Meta Quest",  # Meta Quest 2
+    163: "🥽 SteamVR",
+}
+
+
+# Orden visual de las plataformas
+PLATFORM_ORDER = [
+    167,
+    508,
+    6,
+    169,
+    48,
+    49,
+    130,
+    390,
+    471,
+    386,
+    163,
+]
+
+
+# Regiones válidas para fechas de lanzamiento
+VALID_REGIONS = {
+    "europe",
+    "worldwide",
+}
 
 
 def telegram_api(method, data):
@@ -104,6 +142,22 @@ def get_igdb_token():
         )["access_token"]
 
 
+def igdb_request(token, endpoint, query):
+    # Ejecuta una consulta a IGDB
+    req = request.Request(
+        f"https://api.igdb.com/v4/{endpoint}",
+        data=query.encode("utf-8"),
+        headers={
+            "Client-ID": IGDB_CLIENT_ID,
+            "Authorization": f"Bearer {token}",
+        },
+        method="POST",
+    )
+
+    with request.urlopen(req, timeout=30) as response:
+        return json.loads(response.read())
+
+
 def search_igdb_games(game_name):
     # Busca juegos por nombre en IGDB
     token = get_igdb_token()
@@ -123,45 +177,32 @@ def search_igdb_games(game_name):
     limit 5;
     """
 
-    req = request.Request(
-        "https://api.igdb.com/v4/games",
-        data=query.encode("utf-8"),
-        headers={
-            "Client-ID": IGDB_CLIENT_ID,
-            "Authorization": f"Bearer {token}",
-        },
-        method="POST",
+    return igdb_request(
+        token,
+        "games",
+        query,
     )
-
-    with request.urlopen(req, timeout=30) as response:
-        return json.loads(response.read())
 
 
 def get_igdb_game(game_id):
-    # Busca un juego exacto por ID
+    # Busca un juego exacto
     token = get_igdb_token()
 
     query = f"""
     fields
         id,
         name,
-        first_release_date;
+        first_release_date,
+        platforms;
     where id = {game_id};
     limit 1;
     """
 
-    req = request.Request(
-        "https://api.igdb.com/v4/games",
-        data=query.encode("utf-8"),
-        headers={
-            "Client-ID": IGDB_CLIENT_ID,
-            "Authorization": f"Bearer {token}",
-        },
-        method="POST",
+    games = igdb_request(
+        token,
+        "games",
+        query,
     )
-
-    with request.urlopen(req, timeout=30) as response:
-        games = json.loads(response.read())
 
     if not games:
         return None
@@ -169,8 +210,73 @@ def get_igdb_game(game_id):
     return games[0]
 
 
+def get_platform_release_dates(game_id):
+    # Obtiene fechas de lanzamiento por plataforma
+    token = get_igdb_token()
+
+    platform_ids = ",".join(
+        str(platform_id)
+        for platform_id in PLATFORM_ORDER
+    )
+
+    query = f"""
+    fields
+        platform,
+        date,
+        release_region.region;
+
+    where game = {game_id}
+        & platform = ({platform_ids});
+
+    limit 500;
+    sort date asc;
+    """
+
+    releases = igdb_request(
+        token,
+        "release_dates",
+        query,
+    )
+
+    release_dates = {}
+
+    for release in releases:
+        platform_id = release.get("platform")
+        timestamp = release.get("date")
+        region = release.get("release_region")
+
+        if platform_id not in PLATFORM_LABELS:
+            continue
+
+        # Si hay región, solo usamos Europa o Worldwide
+        if isinstance(region, dict):
+            region_name = region.get(
+                "region",
+                "",
+            ).lower()
+
+            if (
+                region_name
+                and region_name not in VALID_REGIONS
+            ):
+                continue
+
+        release_date = format_release_date(
+            timestamp
+        )
+
+        if not release_date:
+            continue
+
+        # Conserva la primera fecha válida
+        if platform_id not in release_dates:
+            release_dates[platform_id] = release_date
+
+    return release_dates
+
+
 def format_release_date(timestamp):
-    # Convierte timestamp de IGDB a YYYY-MM-DD
+    # Convierte timestamp IGDB a YYYY-MM-DD
     if not timestamp:
         return None
 
@@ -178,6 +284,63 @@ def format_release_date(timestamp):
         timestamp,
         tz=timezone.utc,
     ).date().isoformat()
+
+
+def display_release_date(date_string):
+    # Convierte YYYY-MM-DD a DD-MM-YYYY
+    if not date_string:
+        return "Sin fecha"
+
+    return datetime.strptime(
+        date_string,
+        "%Y-%m-%d",
+    ).strftime("%d-%m-%Y")
+
+
+def build_platform_data(game):
+    # Une plataformas y sus fechas
+    release_dates = get_platform_release_dates(
+        game["id"]
+    )
+
+    platform_ids = set(
+        game.get(
+            "platforms",
+            [],
+        )
+    )
+
+    # Incluye plataformas presentes en release_dates
+    platform_ids.update(
+        release_dates.keys()
+    )
+
+    platforms = []
+    labels_added = set()
+
+    for platform_id in PLATFORM_ORDER:
+        if platform_id not in platform_ids:
+            continue
+
+        label = PLATFORM_LABELS[platform_id]
+
+        # Agrupa Meta Quest 2 y 3 visualmente
+        if label in labels_added:
+            continue
+
+        platforms.append(
+            {
+                "id": platform_id,
+                "label": label,
+                "release_date": release_dates.get(
+                    platform_id
+                ),
+            }
+        )
+
+        labels_added.add(label)
+
+    return platforms
 
 
 def github_request(
@@ -281,18 +444,52 @@ def build_watchlist_message():
     ]
 
     for game in watchlist:
-        release_date = game.get("release_date")
+        lines.append(
+            f"🎮 {game['name']}"
+        )
 
-        if release_date:
-            lines.append(
-                f"• {game['name']} — {release_date}"
+        platforms = game.get(
+            "platforms",
+            [],
+        )
+
+        # Nuevo formato con fecha por plataforma
+        if (
+            platforms
+            and isinstance(platforms[0], dict)
+        ):
+            for platform in platforms:
+                lines.append(
+                    f"{platform['label']} — "
+                    f"{display_release_date(platform.get('release_date'))}"
+                )
+
+        # Compatibilidad con formato anterior
+        elif platforms:
+            release_date = display_release_date(
+                game.get("release_date")
             )
+
+            lines.append(
+                f"📅 {release_date}"
+            )
+
+            lines.append(
+                " | ".join(platforms)
+            )
+
         else:
             lines.append(
-                f"• {game['name']} — Sin fecha"
+                f"📅 {display_release_date(game.get('release_date'))}"
             )
 
-    return "\n".join(lines)
+            lines.append(
+                "🎮 Plataformas por confirmar"
+            )
+
+        lines.append("")
+
+    return "\n".join(lines).rstrip()
 
 
 def build_search_keyboard(games):
@@ -338,7 +535,7 @@ def build_unwatch_keyboard(watchlist):
 
 
 def add_game_to_watchlist(game_id):
-    # Añade un juego con su fecha conocida
+    # Añade juego con fechas por plataforma
     game = get_igdb_game(game_id)
 
     if not game:
@@ -359,11 +556,16 @@ def add_game_to_watchlist(game_id):
         game.get("first_release_date")
     )
 
+    platforms = build_platform_data(
+        game
+    )
+
     watchlist.append(
         {
             "id": game["id"],
             "name": game["name"],
             "release_date": release_date,
+            "platforms": platforms,
         }
     )
 
@@ -372,7 +574,9 @@ def add_game_to_watchlist(game_id):
         sha,
     )
 
+    # Datos usados para responder en Telegram
     game["release_date"] = release_date
+    game["platform_data"] = platforms
 
     return game, True
 
@@ -470,23 +674,36 @@ async def telegram_webhook(request_data: Request):
                 )
 
             elif added:
-                release_date = game.get(
-                    "release_date"
+                lines = [
+                    "✅ Añadido a tu watchlist",
+                    "",
+                    f"🎮 {game['name']}",
+                ]
+
+                platforms = game.get(
+                    "platform_data",
+                    [],
                 )
 
-                date_text = (
-                    release_date
-                    if release_date
-                    else "Sin fecha"
-                )
+                if platforms:
+                    for platform in platforms:
+                        lines.append(
+                            f"{platform['label']} — "
+                            f"{display_release_date(platform.get('release_date'))}"
+                        )
+
+                else:
+                    lines.append(
+                        f"📅 {display_release_date(game.get('release_date'))}"
+                    )
+
+                    lines.append(
+                        "🎮 Plataformas por confirmar"
+                    )
 
                 send_telegram_message(
                     chat_id,
-                    (
-                        "✅ Añadido a tu watchlist\n\n"
-                        f"🎮 {game['name']}\n"
-                        f"📅 {date_text}"
-                    ),
+                    "\n".join(lines),
                 )
 
             else:
@@ -591,14 +808,6 @@ async def telegram_webhook(request_data: Request):
             .strip()
         )
 
-        if not search_term:
-            send_telegram_message(
-                chat_id,
-                "Uso: /watch nombre del juego",
-            )
-
-            return {"ok": True}
-
         games = search_igdb_games(
             search_term
         )
@@ -606,10 +815,7 @@ async def telegram_webhook(request_data: Request):
         if not games:
             send_telegram_message(
                 chat_id,
-                (
-                    "❌ No he encontrado "
-                    "ningún juego."
-                ),
+                "❌ No he encontrado ningún juego.",
             )
 
         else:
