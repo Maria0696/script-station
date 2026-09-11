@@ -1,8 +1,8 @@
 import os
-from html import escape
-from datetime import datetime, timezone
-
 import requests
+from html import escape
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 CLIENT_ID = os.environ["IGDB_CLIENT_ID"]
 CLIENT_SECRET = os.environ["IGDB_CLIENT_SECRET"]
@@ -10,6 +10,7 @@ CLIENT_SECRET = os.environ["IGDB_CLIENT_SECRET"]
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
+MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 def get_access_token():
     response = requests.post(
@@ -28,13 +29,13 @@ def get_access_token():
 
 
 def get_games_released_today(token):
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(MADRID_TZ).date()
 
     start_ts = int(
         datetime.combine(
             today,
             datetime.min.time(),
-            tzinfo=timezone.utc,
+            tzinfo=MADRID_TZ,
         ).timestamp()
     )
 
@@ -42,7 +43,7 @@ def get_games_released_today(token):
         datetime.combine(
             today,
             datetime.max.time(),
-            tzinfo=timezone.utc,
+            tzinfo=MADRID_TZ,
         ).timestamp()
     )
 
@@ -51,10 +52,7 @@ def get_games_released_today(token):
         name,
         first_release_date,
         platforms.name;
-
-    where first_release_date >= {start_ts}
-      & first_release_date <= {end_ts};
-
+    where first_release_date >= {start_ts} & first_release_date <= {end_ts};
     limit 100;
     sort first_release_date asc;
     """
@@ -99,7 +97,7 @@ def normalize_platform(platform_name):
 
 
 def build_message(games):
-    today = datetime.now().strftime("%d-%m-%Y")
+    today = datetime.now(MADRID_TZ).strftime("%d-%m-%Y")
 
     header = (
         "━━━━━━━━━━━━━━━━━━━\n"
