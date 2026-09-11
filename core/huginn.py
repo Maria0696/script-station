@@ -1,3 +1,6 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from core.config import (
     HUGINN_CHAT_ID,
 )
@@ -21,6 +24,13 @@ from core.telegram import (
 )
 
 
+MADRID_TIMEZONE = ZoneInfo(
+    "Europe/Madrid"
+)
+
+NEXT_GAME_LIMIT = 5
+
+
 def build_help_message():
     # Lista de comandos de Huginn
     return (
@@ -29,6 +39,8 @@ def build_help_message():
         "Añade un juego a tu watchlist.\n\n"
         "/watchlist\n"
         "Muestra los juegos guardados.\n\n"
+        "/next\n"
+        "Muestra los próximos lanzamientos.\n\n"
         "/unwatch\n"
         "Elimina un juego de tu watchlist.\n\n"
         "/help\n"
@@ -110,6 +122,171 @@ def build_watchlist_message():
                     "Plataformas por confirmar"
                     " — "
                     f"{release_date}"
+                )
+            )
+
+        lines.append("")
+
+    return "\n".join(
+        lines
+    ).rstrip()
+
+
+def parse_release_date(date_string):
+    # Convierte YYYY-MM-DD a date
+    if not date_string:
+        return None
+
+    try:
+        return datetime.strptime(
+            date_string,
+            "%Y-%m-%d",
+        ).date()
+
+    except ValueError:
+        return None
+
+
+def get_upcoming_games():
+    # Obtiene los próximos juegos de la watchlist
+    watchlist, _ = get_watchlist()
+
+    today = datetime.now(
+        MADRID_TIMEZONE
+    ).date()
+
+    upcoming_games = []
+
+    for game in watchlist:
+        platforms = game.get(
+            "platforms",
+            [],
+        )
+
+        future_releases = []
+
+        # Formato actual con fechas por plataforma
+        if (
+            platforms
+            and isinstance(
+                platforms[0],
+                dict,
+            )
+        ):
+            for platform in platforms:
+                date_string = platform.get(
+                    "release_date"
+                )
+
+                release_date = parse_release_date(
+                    date_string
+                )
+
+                if (
+                    not release_date
+                    or release_date < today
+                ):
+                    continue
+
+                future_releases.append(
+                    {
+                        "label": platform["label"],
+                        "date": date_string,
+                        "date_obj": release_date,
+                    }
+                )
+
+        # Compatibilidad con formato antiguo
+        else:
+            date_string = game.get(
+                "release_date"
+            )
+
+            release_date = parse_release_date(
+                date_string
+            )
+
+            if (
+                release_date
+                and release_date >= today
+            ):
+                if platforms:
+                    label = " | ".join(
+                        platforms
+                    )
+                else:
+                    label = (
+                        "Plataformas por confirmar"
+                    )
+
+                future_releases.append(
+                    {
+                        "label": label,
+                        "date": date_string,
+                        "date_obj": release_date,
+                    }
+                )
+
+        if not future_releases:
+            continue
+
+        future_releases.sort(
+            key=lambda release:
+                release["date_obj"]
+        )
+
+        upcoming_games.append(
+            {
+                "name": game["name"],
+                "next_date":
+                    future_releases[0]["date_obj"],
+                "releases":
+                    future_releases,
+            }
+        )
+
+    # Ordena juegos por su próxima fecha
+    upcoming_games.sort(
+        key=lambda game: (
+            game["next_date"],
+            game["name"].lower(),
+        )
+    )
+
+    return upcoming_games[
+        :NEXT_GAME_LIMIT
+    ]
+
+
+def build_next_message():
+    # Construye el mensaje de /next
+    upcoming_games = (
+        get_upcoming_games()
+    )
+
+    if not upcoming_games:
+        return (
+            "⏭️ No tienes próximos "
+            "lanzamientos con fecha."
+        )
+
+    lines = [
+        "⏭️ PRÓXIMOS LANZAMIENTOS",
+        "",
+    ]
+
+    for game in upcoming_games:
+        lines.append(
+            f"🎮 {game['name']}"
+        )
+
+        for release in game["releases"]:
+            lines.append(
+                (
+                    "      "
+                    f"{release['label']}"
+                    " — "
+                    f"{display_release_date(release['date'])}"
                 )
             )
 
@@ -417,6 +594,13 @@ def handle_huginn_message(message):
         send_huginn_message(
             chat_id,
             build_help_message(),
+        )
+
+    # Próximos lanzamientos
+    elif text == "/next":
+        send_huginn_message(
+            chat_id,
+            build_next_message(),
         )
 
     # Mostrar watchlist
