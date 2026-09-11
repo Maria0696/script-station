@@ -55,25 +55,23 @@ VALID_REGIONS = {
 }
 
 
-# Tipos de popularidad de IGDB PopScore
+# Tipos de popularidad de IGDB
 POPULARITY_VISITS = 1
 POPULARITY_WANT_TO_PLAY = 2
 
 
-# Peso de cada métrica en nuestra puntuación
+# Peso de cada métrica
 VISITS_WEIGHT = 0.4
 WANT_TO_PLAY_WEIGHT = 0.6
 
 
-# Máximo de juegos destacados
+# Reglas para marcar juegos con ⭐
+FEATURED_SCORE_MIN = 0.00002
+FEATURED_RELATIVE_THRESHOLD = 0.75
 MAX_FEATURED_GAMES = 3
 
 
-# Umbral inicial de relevancia
-FEATURED_SCORE_MIN = 0.0005
-
-
-# Dejamos margen respecto al límite de Telegram
+# Margen respecto al límite de Telegram
 MAX_TELEGRAM_LENGTH = 3900
 
 
@@ -221,7 +219,7 @@ def filter_and_group_releases(releases):
 
 
 def add_popularity_data(token, games):
-    # No consultamos PopScore si no hay juegos
+    # No consulta popularidad si no hay juegos
     if not games:
         return games
 
@@ -230,7 +228,7 @@ def add_popularity_data(token, games):
         for game in games
     )
 
-    # Obtiene Visits y Want to Play de los juegos de hoy
+    # Obtiene Visits y Want to Play
     query = f"""
     fields
         game_id,
@@ -263,7 +261,7 @@ def add_popularity_data(token, games):
 
     print(f"Popularity records received: {len(popularity_data)}")
 
-    # Acceso rápido a cada juego por ID
+    # Acceso rápido por ID
     games_by_id = {
         game["id"]: game
         for game in games
@@ -296,7 +294,10 @@ def add_popularity_data(token, games):
 
 
 def mark_featured_games(games):
-    # Log temporal para ajustar el umbral
+    if not games:
+        return games
+
+    # Muestra los datos para poder afinar el sistema
     print("PopScore data:")
 
     for game in sorted(
@@ -311,11 +312,32 @@ def mark_featured_games(games):
             f"Score: {game['popularity_score']:.8f}"
         )
 
-    # Solo candidatos que superan el mínimo
+    # Juego más popular del día
+    best_score = max(
+        game["popularity_score"]
+        for game in games
+    )
+
+    # El mínimo depende también del líder del día
+    relative_min = (
+        best_score * FEATURED_RELATIVE_THRESHOLD
+    )
+
+    featured_threshold = max(
+        FEATURED_SCORE_MIN,
+        relative_min,
+    )
+
+    print(
+        f"Featured threshold: "
+        f"{featured_threshold:.8f}"
+    )
+
+    # Solo juegos suficientemente relevantes
     candidates = [
         game
         for game in games
-        if game["popularity_score"] >= FEATURED_SCORE_MIN
+        if game["popularity_score"] >= featured_threshold
     ]
 
     # Más populares primero
@@ -417,7 +439,7 @@ def build_messages(games):
 
 
 def send_telegram(text):
-    # Envía un mensaje al chat de Telegram
+    # Envía el mensaje a Telegram
     response = requests.post(
         f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
         json={
@@ -439,10 +461,10 @@ def main():
     # 1. Autenticación con IGDB
     token = get_access_token()
 
-    # 2. Obtener lanzamientos de hoy
+    # 2. Obtener lanzamientos
     games = get_releases_today(token)
 
-    # 3. Obtener popularidad de esos juegos
+    # 3. Obtener popularidad
     games = add_popularity_data(token, games)
 
     # 4. Marcar destacados
