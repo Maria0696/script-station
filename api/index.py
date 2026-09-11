@@ -1,7 +1,9 @@
 import base64
 import json
 import os
+from datetime import datetime, timezone
 from urllib import parse, request
+
 from fastapi import FastAPI, Request
 
 
@@ -140,7 +142,10 @@ def get_igdb_game(game_id):
     token = get_igdb_token()
 
     query = f"""
-    fields id,name;
+    fields
+        id,
+        name,
+        first_release_date;
     where id = {game_id};
     limit 1;
     """
@@ -162,6 +167,17 @@ def get_igdb_game(game_id):
         return None
 
     return games[0]
+
+
+def format_release_date(timestamp):
+    # Convierte timestamp de IGDB a YYYY-MM-DD
+    if not timestamp:
+        return None
+
+    return datetime.fromtimestamp(
+        timestamp,
+        tz=timezone.utc,
+    ).date().isoformat()
 
 
 def github_request(
@@ -250,9 +266,16 @@ def build_watchlist_message():
     ]
 
     for game in watchlist:
-        lines.append(
-            f"• {game['name']}"
-        )
+        release_date = game.get("release_date")
+
+        if release_date:
+            lines.append(
+                f"• {game['name']} — {release_date}"
+            )
+        else:
+            lines.append(
+                f"• {game['name']} — Sin fecha"
+            )
 
     return "\n".join(lines)
 
@@ -300,7 +323,7 @@ def build_unwatch_keyboard(watchlist):
 
 
 def add_game_to_watchlist(game_id):
-    # Añade un juego a la watchlist
+    # Añade un juego con su fecha conocida
     game = get_igdb_game(game_id)
 
     if not game:
@@ -317,10 +340,15 @@ def add_game_to_watchlist(game_id):
     if already_exists:
         return game, False
 
+    release_date = format_release_date(
+        game.get("first_release_date")
+    )
+
     watchlist.append(
         {
             "id": game["id"],
             "name": game["name"],
+            "release_date": release_date,
         }
     )
 
@@ -328,6 +356,9 @@ def add_game_to_watchlist(game_id):
         watchlist,
         sha,
     )
+
+    # Añadimos la fecha al objeto para usarla en Telegram
+    game["release_date"] = release_date
 
     return game, True
 
@@ -425,11 +456,22 @@ async def telegram_webhook(request_data: Request):
                 )
 
             elif added:
+                release_date = game.get(
+                    "release_date"
+                )
+
+                date_text = (
+                    release_date
+                    if release_date
+                    else "Sin fecha"
+                )
+
                 send_telegram_message(
                     chat_id,
                     (
                         "✅ Añadido a tu watchlist\n\n"
-                        f"🎮 {game['name']}"
+                        f"🎮 {game['name']}\n"
+                        f"📅 {date_text}"
                     ),
                 )
 
