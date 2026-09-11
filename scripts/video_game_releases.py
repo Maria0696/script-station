@@ -12,6 +12,18 @@ CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 MADRID_TZ = ZoneInfo("Europe/Madrid")
 
+PLATFORM_ORDER = [
+    "🔵 PS5",
+    "🔴 Switch 2",
+    "💻 PC",
+    "🟢 Xbox Series",
+    "🔵 PS4",
+    "🟢 Xbox One",
+    "🔴 Switch",
+    "🍎 Mac",
+    "🐧 Linux",
+]
+
 def get_access_token():
     response = requests.post(
         "https://id.twitch.tv/oauth2/token",
@@ -73,18 +85,31 @@ def get_games_released_today(token):
 
 
 def normalize_platform(platform_name):
-    name = platform_name.lower()
+    name = platform_name.lower().strip()
 
-    if "playstation" in name:
+    # PlayStation
+    if name == "playstation 5":
         return "🔵 PS5"
 
-    if "xbox" in name:
-        return "🟢 Xbox"
+    if name == "playstation 4":
+        return "🔵 PS4"
 
-    if "switch" in name or "nintendo" in name:
+    # Xbox
+    if "xbox series" in name:
+        return "🟢 Xbox Series"
+
+    if name == "xbox one":
+        return "🟢 Xbox One"
+
+    # Nintendo
+    if "switch 2" in name:
+        return "🔴 Switch 2"
+
+    if name == "nintendo switch":
         return "🔴 Switch"
 
-    if "windows" in name or "pc" in name:
+    # PC
+    if name == "pc (microsoft windows)":
         return "💻 PC"
 
     if "mac" in name:
@@ -121,6 +146,14 @@ def build_message(games):
 
             if normalized and normalized not in platforms:
                 platforms.append(normalized)
+
+        platforms.sort(
+            key=lambda platform: (
+                PLATFORM_ORDER.index(platform)
+                if platform in PLATFORM_ORDER
+                else 999
+            )
+        )
 
         message += f"<b>{game_name}</b>\n"
 
