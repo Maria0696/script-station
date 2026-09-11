@@ -1,44 +1,4 @@
-name: Daily Video Game Releases
-
-on:
-  schedule:
-    # 08:00 en invierno, 09:00 en verano
-    - cron: '0 7 * * *'
-
-  workflow_dispatch:
-    inputs:
-      debug:
-        description: "Enable detailed popularity logs"
-        required: false
-        type: boolean
-        default: false
-
-jobs:
-  send-release-report:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: pip install requests
-
-      - name: Send daily release report
-        run: python scripts/video_game_releases.py
-        env:
-          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
-          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          DEBUG: ${{ inputs.debug || 'false' }}
-      
-      name: Watchlist Release Monitor
+name: Watchlist Release Monitor
 
 on:
   schedule:
