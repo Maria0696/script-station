@@ -49,6 +49,11 @@ VALID_REGIONS = {
     "worldwide",
 }
 
+# Criterios para marcar un juego con ⭐
+FEATURED_HYPES_MIN = 25
+FEATURED_RATING_COUNT_MIN = 100
+MAX_FEATURED_GAMES = 3
+
 # Dejamos margen respecto al límite de Telegram
 MAX_TELEGRAM_LENGTH = 3900
 
@@ -104,11 +109,13 @@ def get_releases_today(token):
         for platform_id in PLATFORM_ORDER
     )
 
-    # Busca lanzamientos dentro del día actual
+    # Busca lanzamientos e información de popularidad
     query = f"""
     fields
         game.id,
         game.name,
+        game.hypes,
+        game.total_rating_count,
         platform,
         release_region.region,
         date,
@@ -141,7 +148,11 @@ def get_releases_today(token):
     print(f"IGDB releases received: {len(releases)}")
 
     # Agrupa lanzamientos del mismo juego por plataforma
-    return filter_and_group_releases(releases)
+    games = filter_and_group_releases(releases)
+
+    # Decide qué juegos llevan ⭐
+    return mark_featured_games(games)
+
 
 def filter_and_group_releases(releases):
     games = {}
@@ -182,6 +193,9 @@ def filter_and_group_releases(releases):
             games[game_id] = {
                 "name": game_name,
                 "platforms": set(),
+                "hypes": game.get("hypes", 0) or 0,
+                "rating_count": game.get("total_rating_count", 0) or 0,
+                "featured": False,
             }
 
         # Añade la plataforma evitando duplicados
@@ -189,10 +203,51 @@ def filter_and_group_releases(releases):
 
     print(f"Games to send: {len(games)}")
 
-    # Orden alfabético por nombre
+    return list(games.values())
+
+def get_importance_score(game):
+    # Da más peso al interés previo al lanzamiento
+    return (
+        game["hypes"] * 5
+        + game["rating_count"]
+    )
+
+def mark_featured_games(games):
+    # Juegos que cumplen un mínimo de relevancia
+    candidates = [
+        game
+        for game in games
+        if (
+            game["hypes"] >= FEATURED_HYPES_MIN
+            or game["rating_count"] >= FEATURED_RATING_COUNT_MIN
+        )
+    ]
+
+    # Ordena candidatos por relevancia
+    candidates.sort(
+        key=get_importance_score,
+        reverse=True,
+    )
+
+    # Máximo 3 destacados al día
+    for game in candidates[:MAX_FEATURED_GAMES]:
+        game["featured"] = True
+
+    print(
+        f"Featured games: "
+        f"{sum(game['featured'] for game in games)}"
+    )
+
+    # Destacados primero; después, orden alfabético
     return sorted(
-        games.values(),
-        key=lambda game: game["name"].lower(),
+        games,
+        key=lambda game: (
+            not game["featured"],
+            -get_importance_score(game)
+            if game["featured"]
+            else 0,
+            game["name"].lower(),
+        ),
     )
 
 def get_platform_labels(platform_ids):
@@ -239,8 +294,11 @@ def build_messages(games):
             game["platforms"]
         )
 
+        # Añade ⭐ solo a los juegos destacados
+        star = "⭐ " if game["featured"] else ""
+
         game_block = (
-            f"<b>{game_name}</b>\n"
+            f"{star}<b>{game_name}</b>\n"
             f"   {' | '.join(platforms)}\n\n"
         )
 
