@@ -27,11 +27,19 @@ PLATFORM_ORDER = [
     167,  # PS5
     508,  # Switch 2
     6,    # PC
-    169,  # Xbox Series X|S
+    169,  # Xbox Series
     48,   # PS4
     49,   # Xbox One
     130,  # Switch
 ]
+
+VALID_REGIONS = {
+    "europe",
+    "worldwide",
+}
+
+MAX_TELEGRAM_LENGTH = 3900
+
 
 def get_access_token():
     response = requests.post(
@@ -49,52 +57,94 @@ def get_access_token():
     return response.json()["access_token"]
 
 
-def get_games_released_today(token):
+def get_igdb_headers(token):
+    return {
+        "Client-ID": CLIENT_ID,
+        "Authorization": f"Bearer {token}",
+    }
+
+def get_releases_today(token):
     today = datetime.now(MADRID_TZ).date()
 
-    start_ts = int(
-        datetime.combine(
-            today,
-            datetime.min.time(),
-            tzinfo=MADRID_TZ,
-        ).timestamp()
-    )
-
-    end_ts = int(
-        datetime.combine(
-            today,
-            datetime.max.time(),
-            tzinfo=MADRID_TZ,
-        ).timestamp()
+    platform_ids = ",".join(
+        str(platform_id)
+        for platform_id in PLATFORM_ORDER
     )
 
     query = f"""
     fields
-        name,
-        first_release_date,
-        platforms.id,
-        platforms.name;
-    where first_release_date >= {start_ts} & first_release_date <= {end_ts};
-    limit 100;
-    sort first_release_date asc;
+        game.id,
+        game.name,
+        platform,
+        release_region.region;
+
+    where y = {today.year}
+        & m = {today.month}
+        & d = {today.day}
+        & platform = ({platform_ids});
+
+    limit 500;
     """
 
     response = requests.post(
-        "https://api.igdb.com/v4/games",
-        headers={
-            "Client-ID": CLIENT_ID,
-            "Authorization": f"Bearer {token}",
-        },
+        "https://api.igdb.com/v4/release_dates",
+        headers=get_igdb_headers(token),
         data=query,
         timeout=30,
     )
 
     response.raise_for_status()
 
-    return response.json()
+    releases = response.json()
+
+    return filter_and_group_releases(releases)
 
 
-def build_message(games):
+def filter_and_group_releases(releases):
+    games = {}
+
+    for release in releases:
+        region = release.get("release_region")
+
+        if not isinstance(region, dict):
+            continue
+
+        region_name = region.get("region", "").lower()
+
+        if region_name not in VALID_REGIONS:
+            continue
+
+        game = release.get("game")
+
+        if not isinstance(game, dict):
+            continue
+
+        game_id = game.get("id")
+        game_name = game.get("name")
+        platform_id = release.get("platform")
+
+        if (
+            not game_id
+            or not game_name
+            or platform_id not in PLATFORM_LABELS
+        ):
+            continue
+
+        if game_id not in games:
+            games[game_id] = {
+                "name": game_name,
+                "platforms": set(),
+            }
+
+        games[game_id]["platforms"].add(platform_id)
+
+    return sorted(
+        games.values(),
+        key=lambda game: game["name"].lower(),
+    )
+
+
+def build_messages(games):
     today = datetime.now(MADRID_TZ).strftime("%d-%m-%Y")
 
     header = (
@@ -105,33 +155,40 @@ def build_message(games):
     )
 
     if not games:
-        return header + "No releases found today."
+        return [
+            header + "No releases found today."
+        ]
 
-    message = header
+    messages = []
+    current_message = header
 
     for game in games:
         game_name = escape(game["name"])
 
-        game_platform_ids = {
-            platform.get("id")
-            for platform in game.get("platforms", [])
-            if platform.get("id") in PLATFORM_LABELS
-        }
-
         platforms = [
             PLATFORM_LABELS[platform_id]
             for platform_id in PLATFORM_ORDER
-            if platform_id in game_platform_ids
+            if platform_id in game["platforms"]
         ]
 
-        message += f"<b>{game_name}</b>\n"
+        game_block = (
+            f"<b>{game_name}</b>\n"
+            f"   {' | '.join(platforms)}\n\n"
+        )
 
-        if platforms:
-            message += f"   {' | '.join(platforms)}\n"
+        if (
+            len(current_message) + len(game_block)
+            > MAX_TELEGRAM_LENGTH
+        ):
+            messages.append(current_message.rstrip())
+            current_message = header + game_block
+        else:
+            current_message += game_block
 
-        message += "\n"
+    if current_message.strip():
+        messages.append(current_message.rstrip())
 
-    return message[:4000]
+    return messages
 
 
 def send_telegram(text):
@@ -155,11 +212,12 @@ def send_telegram(text):
 def main():
     token = get_access_token()
 
-    games = get_games_released_today(token)
+    games = get_releases_today(token)
 
-    message = build_message(games)
+    messages = build_messages(games)
 
-    send_telegram(message)
+    for message in messages:
+        send_telegram(message)
 
 
 if __name__ == "__main__":
