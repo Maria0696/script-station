@@ -12,14 +12,25 @@ CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 MADRID_TZ = ZoneInfo("Europe/Madrid")
 
+# IDs oficiales de plataformas en IGDB
+PLATFORM_LABELS = {
+    167: "🔵 PS5",
+    508: "🔴 Switch 2",
+    6: "💻 PC",
+    169: "🟢 Xbox Series",
+    48: "🔵 PS4",
+    49: "🟢 Xbox One",
+    130: "🔴 Switch",
+}
+
 PLATFORM_ORDER = [
-    "🔵 PS5",
-    "🔴 Switch 2",
-    "💻 PC",
-    "🟢 Xbox Series",
-    "🔵 PS4",
-    "🟢 Xbox One",
-    "🔴 Switch",
+    167,  # PS5
+    508,  # Switch 2
+    6,    # PC
+    169,  # Xbox Series X|S
+    48,   # PS4
+    49,   # Xbox One
+    130,  # Switch
 ]
 
 def get_access_token():
@@ -61,6 +72,7 @@ def get_games_released_today(token):
     fields
         name,
         first_release_date,
+        platforms.id,
         platforms.name;
     where first_release_date >= {start_ts} & first_release_date <= {end_ts};
     limit 100;
@@ -82,37 +94,6 @@ def get_games_released_today(token):
     return response.json()
 
 
-def normalize_platform(platform_name):
-    name = platform_name.lower().strip()
-
-    # PlayStation
-    if name == "playstation 5":
-        return "🔵 PS5"
-
-    if name == "playstation 4":
-        return "🔵 PS4"
-
-    # Xbox
-    if "xbox series" in name:
-        return "🟢 Xbox Series"
-
-    if name == "xbox one":
-        return "🟢 Xbox One"
-
-    # Nintendo
-    if "switch 2" in name:
-        return "🔴 Switch 2"
-
-    if name == "nintendo switch":
-        return "🔴 Switch"
-
-    # PC
-    if name == "pc (microsoft windows)":
-        return "💻 PC"
-
-    return None
-
-
 def build_message(games):
     today = datetime.now(MADRID_TZ).strftime("%d-%m-%Y")
 
@@ -131,21 +112,17 @@ def build_message(games):
     for game in games:
         game_name = escape(game["name"])
 
-        platforms = []
+        game_platform_ids = {
+            platform.get("id")
+            for platform in game.get("platforms", [])
+            if platform.get("id") in PLATFORM_LABELS
+        }
 
-        for platform in game.get("platforms", []):
-            normalized = normalize_platform(platform["name"])
-
-            if normalized and normalized not in platforms:
-                platforms.append(normalized)
-
-        platforms.sort(
-            key=lambda platform: (
-                PLATFORM_ORDER.index(platform)
-                if platform in PLATFORM_ORDER
-                else 999
-            )
-        )
+        platforms = [
+            PLATFORM_LABELS[platform_id]
+            for platform_id in PLATFORM_ORDER
+            if platform_id in game_platform_ids
+        ]
 
         message += f"<b>{game_name}</b>\n"
 
