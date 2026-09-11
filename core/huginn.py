@@ -31,20 +31,56 @@ MADRID_TIMEZONE = ZoneInfo(
 NEXT_GAME_LIMIT = 5
 
 
+def build_title(
+    title,
+    subtitle=None,
+    icon="",
+):
+    # Formato común para los encabezados
+    line = "━━━━━━━━━━━━━━━━━━━"
+
+    if icon:
+        title_line = f"      {icon} {title}"
+    else:
+        title_line = f"      {title}"
+
+    lines = [
+        line,
+        title_line,
+    ]
+
+    if subtitle:
+        lines.append(
+            f"            {subtitle}"
+        )
+
+    lines.extend(
+        [
+            line,
+            "",
+        ]
+    )
+
+    return "\n".join(lines)
+
+
 def build_help_message():
     # Lista de comandos de Huginn
     return (
-        "🤖 COMANDOS DISPONIBLES\n\n"
-        "/watch nombre\n"
-        "Añade un juego a tu watchlist.\n\n"
-        "/watchlist\n"
-        "Muestra los juegos guardados.\n\n"
-        "/next\n"
-        "Muestra los próximos lanzamientos.\n\n"
-        "/unwatch\n"
-        "Elimina un juego de tu watchlist.\n\n"
-        "/help\n"
-        "Muestra esta ayuda."
+        build_title(
+            "COMANDOS",
+            icon="🤖",
+        )
+        + "/watch nombre\n"
+        + "Añade un juego a tu watchlist.\n\n"
+        + "/watchlist\n"
+        + "Muestra los juegos guardados.\n\n"
+        + "/next\n"
+        + "Muestra los próximos lanzamientos.\n\n"
+        + "/unwatch\n"
+        + "Elimina un juego de tu watchlist.\n\n"
+        + "/help\n"
+        + "Muestra esta ayuda."
     )
 
 
@@ -56,7 +92,10 @@ def build_watchlist_message():
         return "👀 Tu watchlist está vacía."
 
     lines = [
-        "👀 MY WATCHLIST",
+        build_title(
+            "MY WATCHLIST",
+            icon="👀",
+        ).rstrip(),
         "",
     ]
 
@@ -148,7 +187,7 @@ def parse_release_date(date_string):
 
 
 def get_upcoming_games():
-    # Obtiene los próximos juegos de la watchlist
+    # Obtiene próximos juegos de la watchlist
     watchlist, _ = get_watchlist()
 
     today = datetime.now(
@@ -165,7 +204,7 @@ def get_upcoming_games():
 
         future_releases = []
 
-        # Formato actual con fechas por plataforma
+        # Fechas por plataforma
         if (
             platforms
             and isinstance(
@@ -178,8 +217,10 @@ def get_upcoming_games():
                     "release_date"
                 )
 
-                release_date = parse_release_date(
-                    date_string
+                release_date = (
+                    parse_release_date(
+                        date_string
+                    )
                 )
 
                 if (
@@ -190,9 +231,14 @@ def get_upcoming_games():
 
                 future_releases.append(
                     {
-                        "label": platform["label"],
-                        "date": date_string,
-                        "date_obj": release_date,
+                        "label":
+                            platform["label"],
+
+                        "date":
+                            date_string,
+
+                        "date_obj":
+                            release_date,
                     }
                 )
 
@@ -202,8 +248,10 @@ def get_upcoming_games():
                 "release_date"
             )
 
-            release_date = parse_release_date(
-                date_string
+            release_date = (
+                parse_release_date(
+                    date_string
+                )
             )
 
             if (
@@ -221,9 +269,14 @@ def get_upcoming_games():
 
                 future_releases.append(
                     {
-                        "label": label,
-                        "date": date_string,
-                        "date_obj": release_date,
+                        "label":
+                            label,
+
+                        "date":
+                            date_string,
+
+                        "date_obj":
+                            release_date,
                     }
                 )
 
@@ -237,15 +290,20 @@ def get_upcoming_games():
 
         upcoming_games.append(
             {
-                "name": game["name"],
+                "name":
+                    game["name"],
+
                 "next_date":
-                    future_releases[0]["date_obj"],
+                    future_releases[0][
+                        "date_obj"
+                    ],
+
                 "releases":
                     future_releases,
             }
         )
 
-    # Ordena juegos por su próxima fecha
+    # Próximos juegos primero
     upcoming_games.sort(
         key=lambda game: (
             game["next_date"],
@@ -271,7 +329,10 @@ def build_next_message():
         )
 
     lines = [
-        "⏭️ PRÓXIMOS LANZAMIENTOS",
+        build_title(
+            "PRÓXIMOS LANZAMIENTOS",
+            icon="⏭️",
+        ).rstrip(),
         "",
     ]
 
@@ -280,7 +341,9 @@ def build_next_message():
             f"🎮 {game['name']}"
         )
 
-        for release in game["releases"]:
+        for release in game[
+            "releases"
+        ]:
             lines.append(
                 (
                     "      "
@@ -305,7 +368,9 @@ def build_search_keyboard(games):
         buttons.append(
             [
                 {
-                    "text": game["name"],
+                    "text":
+                        game["name"],
+
                     "callback_data":
                         f"watch:{game['id']}",
                 }
@@ -317,7 +382,9 @@ def build_search_keyboard(games):
     }
 
 
-def build_unwatch_keyboard(watchlist):
+def build_unwatch_keyboard(
+    watchlist,
+):
     # Crea botones para eliminar juegos
     buttons = []
 
@@ -327,6 +394,7 @@ def build_unwatch_keyboard(watchlist):
                 {
                     "text":
                         f"❌ {game['name']}",
+
                     "callback_data":
                         f"unwatch:{game['id']}",
                 }
@@ -338,8 +406,10 @@ def build_unwatch_keyboard(watchlist):
     }
 
 
-def add_game_to_watchlist(game_id):
-    # Añade un juego con fechas por plataforma
+def add_game_to_watchlist(
+    game_id,
+):
+    # Añade juego con fechas por plataforma
     game = get_igdb_game(
         game_id
     )
@@ -371,10 +441,17 @@ def add_game_to_watchlist(game_id):
 
     watchlist.append(
         {
-            "id": game["id"],
-            "name": game["name"],
-            "release_date": release_date,
-            "platforms": platforms,
+            "id":
+                game["id"],
+
+            "name":
+                game["name"],
+
+            "release_date":
+                release_date,
+
+            "platforms":
+                platforms,
         }
     )
 
@@ -383,14 +460,21 @@ def add_game_to_watchlist(game_id):
         sha,
     )
 
-    # Datos usados para responder
-    game["release_date"] = release_date
-    game["platform_data"] = platforms
+    # Datos usados en la respuesta
+    game["release_date"] = (
+        release_date
+    )
+
+    game["platform_data"] = (
+        platforms
+    )
 
     return game, True
 
 
-def remove_game_from_watchlist(game_id):
+def remove_game_from_watchlist(
+    game_id,
+):
     # Elimina un juego de la watchlist
     watchlist, sha = get_watchlist()
 
@@ -434,15 +518,23 @@ def handle_watch_callback(
     if not game:
         send_huginn_message(
             chat_id,
-            "❌ No he podido encontrar el juego.",
+            (
+                "❌ No he podido "
+                "encontrar el juego."
+            ),
         )
+
         return
 
     if not added:
         send_huginn_message(
             chat_id,
-            "ℹ️ Ese juego ya está en tu watchlist.",
+            (
+                "ℹ️ Ese juego ya está "
+                "en tu watchlist."
+            ),
         )
+
         return
 
     lines = [
@@ -497,8 +589,12 @@ def handle_unwatch_callback(
     if not removed:
         send_huginn_message(
             chat_id,
-            "ℹ️ Ese juego ya no está en tu watchlist.",
+            (
+                "ℹ️ Ese juego ya no está "
+                "en tu watchlist."
+            ),
         )
+
         return
 
     send_huginn_message(
@@ -510,7 +606,9 @@ def handle_unwatch_callback(
     )
 
 
-def handle_huginn_callback(callback):
+def handle_huginn_callback(
+    callback,
+):
     # Procesa botones de Huginn
     callback_id = callback.get(
         "id"
@@ -533,7 +631,9 @@ def handle_huginn_callback(callback):
     )
 
     if chat_id != HUGINN_CHAT_ID:
-        return {"ok": True}
+        return {
+            "ok": True
+        }
 
     if callback_id:
         answer_huginn_callback(
@@ -570,10 +670,14 @@ def handle_huginn_callback(callback):
             game_id,
         )
 
-    return {"ok": True}
+    return {
+        "ok": True
+    }
 
 
-def handle_huginn_message(message):
+def handle_huginn_message(
+    message,
+):
     # Procesa comandos de Huginn
     chat_id = str(
         message
@@ -587,7 +691,9 @@ def handle_huginn_message(message):
     ).strip()
 
     if chat_id != HUGINN_CHAT_ID:
-        return {"ok": True}
+        return {
+            "ok": True
+        }
 
     # Ayuda
     if text == "/help":
@@ -619,13 +725,19 @@ def handle_huginn_message(message):
         if not watchlist:
             send_huginn_message(
                 chat_id,
-                "👀 Tu watchlist está vacía.",
+                (
+                    "👀 Tu watchlist "
+                    "está vacía."
+                ),
             )
 
         else:
             send_huginn_message(
                 chat_id,
-                "🗑️ ¿Qué juego quieres eliminar?",
+                (
+                    "🗑️ ¿Qué juego "
+                    "quieres eliminar?"
+                ),
                 build_unwatch_keyboard(
                     watchlist
                 ),
@@ -642,10 +754,15 @@ def handle_huginn_message(message):
         if not search_term:
             send_huginn_message(
                 chat_id,
-                "Uso: /watch nombre del juego",
+                (
+                    "Uso: /watch "
+                    "nombre del juego"
+                ),
             )
 
-            return {"ok": True}
+            return {
+                "ok": True
+            }
 
         games = search_igdb_games(
             search_term
@@ -654,13 +771,19 @@ def handle_huginn_message(message):
         if not games:
             send_huginn_message(
                 chat_id,
-                "❌ No he encontrado ningún juego.",
+                (
+                    "❌ No he encontrado "
+                    "ningún juego."
+                ),
             )
 
         else:
             send_huginn_message(
                 chat_id,
-                "🔎 ¿Qué juego quieres añadir?",
+                (
+                    "🔎 ¿Qué juego "
+                    "quieres añadir?"
+                ),
                 build_search_keyboard(
                     games
                 ),
@@ -670,13 +793,20 @@ def handle_huginn_message(message):
     elif text == "/watch":
         send_huginn_message(
             chat_id,
-            "Uso: /watch nombre del juego",
+            (
+                "Uso: /watch "
+                "nombre del juego"
+            ),
         )
 
-    return {"ok": True}
+    return {
+        "ok": True
+    }
 
 
-def handle_huginn_update(update):
+def handle_huginn_update(
+    update,
+):
     # Entrada principal de Huginn
     callback = update.get(
         "callback_query"
@@ -702,4 +832,6 @@ def handle_huginn_update(update):
             message
         )
 
-    return {"ok": True}
+    return {
+        "ok": True
+    }
