@@ -80,7 +80,7 @@ def build_watchlist_message():
 
     lines = [
         build_title(
-            "MY WATCHLIST",
+            "Mi listado de juegos",
             icon="👀",
             indent=19,
         ).rstrip(),
