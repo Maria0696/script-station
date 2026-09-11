@@ -324,7 +324,7 @@ def build_next_message():
         build_title(
             "PRÓXIMOS LANZAMIENTOS",
             icon="⏭️",
-            indent=2,
+            indent=5,
         ).rstrip(),
         "",
     ]
