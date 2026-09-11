@@ -40,9 +40,9 @@ def build_title(
     line = "━━━━━━━━━━━━━━━━━━━"
 
     if icon:
-        title_line = f"      {icon} {title}"
+        title_line = f"          {icon} {title}"
     else:
-        title_line = f"      {title}"
+        title_line = f"          {title}"
 
     lines = [
         line,
