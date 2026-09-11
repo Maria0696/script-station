@@ -135,6 +135,35 @@ def search_igdb_games(game_name):
         return json.loads(response.read())
 
 
+def get_igdb_game(game_id):
+    # Busca un juego exacto por ID
+    token = get_igdb_token()
+
+    query = f"""
+    fields id,name;
+    where id = {game_id};
+    limit 1;
+    """
+
+    req = request.Request(
+        "https://api.igdb.com/v4/games",
+        data=query.encode("utf-8"),
+        headers={
+            "Client-ID": IGDB_CLIENT_ID,
+            "Authorization": f"Bearer {token}",
+        },
+        method="POST",
+    )
+
+    with request.urlopen(req, timeout=30) as response:
+        games = json.loads(response.read())
+
+    if not games:
+        return None
+
+    return games[0]
+
+
 def github_request(
     method,
     path,
@@ -229,7 +258,7 @@ def build_watchlist_message():
 
 
 def build_search_keyboard(games):
-    # Crea un botón por cada resultado de IGDB
+    # Crea un botón por resultado de IGDB
     buttons = []
 
     for game in games:
@@ -249,37 +278,37 @@ def build_search_keyboard(games):
     }
 
 
+def build_unwatch_keyboard(watchlist):
+    # Crea un botón por juego guardado
+    buttons = []
+
+    for game in watchlist:
+        buttons.append(
+            [
+                {
+                    "text": f"❌ {game['name']}",
+                    "callback_data": (
+                        f"unwatch:{game['id']}"
+                    ),
+                }
+            ]
+        )
+
+    return {
+        "inline_keyboard": buttons
+    }
+
+
 def add_game_to_watchlist(game_id):
-    # Busca el juego exacto por ID
-    token = get_igdb_token()
+    # Añade un juego a la watchlist
+    game = get_igdb_game(game_id)
 
-    query = f"""
-    fields id,name;
-    where id = {game_id};
-    limit 1;
-    """
-
-    req = request.Request(
-        "https://api.igdb.com/v4/games",
-        data=query.encode("utf-8"),
-        headers={
-            "Client-ID": IGDB_CLIENT_ID,
-            "Authorization": f"Bearer {token}",
-        },
-        method="POST",
-    )
-
-    with request.urlopen(req, timeout=30) as response:
-        games = json.loads(response.read())
-
-    if not games:
+    if not game:
         return None, False
-
-    game = games[0]
 
     watchlist, sha = get_watchlist()
 
-    # Evita añadir el mismo juego dos veces
+    # Evita duplicados
     already_exists = any(
         item["id"] == game["id"]
         for item in watchlist
@@ -297,6 +326,36 @@ def add_game_to_watchlist(game_id):
 
     save_watchlist(
         watchlist,
+        sha,
+    )
+
+    return game, True
+
+
+def remove_game_from_watchlist(game_id):
+    # Elimina un juego de la watchlist
+    watchlist, sha = get_watchlist()
+
+    game = next(
+        (
+            item
+            for item in watchlist
+            if item["id"] == game_id
+        ),
+        None,
+    )
+
+    if not game:
+        return None, False
+
+    updated_watchlist = [
+        item
+        for item in watchlist
+        if item["id"] != game_id
+    ]
+
+    save_watchlist(
+        updated_watchlist,
         sha,
     )
 
@@ -383,6 +442,36 @@ async def telegram_webhook(request_data: Request):
                     ),
                 )
 
+        # Eliminar juego seleccionado
+        elif callback_data.startswith("unwatch:"):
+            game_id = int(
+                callback_data.split(":")[1]
+            )
+
+            game, removed = (
+                remove_game_from_watchlist(
+                    game_id
+                )
+            )
+
+            if not removed:
+                send_telegram_message(
+                    chat_id,
+                    (
+                        "ℹ️ Ese juego ya no está "
+                        "en tu watchlist."
+                    ),
+                )
+
+            else:
+                send_telegram_message(
+                    chat_id,
+                    (
+                        "🗑️ Eliminado de tu watchlist\n\n"
+                        f"🎮 {game['name']}"
+                    ),
+                )
+
         return {"ok": True}
 
     # Mensaje normal
@@ -412,6 +501,25 @@ async def telegram_webhook(request_data: Request):
             chat_id,
             build_watchlist_message(),
         )
+
+    # Mostrar juegos disponibles para eliminar
+    elif text == "/unwatch":
+        watchlist, _ = get_watchlist()
+
+        if not watchlist:
+            send_telegram_message(
+                chat_id,
+                "👀 Tu watchlist está vacía.",
+            )
+
+        else:
+            send_telegram_message(
+                chat_id,
+                "🗑️ ¿Qué juego quieres eliminar?",
+                build_unwatch_keyboard(
+                    watchlist
+                ),
+            )
 
     # Buscar juego para añadir
     elif text.startswith("/watch "):
@@ -448,6 +556,7 @@ async def telegram_webhook(request_data: Request):
                 build_search_keyboard(games),
             )
 
+    # Ayuda si falta el nombre
     elif text == "/watch":
         send_telegram_message(
             chat_id,
