@@ -138,7 +138,7 @@ def build_already_added_message(game):
         build_title(
             "YA ESTÁ EN MI LISTA",
             icon="ℹ️",
-            indent=10,
+            indent=15,
         )
         + f"🎮 {game['name']}"
     )
