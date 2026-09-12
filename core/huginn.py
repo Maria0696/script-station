@@ -81,55 +81,12 @@ def build_help_message():
 
 def build_watch_search_message():
     # Selección de resultados de búsqueda
-    return (
-        build_title(
-            "RESULTADOS",
-            icon="🔎",
-            indent=22,
-        )
-        + "¿Qué juego quieres añadir?"
-    )
+    return ("¿Qué juego quieres añadir?")
 
 
 def build_watch_added_message(game):
     # Confirmación al añadir un juego
-    lines = [
-        build_title(
-            "AÑADIDO",
-            icon="✅",
-            indent=25,
-        ).rstrip(),
-        "",
-        f"🎮 {game['name']}",
-    ]
-
-    platforms = game.get(
-        "platform_data",
-        [],
-    )
-
-    if platforms:
-        for platform in platforms:
-            lines.append(
-                (
-                    "      "
-                    f"{platform['label']}"
-                    " — "
-                    f"{display_release_date(platform.get('release_date'))}"
-                )
-            )
-
-    else:
-        lines.append(
-            (
-                "      "
-                "Plataformas por confirmar"
-                " — "
-                f"{display_release_date(game.get('release_date'))}"
-            )
-        )
-
-    return "\n".join(lines)
+    return f"✅ Añadido: {game['name']}"
 
 
 def build_already_added_message(game):
@@ -146,21 +103,12 @@ def build_already_added_message(game):
 
 def build_unwatch_message():
     # Selección de juego a eliminar
-    return (
-        "¿Qué juego quieres eliminar?"
-    )
+    return ("¿Qué juego quieres eliminar?")
 
 
 def build_removed_message(game):
     # Confirmación al eliminar un juego
-    return (
-        build_title(
-            "ELIMINADO",
-            icon="🗑️",
-            indent=25,
-        )
-        + f"🎮 {game['name']}"
-    )
+    return f"🗑️ Eliminado: {game['name']}"
 
 
 def build_watchlist_message():
