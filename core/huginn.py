@@ -147,12 +147,7 @@ def build_already_added_message(game):
 def build_unwatch_message():
     # Selección de juego a eliminar
     return (
-        build_title(
-            "ELIMINAR",
-            icon="🗑️",
-            indent=26,
-        )
-        + "¿Qué juego quieres eliminar?"
+        "¿Qué juego quieres eliminar?"
     )
 
 
