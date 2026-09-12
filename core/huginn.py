@@ -93,7 +93,7 @@ def build_watch_added_message(game):
         build_title(
             "AÑADIDO",
             icon="✅",
-            indent=11,
+            indent=25,
         ).rstrip(),
         "",
         f"🎮 {game['name']}",
