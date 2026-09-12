@@ -91,14 +91,7 @@ def build_watch_added_message(game):
 
 def build_already_added_message(game):
     # Juego que ya estaba guardado
-    return (
-        build_title(
-            "YA ESTÁ EN MI LISTA",
-            icon="ℹ️",
-            indent=15,
-        )
-        + f"🎮 {game['name']}"
-    )
+    return f"ℹ️ Ya está en tu lista: {game['name']}"
 
 
 def build_unwatch_message():
