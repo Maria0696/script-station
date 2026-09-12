@@ -91,7 +91,7 @@ def build_watch_added_message(game):
 
 def build_already_added_message(game):
     # Juego que ya estaba guardado
-    return f"ℹ️ Ya está en tu lista: {game['name']}"
+    return f"ℹ️ Ese juego ya estaba en tu lista: {game['name']}"
 
 
 def build_unwatch_message():
@@ -607,10 +607,7 @@ def handle_unwatch_callback(
     if not removed:
         send_huginn_message(
             chat_id,
-            (
-                "ℹ️ Ese juego ya no está "
-                "en tu lista."
-            ),
+            "ℹ️ Ese juego ya no está en tu lista.",
         )
 
         return
