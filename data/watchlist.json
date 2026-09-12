@@ -44,5 +44,32 @@
         "release_date": "2026-09-15"
       }
     ]
+  },
+  {
+    "id": 381235,
+    "name": "Tomb Raider: Legacy of Atlantis",
+    "release_date": "2027-02-12",
+    "platforms": [
+      {
+        "id": 167,
+        "label": "PS5",
+        "release_date": "2027-02-12"
+      },
+      {
+        "id": 508,
+        "label": "Switch 2",
+        "release_date": "2027-02-12"
+      },
+      {
+        "id": 6,
+        "label": "PC",
+        "release_date": "2027-02-12"
+      },
+      {
+        "id": 169,
+        "label": "Xbox Series",
+        "release_date": "2027-02-12"
+      }
+    ]
   }
 ]
