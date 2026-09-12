@@ -31,6 +31,10 @@ MADRID_TIMEZONE = ZoneInfo(
 NEXT_GAME_LIMIT = 5
 
 
+# ============================================================
+# ESTILO
+# ============================================================
+
 def build_title(
     title,
     icon="",
@@ -76,7 +80,7 @@ def build_help_message():
 
 
 def build_watch_search_message():
-    # Cabecera de resultados de búsqueda
+    # Selección de resultados de búsqueda
     return (
         build_title(
             "RESULTADOS",
@@ -129,12 +133,36 @@ def build_watch_added_message(game):
 
 
 def build_already_added_message(game):
-    # Mensaje si el juego ya estaba guardado
+    # Juego que ya estaba guardado
     return (
         build_title(
             "YA ESTÁ EN MI LISTA",
             icon="ℹ️",
-            indent=4,
+            indent=10,
+        )
+        + f"🎮 {game['name']}"
+    )
+
+
+def build_unwatch_message():
+    # Selección de juego a eliminar
+    return (
+        build_title(
+            "ELIMINAR",
+            icon="🗑️",
+            indent=22,
+        )
+        + "¿Qué juego quieres eliminar?"
+    )
+
+
+def build_removed_message(game):
+    # Confirmación al eliminar un juego
+    return (
+        build_title(
+            "ELIMINADO",
+            icon="🗑️",
+            indent=22,
         )
         + f"🎮 {game['name']}"
     )
@@ -504,7 +532,7 @@ def add_game_to_watchlist(
         None,
     )
 
-    # Devuelve el juego ya guardado
+    # Devuelve el juego existente
     if existing_game:
         return existing_game, False
 
@@ -608,6 +636,7 @@ def handle_watch_callback(
                 "encontrar el juego."
             ),
         )
+
         return
 
     if not added:
@@ -617,6 +646,7 @@ def handle_watch_callback(
                 game
             ),
         )
+
         return
 
     send_huginn_message(
@@ -646,13 +676,13 @@ def handle_unwatch_callback(
                 "en tu lista."
             ),
         )
+
         return
 
     send_huginn_message(
         chat_id,
-        (
-            "🗑️ Eliminado de tu lista\n\n"
-            f"🎮 {game['name']}"
+        build_removed_message(
+            game
         ),
     )
 
@@ -691,6 +721,7 @@ def handle_huginn_callback(
             callback_id
         )
 
+    # Añadir
     if callback_data.startswith(
         "watch:"
     ):
@@ -706,6 +737,7 @@ def handle_huginn_callback(
             game_id,
         )
 
+    # Eliminar
     elif callback_data.startswith(
         "unwatch:"
     ):
@@ -786,10 +818,7 @@ def handle_huginn_message(
         else:
             send_huginn_message(
                 chat_id,
-                (
-                    "🗑️ ¿Qué juego "
-                    "quieres eliminar?"
-                ),
+                build_unwatch_message(),
                 build_unwatch_keyboard(
                     watchlist
                 ),
