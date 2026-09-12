@@ -81,7 +81,7 @@ def build_watch_search_message():
         build_title(
             "RESULTADOS",
             icon="🔎",
-            indent=20,
+            indent=22,
         )
         + "¿Qué juego quieres añadir?"
     )
