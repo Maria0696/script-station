@@ -150,7 +150,7 @@ def build_unwatch_message():
         build_title(
             "ELIMINAR",
             icon="🗑️",
-            indent=22,
+            indent=26,
         )
         + "¿Qué juego quieres eliminar?"
     )
@@ -162,7 +162,7 @@ def build_removed_message(game):
         build_title(
             "ELIMINADO",
             icon="🗑️",
-            indent=22,
+            indent=25,
         )
         + f"🎮 {game['name']}"
     )
