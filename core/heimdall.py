@@ -29,6 +29,33 @@ FAILURE_CONCLUSIONS = {
 }
 
 
+# ============================================================
+# ESTILO
+# ============================================================
+
+def build_title(
+    title,
+    icon="",
+    indent=0,
+):
+    # Encabezado con posición configurable
+    title_text = (
+        f"{icon} {title}"
+        if icon
+        else title
+    )
+
+    return (
+        "━━━━━━━━━━━━━━━━━━━\n"
+        f"{' ' * indent}{title_text}\n"
+        "━━━━━━━━━━━━━━━━━━━\n\n"
+    )
+
+
+# ============================================================
+# WORKFLOWS
+# ============================================================
+
 def format_run_time(date_string):
     # Convierte la hora de GitHub a Madrid
     if not date_string:
@@ -134,6 +161,10 @@ def count_incidents(latest_runs):
     )
 
 
+# ============================================================
+# MENSAJES
+# ============================================================
+
 def build_heimdall_status():
     # Construye el panel de estado
     latest_runs = (
@@ -145,7 +176,11 @@ def build_heimdall_status():
     )
 
     lines = [
-        "🛡️ SCRIPT STATION STATUS",
+        build_title(
+            "ESTADO SCRIPT STATION",
+            icon="🛡️",
+            indent=12,
+        ).rstrip(),
         "",
     ]
 
@@ -190,13 +225,21 @@ def build_heimdall_status():
 def build_heimdall_help():
     # Lista de comandos de Heimdall
     return (
-        "🛡️ HEIMDALL\n\n"
-        "/status\n"
-        "Estado de Script Station.\n\n"
-        "/help\n"
-        "Muestra esta ayuda."
+        build_title(
+            "COMANDOS",
+            icon="🛡️",
+            indent=22,
+        )
+        + "/status\n"
+        + "Estado de Script Station.\n\n"
+        + "/help\n"
+        + "Muestra esta ayuda."
     )
 
+
+# ============================================================
+# COMANDOS
+# ============================================================
 
 def handle_heimdall_message(message):
     # Procesa comandos de Heimdall
@@ -215,9 +258,11 @@ def handle_heimdall_message(message):
         chat_id
         != HEIMDALL_CHAT_ID
     ):
-        return {"ok": True}
+        return {
+            "ok": True
+        }
 
-    # /start muestra el estado directamente
+    # Estado
     if text in {
         "/start",
         "/status",
@@ -227,14 +272,21 @@ def handle_heimdall_message(message):
             build_heimdall_status(),
         )
 
+    # Ayuda
     elif text == "/help":
         send_heimdall_message(
             chat_id,
             build_heimdall_help(),
         )
 
-    return {"ok": True}
+    return {
+        "ok": True
+    }
 
+
+# ============================================================
+# ENTRADA
+# ============================================================
 
 def handle_heimdall_update(update):
     # Entrada principal de Heimdall
@@ -246,7 +298,9 @@ def handle_heimdall_update(update):
         message,
         dict,
     ):
-        return {"ok": True}
+        return {
+            "ok": True
+        }
 
     return handle_heimdall_message(
         message
