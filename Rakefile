@@ -14,7 +14,8 @@ rescue StandardError => e
 end
 
 desc 'Run all tests'
-task test: %w[test:spec]
+task test: %w[test:spec test:python]
+
 begin
   RuboCop::RakeTask.new
 rescue LoadError
@@ -22,11 +23,19 @@ rescue LoadError
 end
 
 namespace :test do
+  desc 'Run Ruby tests'
   require 'rspec/core/rake_task'
 
   RSpec::Core::RakeTask.new(:spec) do |spec|
     spec.pattern = 'tests/ruby/**/*_spec.rb'
     spec.rspec_opts = '-I tests/ruby'
+  end
+
+  desc 'Run Python tests'
+  task :python do
+    python = Gem.win_platform? ? 'py' : 'python3'
+
+    sh python, '-m', 'pytest'
   end
 rescue LoadError
   puts 'RSpec is not available'
