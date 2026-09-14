@@ -157,6 +157,24 @@ def count_incidents(latest_runs):
         )
     )
 
+def get_failed_workflows():
+    # Obtiene los workflows actualmente fallidos
+    latest_runs = (
+        get_latest_workflows()
+    )
+
+    return {
+        workflow_name: run
+        for workflow_name, run
+        in latest_runs.items()
+        if (
+            run
+            and run.get("status")
+            == "completed"
+            and run.get("conclusion")
+            in FAILURE_CONCLUSIONS
+        )
+    }
 
 # ============================================================
 # MENSAJES
@@ -229,10 +247,82 @@ def build_heimdall_help():
         )
         + "/status\n"
         + "Estado de Script Station.\n\n"
+        + "/failures\n"
+        + "Muestra los fallos activos.\n\n"
         + "/help\n"
         + "Muestra esta ayuda."
     )
 
+def build_heimdall_failures():
+    # Construye el listado de fallos activos
+    failed_workflows = (
+        get_failed_workflows()
+    )
+
+    lines = [
+        build_title(
+            "FALLOS ACTIVOS",
+            icon="🛡️",
+            indent=20,
+        ).rstrip(),
+        "",
+    ]
+
+    if not failed_workflows:
+        lines.append(
+            "✅ No hay fallos activos."
+        )
+
+        return "\n".join(
+            lines
+        )
+
+    for (
+        workflow_name,
+        run,
+    ) in failed_workflows.items():
+
+        label = WORKFLOWS[
+            workflow_name
+        ]
+
+        lines.append(
+            f"🔴 {label}"
+        )
+
+        branch = run.get(
+            "head_branch",
+            "Desconocida",
+        )
+
+        lines.append(
+            f"      🌿 {branch}"
+        )
+
+        lines.append(
+            "      🕒 "
+            f"{format_run_time(run.get('updated_at'))}"
+        )
+
+        url = run.get(
+            "html_url"
+        )
+
+        if url:
+            lines.append(
+                f"      🔗 {url}"
+            )
+
+        lines.append("")
+
+    lines.append(
+        "⚠️ Total: "
+        f"{len(failed_workflows)}"
+    )
+
+    return "\n".join(
+        lines
+    )
 
 # ============================================================
 # COMANDOS
@@ -267,6 +357,13 @@ def handle_heimdall_message(message):
         send_heimdall_message(
             chat_id,
             build_heimdall_status(),
+        )
+    
+    # Fallos activos
+    elif text == "/failures":
+        send_heimdall_message(
+            chat_id,
+            build_heimdall_failures(),
         )
 
     # Ayuda
