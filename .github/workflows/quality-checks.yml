@@ -95,10 +95,22 @@ jobs:
 
           🔗 ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
+          REPLY_MARKUP='{
+            "inline_keyboard": [
+              [
+                {
+                  "text": "🔄 Re-run",
+                  "callback_data": "rerun:${{ github.run_id }}"
+                }
+              ]
+            ]
+          }'
+
           curl -s -X POST \
             "https://api.telegram.org/bot${TELEGRAM_HEIMDALL_BOT_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${TELEGRAM_HEIMDALL_CHAT_ID}" \
-            --data-urlencode "text=${MESSAGE}"
+            --data-urlencode "text=${MESSAGE}" \
+            --data-urlencode "reply_markup=${REPLY_MARKUP}"
         env:
           TELEGRAM_HEIMDALL_BOT_TOKEN: ${{ secrets.TELEGRAM_HEIMDALL_BOT_TOKEN }}
           TELEGRAM_HEIMDALL_CHAT_ID: ${{ secrets.TELEGRAM_HEIMDALL_CHAT_ID }}
