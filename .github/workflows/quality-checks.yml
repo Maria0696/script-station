@@ -20,13 +20,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      # ============================================================
+      # RUBY
+      # ============================================================
+
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.4'
           bundler-cache: true
 
-      - name: Install dependencies
+      - name: Install Ruby dependencies
         run: bundle install
 
       - name: Run RuboCop
@@ -35,14 +39,47 @@ jobs:
       - name: Run RSpec
         run: bundle exec rspec -I tests/ruby tests/ruby
 
-      - name: Upload coverage report
+      - name: Upload Ruby coverage report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: coverage-report
+          name: ruby-coverage-report
           path: coverage/
           if-no-files-found: ignore
-      
+
+      # ============================================================
+      # PYTHON
+      # ============================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Run Pytest
+        run: |
+          python -m pytest \
+            --cov=core.igdb \
+            --cov-report=term-missing \
+            --cov-report=html:coverage-python \
+            --cov-fail-under=90
+
+      - name: Upload Python coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-coverage-report
+          path: coverage-python/
+          if-no-files-found: ignore
+
+      # ============================================================
+      # HEIMDALL
+      # ============================================================
+
       - name: Notify Heimdall on failure
         if: ${{ always() && failure() && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
         run: |
