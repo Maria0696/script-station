@@ -518,5 +518,5 @@ def main():
     monitor_watchlist()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__": # pragma: no cover
     main()

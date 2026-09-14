@@ -492,5 +492,5 @@ def main():
 
 
 # Ejecuta main solo al lanzar este archivo
-if __name__ == "__main__":
+if __name__ == "__main__": # pragma: no cover
     main()

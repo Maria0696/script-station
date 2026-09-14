@@ -63,7 +63,9 @@ jobs:
       - name: Run Pytest
         run: |
           python -m pytest \
-            --cov=core.igdb \
+            --cov=core \
+            --cov=api \
+            --cov=scripts \
             --cov-report=term-missing \
             --cov-report=html:coverage-python \
             --cov-fail-under=90
