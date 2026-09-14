@@ -263,7 +263,7 @@ def build_heimdall_failures():
         build_title(
             "FALLOS ACTIVOS",
             icon="🛡️",
-            indent=20,
+            indent=18,
         ).rstrip(),
         "",
     ]
