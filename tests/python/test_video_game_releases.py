@@ -2,7 +2,6 @@ from datetime import datetime as real_datetime
 
 from scripts import video_game_releases as releases
 
-
 # ============================================================
 # AUTENTICACIÓN
 # ============================================================
