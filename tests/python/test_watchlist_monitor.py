@@ -642,7 +642,7 @@ def test_monitor_watchlist_empty(
     monkeypatch.setattr(
         monitor,
         "load_watchlist",
-        lambda: [],
+        list,
     )
 
     result = (

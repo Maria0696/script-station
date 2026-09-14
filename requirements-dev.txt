@@ -4,3 +4,4 @@ requests
 httpx2
 pytest
 pytest-cov
+ruff

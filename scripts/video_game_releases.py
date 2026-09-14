@@ -1,9 +1,9 @@
 import os
-import requests
-from html import escape
 from datetime import datetime, timedelta
+from html import escape
 from zoneinfo import ZoneInfo
 
+import requests
 
 # Credenciales desde GitHub Secrets
 CLIENT_ID = os.environ["IGDB_CLIENT_ID"]

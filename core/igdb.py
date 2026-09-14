@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from urllib import parse, request
 
 from core.config import (
@@ -198,9 +198,8 @@ def display_release_date(date_string):
     if not date_string:
         return "Sin fecha"
 
-    return datetime.strptime(
-        date_string,
-        "%Y-%m-%d",
+    return date.fromisoformat(
+        date_string
     ).strftime(
         "%d-%m-%Y"
     )

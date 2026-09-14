@@ -2,7 +2,6 @@ from datetime import datetime as real_datetime
 
 from scripts import video_game_releases as releases
 
-
 # ============================================================
 # AUTENTICACIÓN
 # ============================================================
@@ -81,26 +80,16 @@ def test_get_releases_today(
     # Consulta los lanzamientos del día actual
     captured = {}
 
-    class FakeDatetime:
+    class FakeDatetime(real_datetime):
         @classmethod
         def now(cls, tz=None):
-            return real_datetime(
+            return cls(
                 2026,
                 9,
                 14,
                 12,
                 0,
                 tzinfo=tz,
-            )
-
-        def __new__(
-            cls,
-            *args,
-            **kwargs,
-        ):
-            return real_datetime(
-                *args,
-                **kwargs,
             )
 
     class FakeResponse:
@@ -198,25 +187,15 @@ def test_get_releases_today_logs_error(
     capsys,
 ):
     # Muestra información si IGDB responde con error
-    class FakeDatetime:
+    class FakeDatetime(real_datetime):
         @classmethod
         def now(cls, tz=None):
-            return real_datetime(
+            return cls(
                 2026,
                 9,
                 14,
                 12,
                 tzinfo=tz,
-            )
-
-        def __new__(
-            cls,
-            *args,
-            **kwargs,
-        ):
-            return real_datetime(
-                *args,
-                **kwargs,
             )
 
     class FakeResponse:

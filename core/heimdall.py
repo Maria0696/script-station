@@ -5,15 +5,12 @@ from core.config import (
     HEIMDALL_CHAT_ID,
     WORKFLOWS,
 )
-
 from core.github import (
     get_workflow_runs,
 )
-
 from core.telegram import (
     send_heimdall_message,
 )
-
 
 MADRID_TIMEZONE = ZoneInfo(
     "Europe/Madrid"
@@ -194,27 +191,27 @@ def build_heimdall_status():
         ]
 
         lines.append(
-            (
+            
                 f"{label} — "
                 f"{workflow_status(run)}"
-            )
+            
         )
 
         if run:
             lines.append(
-                (
+                
                     "      "
                     f"{format_run_time(run.get('updated_at'))}"
-                )
+                
             )
 
         lines.append("")
 
     lines.append(
-        (
+        
             "⚠️ Incidencias activas: "
             f"{incidents}"
-        )
+        
     )
 
     return "\n".join(

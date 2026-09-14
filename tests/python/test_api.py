@@ -2,7 +2,6 @@ from fastapi.testclient import TestClient
 
 from api import index as api_index
 
-
 client = TestClient(
     api_index.app
 )
