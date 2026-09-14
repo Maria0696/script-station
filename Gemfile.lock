@@ -27,6 +27,7 @@ GEM
       bigdecimal
       rexml
     diff-lcs (1.6.2)
+    dotenv (3.2.0)
     drb (2.2.3)
     hashdiff (1.2.1)
     i18n (1.15.2)
@@ -116,6 +117,7 @@ DEPENDENCIES
   activesupport
   benchmark
   colorize
+  dotenv
   rake
   rspec
   rubocop

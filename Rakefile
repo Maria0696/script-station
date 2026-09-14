@@ -1,3 +1,4 @@
+require 'dotenv/load'
 require 'rake/testtask'
 require 'rubocop/rake_task'
 require './lib/menu'
