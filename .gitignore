@@ -1,5 +1,14 @@
 # Coverage reports
 coverage/
+coverage-python/
+.coverage
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Pytest
+.pytest_cache/
 
 # RSpec
 .rspec_status
