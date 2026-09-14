@@ -295,6 +295,36 @@ def test_count_all_failure_conclusions():
     )
 
 
+def test_get_failed_workflows(
+    monkeypatch,
+):
+    latest_runs = {
+        "Daily Video Game Releases": {
+            "status": "completed",
+            "conclusion": "success",
+        },
+        "Watchlist Release Monitor": {
+            "status": "completed",
+            "conclusion": "failure",
+        },
+        "Quality Checks": None,
+    }
+
+    monkeypatch.setattr(
+        heimdall,
+        "get_latest_workflows",
+        lambda: latest_runs,
+    )
+
+    result = (
+        heimdall.get_failed_workflows()
+    )
+
+    assert list(result) == [
+        "Watchlist Release Monitor",
+    ]
+
+
 # ============================================================
 # MENSAJES
 # ============================================================
@@ -362,6 +392,66 @@ def test_build_heimdall_status(
     ) == 2
 
 
+def test_build_heimdall_failures(
+    monkeypatch,
+):
+    failed = {
+        "Quality Checks": {
+            "status": "completed",
+            "conclusion": "failure",
+            "head_branch": "master",
+            "updated_at":
+                "2026-09-14T16:00:00Z",
+            "html_url":
+                "https://github.com/test/run",
+        },
+    }
+
+    monkeypatch.setattr(
+        heimdall,
+        "get_failed_workflows",
+        lambda: failed,
+    )
+
+    monkeypatch.setattr(
+        heimdall,
+        "format_run_time",
+        lambda date: "Hoy 18:00",
+    )
+
+    result = (
+        heimdall.build_heimdall_failures()
+    )
+
+    assert "🛡️ FALLOS ACTIVOS" in result
+    assert "🔴 🧪 Quality Checks" in result
+    assert "🌿 master" in result
+    assert "🕒 Hoy 18:00" in result
+    assert "https://github.com/test/run" in result
+    assert "⚠️ Total: 1" in result
+
+def test_build_heimdall_failures_empty(
+    monkeypatch,
+):
+    # Informa cuando no hay fallos activos
+    monkeypatch.setattr(
+        heimdall,
+        "get_failed_workflows",
+        dict,
+    )
+
+    result = (
+        heimdall.build_heimdall_failures()
+    )
+
+    assert "🛡️ FALLOS ACTIVOS" in result
+
+    assert (
+        "✅ No hay fallos activos."
+        in result
+    )
+
+
 def test_build_heimdall_help():
     # Construye el mensaje de ayuda
     result = (
@@ -373,6 +463,13 @@ def test_build_heimdall_help():
 
     assert (
         "Estado de Script Station."
+        in result
+    )
+
+    assert "/failures" in result
+
+    assert (
+        "Muestra los fallos activos."
         in result
     )
 
@@ -495,6 +592,38 @@ def test_handle_heimdall_start(
         "STATUS",
     ]
 
+
+def test_handle_heimdall_failures(
+    monkeypatch,
+):
+    sent = []
+
+    monkeypatch.setattr(
+        heimdall,
+        "build_heimdall_failures",
+        lambda: "FAILURES",
+    )
+
+    monkeypatch.setattr(
+        heimdall,
+        "send_heimdall_message",
+        lambda chat_id, message:
+            sent.append(message),
+    )
+
+    heimdall.handle_heimdall_message(
+        {
+            "chat": {
+                "id":
+                    heimdall.HEIMDALL_CHAT_ID,
+            },
+            "text": "/failures",
+        }
+    )
+
+    assert sent == [
+        "FAILURES",
+    ]
 
 def test_handle_heimdall_help(
     monkeypatch,
