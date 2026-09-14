@@ -1,6 +1,6 @@
 -r requirements.txt
 
 requests
-httpx
+httpx2
 pytest
 pytest-cov
