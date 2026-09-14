@@ -18,11 +18,12 @@ TEST_ENV = {
 }
 
 
+# Los tests siempre usan credenciales falsas.
+# Nunca deben heredar secretos reales del entorno local.
 for key, value in TEST_ENV.items():
-    os.environ.setdefault(
-        key,
-        value,
-    )
+    os.environ[
+        key
+    ] = value
 
 
 def pytest_report_teststatus(
