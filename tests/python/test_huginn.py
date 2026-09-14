@@ -2,7 +2,6 @@ from datetime import datetime
 
 from core import huginn
 
-
 # ============================================================
 # ESTILO
 # ============================================================
@@ -269,13 +268,6 @@ def test_get_upcoming_games(
                 tzinfo=tz,
             )
 
-        @classmethod
-        def strptime(cls, value, fmt):
-            return datetime.strptime(
-                value,
-                fmt,
-            )
-
     watchlist = [
         {
             "name": "Game B",
@@ -383,13 +375,6 @@ def test_get_upcoming_games_limits_results(
                 tzinfo=tz,
             )
 
-        @classmethod
-        def strptime(cls, value, fmt):
-            return datetime.strptime(
-                value,
-                fmt,
-            )
-
     watchlist = [
         {
             "name": f"Game {index}",
@@ -437,7 +422,7 @@ def test_build_next_message_empty(
     monkeypatch.setattr(
         huginn,
         "get_upcoming_games",
-        lambda: [],
+        list,
     )
 
     assert (

@@ -1,15 +1,13 @@
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from core.config import (
     HUGINN_CHAT_ID,
 )
-
 from core.github import (
     get_watchlist,
     save_watchlist,
 )
-
 from core.igdb import (
     build_platform_data,
     display_release_date,
@@ -17,12 +15,10 @@ from core.igdb import (
     get_igdb_game,
     search_igdb_games,
 )
-
 from core.telegram import (
     answer_huginn_callback,
     send_huginn_message,
 )
-
 
 MADRID_TIMEZONE = ZoneInfo(
     "Europe/Madrid"
@@ -140,12 +136,12 @@ def build_watchlist_message():
         ):
             for platform in platforms:
                 lines.append(
-                    (
+                    
                         "      "
                         f"{platform['label']}"
                         " — "
                         f"{display_release_date(platform.get('release_date'))}"
-                    )
+                    
                 )
 
         # Compatibilidad con formato antiguo
@@ -159,12 +155,12 @@ def build_watchlist_message():
             )
 
             lines.append(
-                (
+                
                     "      "
                     f"{' | '.join(platforms)}"
                     " — "
                     f"{release_date}"
-                )
+                
             )
 
         else:
@@ -177,12 +173,12 @@ def build_watchlist_message():
             )
 
             lines.append(
-                (
+                
                     "      "
                     "Plataformas por confirmar"
                     " — "
                     f"{release_date}"
-                )
+                
             )
 
         lines.append("")
@@ -204,10 +200,9 @@ def parse_release_date(
         return None
 
     try:
-        return datetime.strptime(
-            date_string,
-            "%Y-%m-%d",
-        ).date()
+        return date.fromisoformat(
+            date_string
+        )
 
     except ValueError:
         return None
@@ -375,12 +370,12 @@ def build_next_message():
             "releases"
         ]:
             lines.append(
-                (
+                
                     "      "
                     f"{release['label']}"
                     " — "
                     f"{display_release_date(release['date'])}"
-                )
+                
             )
 
         lines.append("")

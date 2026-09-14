@@ -3,7 +3,6 @@ from fastapi import FastAPI, Request
 from core.heimdall import handle_heimdall_update
 from core.huginn import handle_huginn_update
 
-
 app = FastAPI()
 
 

@@ -1,9 +1,9 @@
 import json
 import os
-import requests
-from datetime import datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 
+import requests
 
 # Credenciales desde GitHub Secrets
 CLIENT_ID = os.environ["IGDB_CLIENT_ID"]
@@ -237,8 +237,9 @@ def timestamp_to_date(timestamp):
     if not timestamp:
         return None
 
-    return datetime.utcfromtimestamp(
-        timestamp
+    return datetime.fromtimestamp(
+        timestamp,
+        tz=timezone.utc,
     ).date().isoformat()
 
 
@@ -247,10 +248,11 @@ def display_date(date_string):
     if not date_string:
         return "Sin fecha"
 
-    return datetime.strptime(
-        date_string,
-        "%Y-%m-%d",
-    ).strftime("%d-%m-%Y")
+    return date.fromisoformat(
+        date_string
+    ).strftime(
+        "%d-%m-%Y"
+    )
 
 
 def send_telegram(text):
@@ -333,14 +335,12 @@ def build_change_message(
             "Ahora: Por confirmar"
         )
 
-    old_datetime = datetime.strptime(
-        old_date,
-        "%Y-%m-%d",
+    old_datetime = date.fromisoformat(
+        old_date
     )
 
-    new_datetime = datetime.strptime(
-        new_date,
-        "%Y-%m-%d",
+    new_datetime = date.fromisoformat(
+        new_date
     )
 
     # Nueva fecha posterior
