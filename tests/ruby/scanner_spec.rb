@@ -2,10 +2,10 @@ require 'spec_helper'
 require './lib/scanner/scanner'
 
 RSpec.describe Scanner do
-  let(:menu_path) { './spec/fixtures/menu' }
+  let(:menu_path) { './tests/ruby/fixtures/menu' }
 
   let(:non_existent_path) do
-    './spec/fixtures/does_not_exist'
+    './tests/ruby/fixtures/does_not_exist'
   end
 
   let(:entry1_path) do

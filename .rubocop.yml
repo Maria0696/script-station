@@ -8,7 +8,7 @@ AllCops:
   Exclude:
     - 'coverage/**/*'
     - 'vendor/**/*'
-    - 'spec/fixtures/**/*'
+    - 'tests/ruby/fixtures/**/*'
     - 'private/**/*'
     - 'tty_menu/**/*'
 
