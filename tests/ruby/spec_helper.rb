@@ -4,7 +4,7 @@ require 'colorize'
 require 'stringio'
 
 SimpleCov.start do
-  add_filter '/spec/'
+  add_filter '/tests/'
 
   add_group 'Git Support', 'lib/git-support'
   add_group 'Installation Support', 'lib/installation-support'
