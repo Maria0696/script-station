@@ -30,7 +30,7 @@ jobs:
         run: pip install requests
 
       - name: Send daily release report
-        run: python scripts/video_game_releases.py
+        run: python -m scripts.video_game_releases
         env:
           IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}

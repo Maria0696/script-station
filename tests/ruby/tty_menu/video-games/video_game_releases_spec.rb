@@ -53,7 +53,7 @@ RSpec.describe VideoGameReleases do
       tool.run
     end
 
-    it 'runs the script with py on Windows' do
+    it 'runs the module with py on Windows' do
       allow(Gem).to receive(
         :win_platform?
       ).and_return(true)
@@ -64,13 +64,14 @@ RSpec.describe VideoGameReleases do
 
       expect(tool).to receive(:system).with(
         'py',
-        'scripts/video_game_releases.py'
+        '-m',
+        'scripts.video_game_releases'
       ).and_return(true)
 
       tool.run
     end
 
-    it 'runs the script with python3 outside Windows' do
+    it 'runs the module with python3 outside Windows' do
       allow(Gem).to receive(
         :win_platform?
       ).and_return(false)
@@ -81,13 +82,14 @@ RSpec.describe VideoGameReleases do
 
       expect(tool).to receive(:system).with(
         'python3',
-        'scripts/video_game_releases.py'
+        '-m',
+        'scripts.video_game_releases'
       ).and_return(true)
 
       tool.run
     end
 
-    it 'raises an error when the Python script fails' do
+    it 'raises an error when the Python module fails' do
       allow(Gem).to receive(
         :win_platform?
       ).and_return(true)
@@ -98,14 +100,15 @@ RSpec.describe VideoGameReleases do
 
       expect(tool).to receive(:system).with(
         'py',
-        'scripts/video_game_releases.py'
+        '-m',
+        'scripts.video_game_releases'
       ).and_return(false)
 
       expect do
         tool.run
       end.to raise_error(
         RuntimeError,
-        'Python script failed: scripts/video_game_releases.py'
+        'Python module failed: scripts.video_game_releases'
       )
     end
   end

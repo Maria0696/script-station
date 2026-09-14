@@ -5,22 +5,37 @@ from zoneinfo import ZoneInfo
 
 import requests
 
-# Credenciales desde GitHub Secrets
-CLIENT_ID = os.environ["IGDB_CLIENT_ID"]
-CLIENT_SECRET = os.environ["IGDB_CLIENT_SECRET"]
-BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+from core.notifications import (
+    notifications,
+)
+
+# Credenciales de IGDB
+CLIENT_ID = os.environ[
+    "IGDB_CLIENT_ID"
+]
+
+CLIENT_SECRET = os.environ[
+    "IGDB_CLIENT_SECRET"
+]
 
 
 # Zona horaria usada para definir "hoy"
-MADRID_TZ = ZoneInfo("Europe/Madrid")
+MADRID_TZ = ZoneInfo(
+    "Europe/Madrid"
+)
 
 
 # Muestra logs detallados de popularidad
-DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+DEBUG = (
+    os.getenv(
+        "DEBUG",
+        "false",
+    ).lower()
+    == "true"
+)
 
 
-# IDs de plataformas de IGDB y nombre mostrado en Telegram
+# IDs de plataformas y nombre mostrado
 PLATFORM_LABELS = {
     167: "🔵 PS5",
     508: "🔴 Switch 2",
@@ -30,29 +45,29 @@ PLATFORM_LABELS = {
     49: "🟢 Xbox One",
     130: "🔴 Switch",
     390: "🥽 PS VR2",
-    471: "🥽 Meta Quest",  # Meta Quest 3
-    386: "🥽 Meta Quest",  # Meta Quest 2
+    471: "🥽 Meta Quest",
+    386: "🥽 Meta Quest",
     163: "🥽 SteamVR",
 }
 
 
 # Orden en el que se muestran las plataformas
 PLATFORM_ORDER = [
-    167,  # PS5
-    508,  # Switch 2
-    6,    # PC
-    169,  # Xbox Series
-    48,   # PS4
-    49,   # Xbox One
-    130,  # Switch
-    390,  # PlayStation VR2
-    471,  # Meta Quest 3
-    386,  # Meta Quest 2
-    163,  # SteamVR
+    167,
+    508,
+    6,
+    169,
+    48,
+    49,
+    130,
+    390,
+    471,
+    386,
+    163,
 ]
 
 
-# Regiones válidas si IGDB informa una región
+# Regiones válidas
 VALID_REGIONS = {
     "europe",
     "worldwide",
@@ -76,7 +91,9 @@ MAX_FEATURED_GAMES = 3
 
 
 # Solo para mostrar scores legibles en logs
-LOG_SCORE_MULTIPLIER = 1_000_000
+LOG_SCORE_MULTIPLIER = (
+    1_000_000
+)
 
 
 # Margen respecto al límite de Telegram
@@ -88,32 +105,41 @@ def get_access_token():
     response = requests.post(
         "https://id.twitch.tv/oauth2/token",
         params={
-            "client_id": CLIENT_ID,
-            "client_secret": CLIENT_SECRET,
-            "grant_type": "client_credentials",
+            "client_id":
+                CLIENT_ID,
+            "client_secret":
+                CLIENT_SECRET,
+            "grant_type":
+                "client_credentials",
         },
         timeout=30,
     )
 
     response.raise_for_status()
 
-    return response.json()["access_token"]
+    return response.json()[
+        "access_token"
+    ]
 
 
 def get_igdb_headers(token):
     # Cabeceras necesarias para consultar IGDB
     return {
-        "Client-ID": CLIENT_ID,
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/json",
+        "Client-ID":
+            CLIENT_ID,
+        "Authorization":
+            f"Bearer {token}",
+        "Accept":
+            "application/json",
     }
 
 
 def get_releases_today(token):
     # Fecha actual según Madrid
-    today = datetime.now(MADRID_TZ).date()
+    today = datetime.now(
+        MADRID_TZ
+    ).date()
 
-    # Inicio del día
     start_datetime = datetime(
         today.year,
         today.month,
@@ -124,20 +150,25 @@ def get_releases_today(token):
         tzinfo=MADRID_TZ,
     )
 
-    # Inicio del día siguiente
-    end_datetime = start_datetime + timedelta(days=1)
-
-    # IGDB trabaja con timestamps Unix
-    start_ts = int(start_datetime.timestamp())
-    end_ts = int(end_datetime.timestamp())
-
-    # IDs de plataformas para la consulta
-    platform_ids = ",".join(
-        str(platform_id)
-        for platform_id in PLATFORM_ORDER
+    end_datetime = (
+        start_datetime
+        + timedelta(days=1)
     )
 
-    # Busca lanzamientos dentro del día actual
+    start_ts = int(
+        start_datetime.timestamp()
+    )
+
+    end_ts = int(
+        end_datetime.timestamp()
+    )
+
+    platform_ids = ",".join(
+        str(platform_id)
+        for platform_id
+        in PLATFORM_ORDER
+    )
+
     query = f"""
     fields
         game.id,
@@ -156,77 +187,144 @@ def get_releases_today(token):
     """
 
     response = requests.post(
-        "https://api.igdb.com/v4/release_dates",
-        headers=get_igdb_headers(token),
+        (
+            "https://api.igdb.com/v4/"
+            "release_dates"
+        ),
+        headers=get_igdb_headers(
+            token
+        ),
         data=query,
         timeout=30,
     )
 
     if not response.ok:
-        print(f"IGDB releases error: {response.status_code}")
-        print(response.text)
+        print(
+            "IGDB releases error: "
+            f"{response.status_code}"
+        )
+
+        print(
+            response.text
+        )
 
     response.raise_for_status()
 
     releases = response.json()
 
-    print(f"IGDB releases received: {len(releases)}")
+    print(
+        "IGDB releases received: "
+        f"{len(releases)}"
+    )
 
-    # Agrupa lanzamientos del mismo juego por plataforma
-    return filter_and_group_releases(releases)
+    return filter_and_group_releases(
+        releases
+    )
 
 
-def filter_and_group_releases(releases):
+def filter_and_group_releases(
+    releases,
+):
     games = {}
 
     for release in releases:
-        region = release.get("release_region")
+        region = release.get(
+            "release_region"
+        )
 
-        # Si hay región, solo aceptamos Europa o Worldwide
-        if isinstance(region, dict):
-            region_name = region.get("region", "").lower()
+        if isinstance(
+            region,
+            dict,
+        ):
+            region_name = (
+                region.get(
+                    "region",
+                    "",
+                )
+                .lower()
+            )
 
-            if region_name and region_name not in VALID_REGIONS:
+            if (
+                region_name
+                and region_name
+                not in VALID_REGIONS
+            ):
                 continue
 
-        game = release.get("game")
+        game = release.get(
+            "game"
+        )
 
-        # Ignora registros sin datos válidos
-        if not isinstance(game, dict):
+        if not isinstance(
+            game,
+            dict,
+        ):
             continue
 
-        game_id = game.get("id")
-        game_name = game.get("name")
-        platform_id = release.get("platform")
+        game_id = game.get(
+            "id"
+        )
+
+        game_name = game.get(
+            "name"
+        )
+
+        platform_id = (
+            release.get(
+                "platform"
+            )
+        )
 
         if (
             not game_id
             or not game_name
-            or platform_id not in PLATFORM_LABELS
+            or platform_id
+            not in PLATFORM_LABELS
         ):
             continue
 
-        # Crea el juego si aún no existe
         if game_id not in games:
-            games[game_id] = {
-                "id": game_id,
-                "name": game_name,
-                "platforms": set(),
-                "visits": 0.0,
-                "want_to_play": 0.0,
-                "popularity_score": 0.0,
-                "featured": False,
+            games[
+                game_id
+            ] = {
+                "id":
+                    game_id,
+                "name":
+                    game_name,
+                "platforms":
+                    set(),
+                "visits":
+                    0.0,
+                "want_to_play":
+                    0.0,
+                "popularity_score":
+                    0.0,
+                "featured":
+                    False,
             }
 
-        # Añade la plataforma evitando duplicados
-        games[game_id]["platforms"].add(platform_id)
+        games[
+            game_id
+        ][
+            "platforms"
+        ].add(
+            platform_id
+        )
 
-    print(f"Games to send: {len(games)}")
+    print(
+        "Games to send: "
+        f"{len(games)}"
+    )
 
-    return list(games.values())
+    return list(
+        games.values()
+    )
 
 
-def add_popularity_data(token, games):
+def add_popularity_data(
+    token,
+    games,
+):
     # No consulta popularidad si no hay juegos
     if not games:
         return games
@@ -236,7 +334,6 @@ def add_popularity_data(token, games):
         for game in games
     )
 
-    # Obtiene Visits y Want to Play
     query = f"""
     fields
         game_id,
@@ -253,154 +350,246 @@ def add_popularity_data(token, games):
     """
 
     response = requests.post(
-        "https://api.igdb.com/v4/popularity_primitives",
-        headers=get_igdb_headers(token),
+        (
+            "https://api.igdb.com/v4/"
+            "popularity_primitives"
+        ),
+        headers=get_igdb_headers(
+            token
+        ),
         data=query,
         timeout=30,
     )
 
     if not response.ok:
-        print(f"IGDB popularity error: {response.status_code}")
-        print(response.text)
+        print(
+            "IGDB popularity error: "
+            f"{response.status_code}"
+        )
+
+        print(
+            response.text
+        )
 
     response.raise_for_status()
 
-    popularity_data = response.json()
+    popularity_data = (
+        response.json()
+    )
 
-    print(f"Popularity records received: {len(popularity_data)}")
+    print(
+        "Popularity records received: "
+        f"{len(popularity_data)}"
+    )
 
-    # Acceso rápido por ID
     games_by_id = {
         game["id"]: game
         for game in games
     }
 
     for item in popularity_data:
-        game_id = item.get("game_id")
-        popularity_type = item.get("popularity_type")
-        value = float(item.get("value", 0) or 0)
+        game_id = item.get(
+            "game_id"
+        )
 
-        if game_id not in games_by_id:
+        popularity_type = (
+            item.get(
+                "popularity_type"
+            )
+        )
+
+        value = float(
+            item.get(
+                "value",
+                0,
+            )
+            or 0
+        )
+
+        if (
+            game_id
+            not in games_by_id
+        ):
             continue
 
-        game = games_by_id[game_id]
+        game = games_by_id[
+            game_id
+        ]
 
-        if popularity_type == POPULARITY_VISITS:
-            game["visits"] = value
+        if (
+            popularity_type
+            == POPULARITY_VISITS
+        ):
+            game[
+                "visits"
+            ] = value
 
-        elif popularity_type == POPULARITY_WANT_TO_PLAY:
-            game["want_to_play"] = value
+        elif (
+            popularity_type
+            == POPULARITY_WANT_TO_PLAY
+        ):
+            game[
+                "want_to_play"
+            ] = value
 
-    # Calcula nuestra puntuación combinada
     for game in games:
-        game["popularity_score"] = (
-            game["visits"] * VISITS_WEIGHT
-            + game["want_to_play"] * WANT_TO_PLAY_WEIGHT
+        game[
+            "popularity_score"
+        ] = (
+            game["visits"]
+            * VISITS_WEIGHT
+            + game[
+                "want_to_play"
+            ]
+            * WANT_TO_PLAY_WEIGHT
         )
 
     return games
 
 
-def mark_featured_games(games):
+def mark_featured_games(
+    games,
+):
     if not games:
         return games
 
-    # Logs detallados solo en modo debug
     if DEBUG:
-        print("PopScore data:")
+        print(
+            "PopScore data:"
+        )
 
         for game in sorted(
             games,
-            key=lambda game: game["popularity_score"],
+            key=lambda game:
+                game[
+                    "popularity_score"
+                ],
             reverse=True,
         ):
             display_score = (
-                game["popularity_score"]
+                game[
+                    "popularity_score"
+                ]
                 * LOG_SCORE_MULTIPLIER
             )
 
             print(
                 f"- {game['name']} | "
-                f"Score: {display_score:.2f}"
+                f"Score: "
+                f"{display_score:.2f}"
             )
 
-    # Juego más popular del día
     best_score = max(
-        game["popularity_score"]
+        game[
+            "popularity_score"
+        ]
         for game in games
     )
 
-    # Umbral relativo respecto al líder
     relative_min = (
-        best_score * FEATURED_RELATIVE_THRESHOLD
+        best_score
+        * FEATURED_RELATIVE_THRESHOLD
     )
 
-    # Se usa el umbral más exigente
     featured_threshold = max(
         FEATURED_SCORE_MIN,
         relative_min,
     )
 
     print(
-        f"Featured threshold: "
+        "Featured threshold: "
         f"{featured_threshold * LOG_SCORE_MULTIPLIER:.2f}"
     )
 
-    # Solo juegos suficientemente relevantes
     candidates = [
         game
         for game in games
-        if game["popularity_score"] >= featured_threshold
+        if (
+            game[
+                "popularity_score"
+            ]
+            >= featured_threshold
+        )
     ]
 
-    # Más populares primero
     candidates.sort(
-        key=lambda game: game["popularity_score"],
+        key=lambda game:
+            game[
+                "popularity_score"
+            ],
         reverse=True,
     )
 
-    # Máximo 3 destacados
-    for game in candidates[:MAX_FEATURED_GAMES]:
-        game["featured"] = True
+    for game in candidates[
+        :MAX_FEATURED_GAMES
+    ]:
+        game[
+            "featured"
+        ] = True
 
     print(
-        f"Featured games: "
+        "Featured games: "
         f"{sum(game['featured'] for game in games)}"
     )
 
-    # Destacados primero; resto alfabético
     return sorted(
         games,
         key=lambda game: (
-            not game["featured"],
-            -game["popularity_score"]
-            if game["featured"]
-            else 0,
-            game["name"].lower(),
+            not game[
+                "featured"
+            ],
+            (
+                -game[
+                    "popularity_score"
+                ]
+                if game[
+                    "featured"
+                ]
+                else 0
+            ),
+            game[
+                "name"
+            ].lower(),
         ),
     )
 
 
-def get_platform_labels(platform_ids):
+def get_platform_labels(
+    platform_ids,
+):
     platforms = []
 
-    # Convierte IDs en nombres visibles
-    for platform_id in PLATFORM_ORDER:
-        if platform_id not in platform_ids:
+    for platform_id in (
+        PLATFORM_ORDER
+    ):
+        if (
+            platform_id
+            not in platform_ids
+        ):
             continue
 
-        label = PLATFORM_LABELS[platform_id]
+        label = (
+            PLATFORM_LABELS[
+                platform_id
+            ]
+        )
 
-        # Evita duplicar Meta Quest
         if label not in platforms:
-            platforms.append(label)
+            platforms.append(
+                label
+            )
 
     return platforms
 
 
-def build_messages(games):
-    # Fecha mostrada en Telegram
-    today = datetime.now(MADRID_TZ).strftime("%d-%m-%Y")
+def build_messages(
+    games,
+):
+    today = datetime.now(
+        MADRID_TZ
+    ).strftime(
+        "%d-%m-%Y"
+    )
 
     header = (
         "━━━━━━━━━━━━━━━━━━━\n"
@@ -409,65 +598,80 @@ def build_messages(games):
         "━━━━━━━━━━━━━━━━━━━\n\n"
     )
 
-    # Mensaje si no hay lanzamientos
     if not games:
         return [
-            header + "No releases found today."
+            (
+                header
+                + "No releases found today."
+            )
         ]
 
     messages = []
-    current_message = header
+    current_message = (
+        header
+    )
 
     for game in games:
-        # Escapa caracteres especiales para HTML
-        game_name = escape(game["name"])
-
-        platforms = get_platform_labels(
-            game["platforms"]
+        game_name = escape(
+            game["name"]
         )
 
-        # ⭐ solo para juegos destacados
-        star = "⭐ " if game["featured"] else ""
+        platforms = (
+            get_platform_labels(
+                game[
+                    "platforms"
+                ]
+            )
+        )
+
+        star = (
+            "⭐ "
+            if game[
+                "featured"
+            ]
+            else ""
+        )
 
         game_block = (
             f"{star}<b>{game_name}</b>\n"
             f"   {' | '.join(platforms)}\n\n"
         )
 
-        # Crea otro mensaje si nos acercamos al límite
         if (
-            len(current_message) + len(game_block)
+            len(current_message)
+            + len(game_block)
             > MAX_TELEGRAM_LENGTH
         ):
-            messages.append(current_message.rstrip())
-            current_message = header + game_block
-        else:
-            current_message += game_block
+            messages.append(
+                current_message.rstrip()
+            )
 
-    # Añade el último bloque pendiente
+            current_message = (
+                header
+                + game_block
+            )
+
+        else:
+            current_message += (
+                game_block
+            )
+
     if current_message.strip():
-        messages.append(current_message.rstrip())
+        messages.append(
+            current_message.rstrip()
+        )
 
     return messages
 
 
-def send_telegram(text):
-    # Envía el mensaje a Telegram
-    response = requests.post(
-        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        json={
-            "chat_id": CHAT_ID,
-            "text": text,
-            "parse_mode": "HTML",
-        },
-        timeout=30,
+def send_notification(
+    text,
+):
+    # Envía mediante el servicio centralizado
+    return notifications.huginn(
+        text,
+        parse_mode="HTML",
     )
-
-    if not response.ok:
-        print(f"Telegram error: {response.status_code}")
-        print(response.text)
-
-    response.raise_for_status()
 
 
 def main():
@@ -475,22 +679,40 @@ def main():
     token = get_access_token()
 
     # 2. Obtener lanzamientos
-    games = get_releases_today(token)
+    games = (
+        get_releases_today(
+            token
+        )
+    )
 
     # 3. Obtener popularidad
-    games = add_popularity_data(token, games)
+    games = (
+        add_popularity_data(
+            token,
+            games,
+        )
+    )
 
     # 4. Marcar destacados
-    games = mark_featured_games(games)
+    games = (
+        mark_featured_games(
+            games
+        )
+    )
 
     # 5. Construir mensajes
-    messages = build_messages(games)
+    messages = (
+        build_messages(
+            games
+        )
+    )
 
-    # 6. Enviar a Telegram
+    # 6. Enviar mediante Huginn
     for message in messages:
-        send_telegram(message)
+        send_notification(
+            message
+        )
 
 
-# Ejecuta main solo al lanzar este archivo
-if __name__ == "__main__": # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     main()

@@ -6,6 +6,8 @@ class VideoGameReleases
     TELEGRAM_CHAT_ID
   ].freeze
 
+  MODULE_NAME = 'scripts.video_game_releases'.freeze
+
   def initialize(prompt)
     @prompt = prompt
   end
@@ -19,7 +21,7 @@ class VideoGameReleases
 
     return unless confirmed
 
-    run_script('scripts/video_game_releases.py')
+    run_module(MODULE_NAME)
   end
 
   private
@@ -37,14 +39,17 @@ class VideoGameReleases
     false
   end
 
-  def run_script(script)
+  def run_module(module_name)
     python = Gem.win_platform? ? 'py' : 'python3'
 
     success = system(
       python,
-      script
+      '-m',
+      module_name
     )
 
-    raise "Python script failed: #{script}" unless success
+    return if success
+
+    raise "Python module failed: #{module_name}"
   end
 end
