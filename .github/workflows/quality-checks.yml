@@ -33,7 +33,7 @@ jobs:
         run: bundle exec rubocop
 
       - name: Run RSpec
-        run: bundle exec rspec
+        run: bundle exec rspec -I tests/ruby tests/ruby
 
       - name: Upload coverage report
         if: always()
