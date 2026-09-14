@@ -3,6 +3,7 @@ source 'https://rubygems.org'
 gem 'activesupport'
 gem 'benchmark'
 gem 'colorize'
+gem 'dotenv'
 gem 'rake'
 gem 'tty-prompt'
 
