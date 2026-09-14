@@ -106,3 +106,16 @@ def get_workflow_runs():
         "workflow_runs",
         [],
     )
+
+
+def rerun_failed_workflow_run(
+    run_id,
+):
+    # Reejecuta los jobs fallidos de un workflow
+    return github_request(
+        "POST",
+        (
+            f"actions/runs/{run_id}"
+            "/rerun-failed-jobs"
+        ),
+    )
