@@ -9,6 +9,7 @@ SimpleCov.start do
   add_group 'Git Support', 'lib/git-support'
   add_group 'Installation Support', 'lib/installation-support'
   add_group 'Utils', 'lib/utils'
+  add_group 'Video Games', 'tty_menu/video-games'
 end
 
 module OutputSilencer
