@@ -598,17 +598,58 @@ def test_handle_heimdall_failures(
 ):
     sent = []
 
+    failed_workflows = {
+        "Quality Checks": {
+            "id": 123,
+            "status": "completed",
+            "conclusion": "failure",
+        },
+    }
+
+    keyboard = {
+        "inline_keyboard": [
+            [
+                {
+                    "text":
+                        "🔄 Re-run 🧪 Quality Checks",
+                    "callback_data":
+                        "rerun:123",
+                }
+            ]
+        ]
+    }
+
+    monkeypatch.setattr(
+        heimdall,
+        "get_failed_workflows",
+        lambda: failed_workflows,
+    )
+
     monkeypatch.setattr(
         heimdall,
         "build_heimdall_failures",
-        lambda: "FAILURES",
+        lambda workflows:
+            "FAILURES",
+    )
+
+    monkeypatch.setattr(
+        heimdall,
+        "build_failures_keyboard",
+        lambda workflows:
+            keyboard,
     )
 
     monkeypatch.setattr(
         heimdall,
         "send_heimdall_message",
-        lambda chat_id, message:
-            sent.append(message),
+        lambda chat_id, message, reply_markup=None:
+            sent.append(
+                (
+                    chat_id,
+                    message,
+                    reply_markup,
+                )
+            ),
     )
 
     heimdall.handle_heimdall_message(
@@ -622,7 +663,11 @@ def test_handle_heimdall_failures(
     )
 
     assert sent == [
-        "FAILURES",
+        (
+            heimdall.HEIMDALL_CHAT_ID,
+            "FAILURES",
+            keyboard,
+        )
     ]
 
 def test_handle_heimdall_help(
