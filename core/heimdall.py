@@ -7,8 +7,10 @@ from core.config import (
 )
 from core.github import (
     get_workflow_runs,
+    rerun_failed_workflow_run,
 )
 from core.telegram import (
+    answer_heimdall_callback,
     send_heimdall_message,
 )
 
@@ -141,11 +143,14 @@ def get_latest_workflows():
     return latest_runs
 
 
-def count_incidents(latest_runs):
+def count_incidents(
+    latest_runs,
+):
     # Cuenta workflows actualmente fallidos
     return sum(
         1
-        for run in latest_runs.values()
+        for run
+        in latest_runs.values()
         if (
             run
             and run.get("status")
@@ -156,6 +161,7 @@ def count_incidents(latest_runs):
             in FAILURE_CONCLUSIONS
         )
     )
+
 
 def get_failed_workflows():
     # Obtiene los workflows actualmente fallidos
@@ -171,10 +177,13 @@ def get_failed_workflows():
             run
             and run.get("status")
             == "completed"
-            and run.get("conclusion")
+            and run.get(
+                "conclusion"
+            )
             in FAILURE_CONCLUSIONS
         )
     }
+
 
 # ============================================================
 # MENSAJES
@@ -209,27 +218,21 @@ def build_heimdall_status():
         ]
 
         lines.append(
-            
-                f"{label} — "
-                f"{workflow_status(run)}"
-            
+            f"{label} — "
+            f"{workflow_status(run)}"
         )
 
         if run:
             lines.append(
-                
-                    "      "
-                    f"{format_run_time(run.get('updated_at'))}"
-                
+                "      "
+                f"{format_run_time(run.get('updated_at'))}"
             )
 
         lines.append("")
 
     lines.append(
-        
-            "⚠️ Incidencias activas: "
-            f"{incidents}"
-        
+        "⚠️ Incidencias activas: "
+        f"{incidents}"
     )
 
     return "\n".join(
@@ -237,27 +240,14 @@ def build_heimdall_status():
     )
 
 
-def build_heimdall_help():
-    # Lista de comandos de Heimdall
-    return (
-        build_title(
-            "COMANDOS",
-            icon="🛡️",
-            indent=22,
-        )
-        + "/status\n"
-        + "Estado de Script Station.\n\n"
-        + "/failures\n"
-        + "Muestra los fallos activos.\n\n"
-        + "/help\n"
-        + "Muestra esta ayuda."
-    )
-
-def build_heimdall_failures():
+def build_heimdall_failures(
+    failed_workflows=None,
+):
     # Construye el listado de fallos activos
-    failed_workflows = (
-        get_failed_workflows()
-    )
+    if failed_workflows is None:
+        failed_workflows = (
+            get_failed_workflows()
+        )
 
     lines = [
         build_title(
@@ -324,11 +314,165 @@ def build_heimdall_failures():
         lines
     )
 
+
+def build_heimdall_help():
+    # Lista de comandos de Heimdall
+    return (
+        build_title(
+            "COMANDOS",
+            icon="🛡️",
+            indent=22,
+        )
+        + "/status\n"
+        + "Estado de Script Station.\n\n"
+        + "/failures\n"
+        + "Muestra los fallos activos.\n\n"
+        + "/help\n"
+        + "Muestra esta ayuda."
+    )
+
+
+# ============================================================
+# BOTONES
+# ============================================================
+
+def build_failures_keyboard(
+    failed_workflows,
+):
+    # Botones para reejecutar workflows fallidos
+    buttons = []
+
+    for (
+        workflow_name,
+        run,
+    ) in failed_workflows.items():
+
+        run_id = run.get(
+            "id"
+        )
+
+        if not run_id:
+            continue
+
+        label = WORKFLOWS[
+            workflow_name
+        ]
+
+        buttons.append(
+            [
+                {
+                    "text":
+                        f"🔄 Re-run {label}",
+                    "callback_data":
+                        f"rerun:{run_id}",
+                }
+            ]
+        )
+
+    if not buttons:
+        return None
+
+    return {
+        "inline_keyboard":
+            buttons
+    }
+
+
+# ============================================================
+# CALLBACKS
+# ============================================================
+
+def handle_heimdall_callback(
+    callback,
+):
+    # Procesa botones de Heimdall
+    callback_id = callback.get(
+        "id"
+    )
+
+    callback_data = callback.get(
+        "data",
+        "",
+    )
+
+    message = callback.get(
+        "message",
+        {},
+    )
+
+    chat_id = str(
+        message
+        .get("chat", {})
+        .get("id", "")
+    )
+
+    if (
+        chat_id
+        != HEIMDALL_CHAT_ID
+    ):
+        return {
+            "ok": True
+        }
+
+    # Re-run de jobs fallidos
+    if callback_data.startswith(
+        "rerun:"
+    ):
+        try:
+            run_id = int(
+                callback_data.split(
+                    ":",
+                    1,
+                )[1]
+            )
+
+            rerun_failed_workflow_run(
+                run_id
+            )
+
+        except (
+            ValueError,
+            OSError,
+        ):
+            if callback_id:
+                answer_heimdall_callback(
+                    callback_id,
+                    (
+                        "❌ No se pudo iniciar "
+                        "el Re-run"
+                    ),
+                )
+
+            return {
+                "ok": True
+            }
+
+        if callback_id:
+            answer_heimdall_callback(
+                callback_id,
+                "🔄 Re-run solicitado",
+            )
+
+        send_heimdall_message(
+            chat_id,
+            (
+                "🔄 Re-run solicitado.\n\n"
+                f"🆔 Run #{run_id}"
+            ),
+        )
+
+    return {
+        "ok": True
+    }
+
+
 # ============================================================
 # COMANDOS
 # ============================================================
 
-def handle_heimdall_message(message):
+def handle_heimdall_message(
+    message,
+):
     # Procesa comandos de Heimdall
     chat_id = str(
         message
@@ -358,12 +502,21 @@ def handle_heimdall_message(message):
             chat_id,
             build_heimdall_status(),
         )
-    
+
     # Fallos activos
     elif text == "/failures":
+        failed_workflows = (
+            get_failed_workflows()
+        )
+
         send_heimdall_message(
             chat_id,
-            build_heimdall_failures(),
+            build_heimdall_failures(
+                failed_workflows
+            ),
+            build_failures_keyboard(
+                failed_workflows
+            ),
         )
 
     # Ayuda
@@ -382,20 +535,34 @@ def handle_heimdall_message(message):
 # ENTRADA
 # ============================================================
 
-def handle_heimdall_update(update):
+def handle_heimdall_update(
+    update,
+):
     # Entrada principal de Heimdall
+    callback = update.get(
+        "callback_query"
+    )
+
+    if isinstance(
+        callback,
+        dict,
+    ):
+        return handle_heimdall_callback(
+            callback
+        )
+
     message = update.get(
         "message"
     )
 
-    if not isinstance(
+    if isinstance(
         message,
         dict,
     ):
-        return {
-            "ok": True
-        }
+        return handle_heimdall_message(
+            message
+        )
 
-    return handle_heimdall_message(
-        message
-    )
+    return {
+        "ok": True
+    }

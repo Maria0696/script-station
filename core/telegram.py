@@ -50,15 +50,44 @@ def send_huginn_message(
     )
 
 
-def send_heimdall_message(chat_id, text):
+def send_heimdall_message(
+    chat_id,
+    text,
+    reply_markup=None,
+):
     # Envía un mensaje desde Heimdall
+    data = {
+        "chat_id": chat_id,
+        "text": text,
+    }
+
+    if reply_markup:
+        data["reply_markup"] = reply_markup
+
     return telegram_api(
         HEIMDALL_BOT_TOKEN,
         "sendMessage",
-        {
-            "chat_id": chat_id,
-            "text": text,
-        },
+        data,
+    )
+
+
+def answer_heimdall_callback(
+    callback_query_id,
+    text=None,
+):
+    # Cierra la animación del botón pulsado
+    data = {
+        "callback_query_id":
+            callback_query_id,
+    }
+
+    if text:
+        data["text"] = text
+
+    return telegram_api(
+        HEIMDALL_BOT_TOKEN,
+        "answerCallbackQuery",
+        data,
     )
 
 
