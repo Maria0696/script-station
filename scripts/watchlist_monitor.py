@@ -5,11 +5,13 @@ from pathlib import Path
 
 import requests
 
-# Credenciales desde GitHub Secrets
+from core.notifications import (
+    notifications,
+)
+
+# Credenciales de IGDB
 CLIENT_ID = os.environ["IGDB_CLIENT_ID"]
 CLIENT_SECRET = os.environ["IGDB_CLIENT_SECRET"]
-BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 
 # Archivo donde guardamos la watchlist
@@ -76,7 +78,7 @@ def get_access_token():
 
 
 def get_igdb_headers(token):
-    # Cabeceras necesarias para consultar IGDB
+    # Construye las cabeceras para IGDB
     return {
         "Client-ID": CLIENT_ID,
         "Authorization": f"Bearer {token}",
@@ -114,7 +116,10 @@ def save_watchlist(watchlist):
         file.write("\n")
 
 
-def get_games_from_igdb(token, game_ids):
+def get_games_from_igdb(
+    token,
+    game_ids,
+):
     # Consulta datos básicos de los juegos
     if not game_ids:
         return {}
@@ -149,7 +154,10 @@ def get_games_from_igdb(token, game_ids):
     }
 
 
-def get_release_dates_from_igdb(token, game_ids):
+def get_release_dates_from_igdb(
+    token,
+    game_ids,
+):
     # Consulta fechas por juego y plataforma
     if not game_ids:
         return {}
@@ -161,7 +169,8 @@ def get_release_dates_from_igdb(token, game_ids):
 
     platform_ids = ",".join(
         str(platform_id)
-        for platform_id in PLATFORM_ORDER
+        for platform_id
+        in PLATFORM_ORDER
     )
 
     query = f"""
@@ -190,18 +199,37 @@ def get_release_dates_from_igdb(token, game_ids):
     result = {}
 
     for release in response.json():
-        game_id = release.get("game")
-        platform_id = release.get("platform")
-        region = release.get("release_region")
+        game_id = release.get(
+            "game"
+        )
 
-        if isinstance(game_id, dict):
-            game_id = game_id.get("id")
+        platform_id = release.get(
+            "platform"
+        )
 
-        if platform_id not in PLATFORM_LABELS:
+        region = release.get(
+            "release_region"
+        )
+
+        if isinstance(
+            game_id,
+            dict,
+        ):
+            game_id = game_id.get(
+                "id"
+            )
+
+        if (
+            platform_id
+            not in PLATFORM_LABELS
+        ):
             continue
 
         # Solo Europa, Worldwide o sin región
-        if isinstance(region, dict):
+        if isinstance(
+            region,
+            dict,
+        ):
             region_name = region.get(
                 "region",
                 "",
@@ -209,30 +237,44 @@ def get_release_dates_from_igdb(token, game_ids):
 
             if (
                 region_name
-                and region_name not in VALID_REGIONS
+                and region_name
+                not in VALID_REGIONS
             ):
                 continue
 
-        release_date = timestamp_to_date(
-            release.get("date")
+        release_date = (
+            timestamp_to_date(
+                release.get(
+                    "date"
+                )
+            )
         )
 
         if not release_date:
             continue
 
-        game_dates = result.setdefault(
-            game_id,
-            {},
+        game_dates = (
+            result.setdefault(
+                game_id,
+                {},
+            )
         )
 
         # Conserva la primera fecha válida
-        if platform_id not in game_dates:
-            game_dates[platform_id] = release_date
+        if (
+            platform_id
+            not in game_dates
+        ):
+            game_dates[
+                platform_id
+            ] = release_date
 
     return result
 
 
-def timestamp_to_date(timestamp):
+def timestamp_to_date(
+    timestamp,
+):
     # Convierte timestamp de IGDB a YYYY-MM-DD
     if not timestamp:
         return None
@@ -243,7 +285,9 @@ def timestamp_to_date(timestamp):
     ).date().isoformat()
 
 
-def display_date(date_string):
+def display_date(
+    date_string,
+):
     # Convierte YYYY-MM-DD a DD-MM-YYYY
     if not date_string:
         return "Sin fecha"
@@ -255,21 +299,19 @@ def display_date(date_string):
     )
 
 
-def send_telegram(text):
-    # Envía un aviso a Telegram
-    response = requests.post(
-        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        json={
-            "chat_id": CHAT_ID,
-            "text": text,
-        },
-        timeout=30,
+def send_notification(
+    text,
+):
+    # Envía mediante el servicio centralizado
+    return notifications.huginn(
+        text
     )
 
-    response.raise_for_status()
 
-
-def build_platforms(game, release_dates):
+def build_platforms(
+    game,
+    release_dates,
+):
     # Construye las plataformas actuales
     platform_ids = set(
         game.get(
@@ -285,11 +327,20 @@ def build_platforms(game, release_dates):
     platforms = []
     labels_added = set()
 
-    for platform_id in PLATFORM_ORDER:
-        if platform_id not in platform_ids:
+    for platform_id in (
+        PLATFORM_ORDER
+    ):
+        if (
+            platform_id
+            not in platform_ids
+        ):
             continue
 
-        label = PLATFORM_LABELS[platform_id]
+        label = (
+            PLATFORM_LABELS[
+                platform_id
+            ]
+        )
 
         # Evita Meta Quest duplicado
         if label in labels_added:
@@ -297,15 +348,20 @@ def build_platforms(game, release_dates):
 
         platforms.append(
             {
-                "id": platform_id,
-                "label": label,
-                "release_date": release_dates.get(
-                    platform_id
-                ),
+                "id":
+                    platform_id,
+                "label":
+                    label,
+                "release_date":
+                    release_dates.get(
+                        platform_id
+                    ),
             }
         )
 
-        labels_added.add(label)
+        labels_added.add(
+            label
+        )
 
     return platforms
 
@@ -317,7 +373,10 @@ def build_change_message(
     new_date,
 ):
     # Se anuncia una fecha nueva
-    if old_date is None and new_date is not None:
+    if (
+        old_date is None
+        and new_date is not None
+    ):
         return (
             "📅 NUEVA FECHA DE LANZAMIENTO\n\n"
             f"🎮 {game_name}\n"
@@ -326,7 +385,10 @@ def build_change_message(
         )
 
     # Se retira una fecha existente
-    if old_date is not None and new_date is None:
+    if (
+        old_date is not None
+        and new_date is None
+    ):
         return (
             "⚠️ FECHA DE LANZAMIENTO RETIRADA\n\n"
             f"🎮 {game_name}\n"
@@ -335,21 +397,35 @@ def build_change_message(
             "Ahora: Por confirmar"
         )
 
-    old_datetime = date.fromisoformat(
-        old_date
+    old_datetime = (
+        date.fromisoformat(
+            old_date
+        )
     )
 
-    new_datetime = date.fromisoformat(
-        new_date
+    new_datetime = (
+        date.fromisoformat(
+            new_date
+        )
     )
 
     # Nueva fecha posterior
-    if new_datetime > old_datetime:
-        title = "⏳ RETRASO DE LANZAMIENTO"
+    if (
+        new_datetime
+        > old_datetime
+    ):
+        title = (
+            "⏳ RETRASO DE LANZAMIENTO"
+        )
 
     # Nueva fecha anterior
-    elif new_datetime < old_datetime:
-        title = "⏩ ADELANTO DE LANZAMIENTO"
+    elif (
+        new_datetime
+        < old_datetime
+    ):
+        title = (
+            "⏩ ADELANTO DE LANZAMIENTO"
+        )
 
     else:
         return None
@@ -365,10 +441,15 @@ def build_change_message(
 
 def monitor_watchlist():
     # Carga los juegos que seguimos
-    watchlist = load_watchlist()
+    watchlist = (
+        load_watchlist()
+    )
 
     if not watchlist:
-        print("Watchlist is empty.")
+        print(
+            "Watchlist is empty."
+        )
+
         return False
 
     token = get_access_token()
@@ -379,55 +460,73 @@ def monitor_watchlist():
     ]
 
     # Datos actuales de IGDB
-    igdb_games = get_games_from_igdb(
-        token,
-        game_ids,
+    igdb_games = (
+        get_games_from_igdb(
+            token,
+            game_ids,
+        )
     )
 
-    release_dates = get_release_dates_from_igdb(
-        token,
-        game_ids,
+    release_dates = (
+        get_release_dates_from_igdb(
+            token,
+            game_ids,
+        )
     )
 
     changes_found = False
 
     for item in watchlist:
-        game_id = item["id"]
+        game_id = item[
+            "id"
+        ]
 
-        igdb_game = igdb_games.get(
-            game_id
+        igdb_game = (
+            igdb_games.get(
+                game_id
+            )
         )
 
         if not igdb_game:
             print(
-                f"Game not found: "
-                f"{item['name']} ({game_id})"
+                "Game not found: "
+                f"{item['name']} "
+                f"({game_id})"
             )
+
             continue
 
         # Actualiza nombre y fecha general
-        item["name"] = igdb_game.get(
-            "name",
-            item["name"],
+        item["name"] = (
+            igdb_game.get(
+                "name",
+                item["name"],
+            )
         )
 
-        item["release_date"] = timestamp_to_date(
+        item[
+            "release_date"
+        ] = timestamp_to_date(
             igdb_game.get(
                 "first_release_date"
             )
         )
 
-        current_platforms = build_platforms(
-            igdb_game,
-            release_dates.get(
-                game_id,
-                {},
-            ),
+        current_platforms = (
+            build_platforms(
+                igdb_game,
+                release_dates.get(
+                    game_id,
+                    {},
+                ),
+            )
         )
 
-        stored_platforms = item.get(
-            "platforms",
-            [],
+        stored_platforms = (
+            item.get(
+                "platforms",
+                [],
+            )
         )
 
         # Migra silenciosamente el formato antiguo
@@ -438,24 +537,31 @@ def monitor_watchlist():
                 dict,
             )
         ):
-            item["platforms"] = current_platforms
+            item[
+                "platforms"
+            ] = current_platforms
+
             changes_found = True
 
             print(
-                f"Migrated platforms: "
+                "Migrated platforms: "
                 f"{item['name']}"
             )
 
             continue
 
         old_by_id = {
-            platform["id"]: platform
-            for platform in stored_platforms
+            platform["id"]:
+                platform
+            for platform
+            in stored_platforms
         }
 
         current_by_id = {
-            platform["id"]: platform
-            for platform in current_platforms
+            platform["id"]:
+                platform
+            for platform
+            in current_platforms
         }
 
         # Comprueba cambios de fecha por plataforma
@@ -463,52 +569,78 @@ def monitor_watchlist():
             old_by_id.keys()
             & current_by_id.keys()
         ):
-            old_platform = old_by_id[
-                platform_id
-            ]
-
-            new_platform = current_by_id[
-                platform_id
-            ]
-
-            old_date = old_platform.get(
-                "release_date"
+            old_platform = (
+                old_by_id[
+                    platform_id
+                ]
             )
 
-            new_date = new_platform.get(
-                "release_date"
+            new_platform = (
+                current_by_id[
+                    platform_id
+                ]
             )
 
-            if old_date == new_date:
+            old_date = (
+                old_platform.get(
+                    "release_date"
+                )
+            )
+
+            new_date = (
+                new_platform.get(
+                    "release_date"
+                )
+            )
+
+            if (
+                old_date
+                == new_date
+            ):
                 continue
 
-            message = build_change_message(
-                item["name"],
-                new_platform["label"],
-                old_date,
-                new_date,
+            message = (
+                build_change_message(
+                    item["name"],
+                    new_platform[
+                        "label"
+                    ],
+                    old_date,
+                    new_date,
+                )
             )
 
             if message:
-                send_telegram(message)
+                send_notification(
+                    message
+                )
 
             print(
-                f"Date changed: "
+                "Date changed: "
                 f"{item['name']} | "
                 f"{new_platform['label']} | "
-                f"{old_date} -> {new_date}"
+                f"{old_date} -> "
+                f"{new_date}"
             )
 
             changes_found = True
 
         # Actualiza siempre el listado de plataformas
-        if stored_platforms != current_platforms:
-            item["platforms"] = current_platforms
+        if (
+            stored_platforms
+            != current_platforms
+        ):
+            item[
+                "platforms"
+            ] = current_platforms
+
             changes_found = True
 
     # Solo guarda el JSON si hubo cambios
     if changes_found:
-        save_watchlist(watchlist)
+        save_watchlist(
+            watchlist
+        )
 
     return changes_found
 
@@ -518,5 +650,5 @@ def main():
     monitor_watchlist()
 
 
-if __name__ == "__main__": # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     main()
