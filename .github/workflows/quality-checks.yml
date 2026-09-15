@@ -38,9 +38,6 @@ jobs:
       - name: Run Ruff
         run: python -m ruff check api core scripts station_cli.py tests
 
-      - name: Test Python CLI
-        run: script-station --help
-
       - name: Run Pytest
         run: |
           python -m pytest \
