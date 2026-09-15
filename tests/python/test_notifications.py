@@ -3,6 +3,168 @@ import pytest
 from core import notifications
 
 # ============================================================
+# EVENTOS
+# ============================================================
+
+def test_workflow_failed_event_routes_to_heimdall(
+    monkeypatch,
+):
+    captured = {}
+
+    keyboard = {
+        "inline_keyboard": [
+            [
+                {
+                    "text":
+                        "🔄 Re-run",
+                    "callback_data":
+                        "rerun:123",
+                }
+            ]
+        ]
+    }
+
+    service = (
+        notifications
+        .NotificationService()
+    )
+
+    def fake_heimdall(
+        text,
+        reply_markup=None,
+        parse_mode=None,
+        chat_id=None,
+    ):
+        captured[
+            "text"
+        ] = text
+
+        captured[
+            "reply_markup"
+        ] = reply_markup
+
+        captured[
+            "parse_mode"
+        ] = parse_mode
+
+        captured[
+            "chat_id"
+        ] = chat_id
+
+        return {
+            "ok": True,
+        }
+
+    monkeypatch.setattr(
+        service,
+        "heimdall",
+        fake_heimdall,
+    )
+
+    result = service.emit(
+        "workflow.failed",
+        "Workflow failed",
+        reply_markup=keyboard,
+    )
+
+    assert result == {
+        "ok": True,
+    }
+
+    assert (
+        captured["text"]
+        == "Workflow failed"
+    )
+
+    assert (
+        captured["reply_markup"]
+        == keyboard
+    )
+
+    assert (
+        captured["parse_mode"]
+        is None
+    )
+
+    assert (
+        captured["chat_id"]
+        is None
+    )
+
+
+def test_game_release_changed_event_routes_to_huginn(
+    monkeypatch,
+):
+    captured = {}
+
+    service = (
+        notifications
+        .NotificationService()
+    )
+
+    def fake_huginn(
+        text,
+        reply_markup=None,
+        parse_mode=None,
+        chat_id=None,
+    ):
+        captured[
+            "text"
+        ] = text
+
+        captured[
+            "reply_markup"
+        ] = reply_markup
+
+        captured[
+            "parse_mode"
+        ] = parse_mode
+
+        captured[
+            "chat_id"
+        ] = chat_id
+
+        return {
+            "ok": True,
+        }
+
+    monkeypatch.setattr(
+        service,
+        "huginn",
+        fake_huginn,
+    )
+
+    result = service.emit(
+        "game.release_changed",
+        "Game release changed",
+    )
+
+    assert result == {
+        "ok": True,
+    }
+
+    assert (
+        captured["text"]
+        == "Game release changed"
+    )
+
+    assert (
+        captured["reply_markup"]
+        is None
+    )
+
+    assert (
+        captured["parse_mode"]
+        is None
+    )
+
+    assert (
+        captured["chat_id"]
+        is None
+    )
+
+
+# ============================================================
 # HUGINN
 # ============================================================
 
@@ -268,6 +430,26 @@ def test_notification_custom_chat_id(
 # ============================================================
 # ERRORES
 # ============================================================
+
+def test_unknown_notification_event():
+    # Rechaza eventos desconocidos
+    service = (
+        notifications
+        .NotificationService()
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Unknown notification "
+            "event"
+        ),
+    ):
+        service.emit(
+            "odin.arrived",
+            "Test",
+        )
+
 
 def test_unknown_notification_channel():
     # Rechaza canales desconocidos
