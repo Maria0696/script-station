@@ -74,7 +74,8 @@ def notify_workflow_failure():
         )
     )
 
-    return notifications.heimdall(
+    return notifications.emit(
+        "workflow.failed",
         message,
         reply_markup=keyboard,
     )

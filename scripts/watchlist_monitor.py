@@ -302,9 +302,10 @@ def display_date(
 def send_notification(
     text,
 ):
-    # Envía mediante el servicio centralizado
-    return notifications.huginn(
-        text
+    # Publica un cambio de lanzamiento
+    return notifications.emit(
+        "game.release_changed",
+        text,
     )
 
 

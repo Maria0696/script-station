@@ -20,6 +20,14 @@ CHANNELS = {
 }
 
 
+EVENT_ROUTES = {
+    "workflow.failed":
+        "heimdall",
+    "game.release_changed":
+        "huginn",
+}
+
+
 class NotificationService:
 
     def _get_channel_config(
@@ -49,6 +57,50 @@ class NotificationService:
 
         return (
             bot_token,
+            chat_id,
+        )
+
+    def _get_event_channel(
+        self,
+        event,
+    ):
+        # Obtiene el canal asociado al evento
+        channel = EVENT_ROUTES.get(
+            event
+        )
+
+        if not channel:
+            raise ValueError(
+                "Unknown notification "
+                f"event: {event}"
+            )
+
+        return channel
+
+    def emit(
+        self,
+        event,
+        text,
+        reply_markup=None,
+        parse_mode=None,
+        chat_id=None,
+    ):
+        # Publica un evento en su canal configurado
+        channel = (
+            self._get_event_channel(
+                event
+            )
+        )
+
+        handler = getattr(
+            self,
+            channel,
+        )
+
+        return handler(
+            text,
+            reply_markup,
+            parse_mode,
             chat_id,
         )
 
