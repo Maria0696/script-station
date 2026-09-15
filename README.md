@@ -1,42 +1,48 @@
-# Script-Station
+# Script Station
 
 [![Quality Checks](https://github.com/Maria0696/script-station/actions/workflows/quality-checks.yml/badge.svg)](https://github.com/Maria0696/script-station/actions/workflows/quality-checks.yml)
 
-Script-Station is a collection of automation tools and scripts built with Ruby and Python.
+Script Station is a Python automation and monitoring toolkit.
 
-It includes an interactive Ruby interface, GitHub automation utilities, Telegram bots, video game release tracking, watchlist monitoring, and automated quality checks.
+It combines an interactive terminal interface, GitHub automation utilities, Telegram bots, video game release tracking, watchlist monitoring, scheduled GitHub Actions workflows and centralized notifications.
+
+---
 
 ## Features
 
-- **Interactive Ruby interface:** Run utilities through a guided terminal menu.
-- **GitHub automation:** Automate repetitive repository tasks.
-- **Telegram bots:** Huginn and Heimdall provide gaming and monitoring features.
-- **Video game tracking:** Retrieve release information from IGDB.
-- **Watchlist monitoring:** Detect changes in release dates and platforms.
-- **Automated workflows:** Run scheduled tasks with GitHub Actions.
-- **Quality checks:** Ruby and Python tests are organized under a shared test structure.
+- **Interactive Python CLI** with guided terminal menus.
+- **Direct CLI commands** for automation without opening the interactive menu.
+- **GitHub automation** for repetitive repository operations.
+- **Huginn** Telegram bot for video game features.
+- **Heimdall** Telegram bot for workflow monitoring.
+- **IGDB integration** for game information and release dates.
+- **Watchlist monitoring** for release date and platform changes.
+- **Event-based NotificationService** for centralized notification routing.
+- **Scheduled GitHub Actions** for automated reports and monitoring.
+- **FastAPI webhooks** for Telegram.
+- **Python-only test and quality pipeline** using pytest, coverage and Ruff.
 
-## Requirements
+---
 
-### Ruby
+# Requirements
 
-Ruby is used by the interactive Script-Station tools.
+Python **3.11 or newer**.
 
-Refer to the `Gemfile` and `Gemfile.lock` for the required dependencies.
+Check your version with:
 
-### Python
+```bash
+python --version
+```
 
-Python is used by:
+On Windows:
 
-- Huginn
-- Heimdall
-- Daily Video Game Releases
-- Watchlist Release Monitor
-- Vercel API endpoints
+```powershell
+py --version
+```
 
-Python **3.11** is recommended.
+---
 
-## Installation
+# Installation
 
 Clone the repository:
 
@@ -45,89 +51,340 @@ git clone https://github.com/Maria0696/script-station.git
 cd script-station
 ```
 
-### Ruby dependencies
+Install development dependencies:
 
 ```bash
-bundle install
+python -m pip install -r requirements-dev.txt
 ```
 
-### Python dependencies
+On Windows:
 
-For development and testing:
+```powershell
+py -m pip install -r requirements-dev.txt
+```
+
+Install Script Station in editable mode:
 
 ```bash
-pip install -r requirements-dev.txt
+python -m pip install -e .
 ```
 
-Runtime dependencies are defined in:
+On Windows:
+
+```powershell
+py -m pip install -e .
+```
+
+This installs the global project command:
 
 ```text
-requirements.txt
+script-station
 ```
 
-Development and testing dependencies are defined in:
+Editable mode means changes to the source code are immediately reflected without reinstalling the project.
+
+---
+
+# Environment Variables
+
+Local environment variables can be stored in:
 
 ```text
-requirements-dev.txt
+.env
 ```
+
+The `.env` file must never be committed.
+
+Depending on the functionality being used, Script Station can require the following variables:
+
+```text
+IGDB_CLIENT_ID
+IGDB_CLIENT_SECRET
+
+TELEGRAM_BOT_TOKEN
+TELEGRAM_CHAT_ID
+
+TELEGRAM_HEIMDALL_BOT_TOKEN
+TELEGRAM_HEIMDALL_CHAT_ID
+
+GITHUB_TOKEN
+```
+
+## IGDB
+
+Used by video game search, release reports and watchlist monitoring:
+
+```text
+IGDB_CLIENT_ID
+IGDB_CLIENT_SECRET
+```
+
+## Huginn
+
+Used by the gaming Telegram bot:
+
+```text
+TELEGRAM_BOT_TOKEN
+TELEGRAM_CHAT_ID
+```
+
+## Heimdall
+
+Used by the workflow monitoring Telegram bot:
+
+```text
+TELEGRAM_HEIMDALL_BOT_TOKEN
+TELEGRAM_HEIMDALL_CHAT_ID
+```
+
+## GitHub
+
+Used for GitHub API operations:
+
+```text
+GITHUB_TOKEN
+```
+
+The token should only receive the permissions required by the operations you intend to use.
+
+For the current GitHub integrations this can include:
+
+```text
+Actions: Read and write
+Contents: Read and write
+```
+
+Never commit a real token.
 
 ---
 
 # Usage
 
-## Interactive Script-Station
+## Interactive Menu
 
-Start the Ruby interface with:
-
-```bash
-rake start_tool
-```
-
-You can also create a shell alias:
-
-```bash
-alias script-station='cd ~/workspace/script-station && rake start_tool'
-```
-
-Reload your shell configuration:
-
-```bash
-source ~/.zshrc
-```
-
-Then launch Script-Station with:
+Launch Script Station with:
 
 ```bash
 script-station
 ```
 
----
+or:
 
-# Available Tools
-
-## GitHub Support → Add Workflow
-
-The Add Workflow utility can add the same GitHub Actions workflow to multiple repositories and automatically open pull requests.
-
-From the interactive menu:
-
-```text
-git-support
-└── Github Manager
-    └── Add workflow
+```bash
+script-station menu
 ```
 
-The utility can be configured interactively or with a YAML configuration file.
+The interactive Python menu provides access to:
+
+```text
+Script Station
+│
+├── Git Support
+│   └── Add workflow
+│
+├── Installation Support
+│   └── Package manager
+│
+├── Video Games
+│   ├── Video Game Releases
+│   └── Watchlist Monitor
+│
+├── Heimdall
+│   ├── Status
+│   └── Failures
+│
+└── Exit
+```
+
+The menu is implemented entirely in Python.
+
+---
+
+# CLI Commands
+
+Script Station can also execute tools directly without opening the interactive menu.
+
+Show available commands:
+
+```bash
+script-station --help
+```
+
+---
+
+## Video Game Releases
+
+```bash
+script-station releases
+```
+
+Runs the daily video game release report.
+
+The command uses IGDB to retrieve games released during the current day and sends the report through Huginn.
+
+Equivalent Python module:
+
+```bash
+python -m scripts.video_game_releases
+```
+
+---
+
+## Watchlist Monitor
+
+```bash
+script-station watchlist
+```
+
+Checks the stored game watchlist for release date and platform changes.
+
+Equivalent Python module:
+
+```bash
+python -m scripts.watchlist_monitor
+```
+
+---
+
+## Heimdall Status
+
+```bash
+script-station heimdall status
+```
+
+Displays the latest status of Script Station workflows directly in the terminal.
+
+Current monitored workflows include:
+
+```text
+Daily Video Game Releases
+Watchlist Release Monitor
+Quality Checks
+```
+
+---
+
+## Heimdall Failures
+
+```bash
+script-station heimdall failures
+```
+
+Displays currently failed workflows.
+
+---
+
+## GitHub Add Workflow
+
+```bash
+script-station github add-workflow
+```
+
+Adds the same GitHub Actions workflow to multiple repositories and automatically opens pull requests.
+
+---
+
+## Package Manager
+
+```bash
+script-station install package-manager
+```
+
+Provides installation support for:
+
+```text
+Windows → Chocolatey
+macOS   → Homebrew
+Linux   → Flatpak
+```
+
+The selected installer is only executed after confirmation.
+
+---
+
+## Notifications
+
+Workflow failure notifications can be triggered through:
+
+```bash
+script-station notify workflow-failed
+```
+
+This command is mainly intended for GitHub Actions, where the required GitHub workflow environment variables are already available.
+
+---
+
+# GitHub Automation
+
+## Add Workflow
+
+The Add Workflow utility automates adding the same workflow file to multiple repositories.
+
+It can:
+
+```text
+1. Read a list of repositories.
+2. Detect each repository's default branch.
+3. Create a new branch through the GitHub API.
+4. Upload the workflow file.
+5. Commit the workflow through GitHub.
+6. Open a pull request automatically.
+```
+
+The Python implementation communicates directly with the GitHub API.
+
+It does not need to clone every target repository locally.
+
+---
+
+## Configuration File
+
+Add Workflow can be configured using YAML.
 
 Example:
 
 ```yaml
 org: my-org
-github_token: ghp_xxx
+github_token_env: GITHUB_TOKEN
 repo_list_path: repos.txt
 workflow_template_path: templates/workflows/update-readme-profile.yml
 branch_suffix: ci
 dry_run: true
+```
+
+The token is referenced through:
+
+```yaml
+github_token_env: GITHUB_TOKEN
+```
+
+instead of being stored directly in the YAML file.
+
+Recommended local configuration:
+
+```env
+GITHUB_TOKEN=your_token_here
+```
+
+---
+
+## Dry Run
+
+Use:
+
+```yaml
+dry_run: true
+```
+
+to preview what would happen without modifying repositories.
+
+A dry run shows operations such as:
+
+```text
+[DRY RUN] Would update organization/repository
+[DRY RUN] Would create branch ...
+[DRY RUN] Would add .github/workflows/...
+[DRY RUN] Would commit and open a pull request
 ```
 
 Set:
@@ -136,21 +393,29 @@ Set:
 dry_run: false
 ```
 
-to actually clone repositories, create branches, commit changes, push them, and open pull requests.
-
-The GitHub token is masked in logs.
-
-> Never commit a real configuration file containing a GitHub token.
+to perform the real GitHub operations.
 
 ---
 
 # Telegram Bots
 
+Script Station contains two Telegram bots with different responsibilities.
+
+---
+
 ## Huginn
 
-Huginn is the gaming assistant for Script-Station.
+Huginn is the gaming assistant.
 
-It supports commands such as:
+Main logic:
+
+```text
+core/huginn.py
+```
+
+It integrates with IGDB and the game watchlist.
+
+Available commands include:
 
 ```text
 /watch
@@ -160,34 +425,21 @@ It supports commands such as:
 /help
 ```
 
-Huginn uses IGDB to search for games, retrieve platform information and release dates, and manage the game watchlist.
+Huginn can:
 
-Main logic:
-
-```text
-core/huginn.py
-```
+- Search for games.
+- Retrieve platform information.
+- Retrieve release dates.
+- Add games to the watchlist.
+- Remove games from the watchlist.
+- Show watched games.
+- Show upcoming releases.
 
 ---
 
 ## Heimdall
 
-Heimdall monitors Script-Station workflows.
-
-It can show the current status of:
-
-```text
-Daily Video Game Releases
-Watchlist Release Monitor
-Quality Checks
-```
-
-Available commands:
-
-```text
-/status
-/help
-```
+Heimdall monitors Script Station infrastructure and GitHub Actions workflows.
 
 Main logic:
 
@@ -195,27 +447,103 @@ Main logic:
 core/heimdall.py
 ```
 
+Available commands include:
+
+```text
+/status
+/failures
+/help
+```
+
+Heimdall can:
+
+- Show workflow status.
+- Detect active workflow failures.
+- Display workflow branches and execution times.
+- Link directly to GitHub Actions runs.
+- Re-run failed workflow jobs through Telegram buttons.
+
+---
+
+# Notification Service
+
+Notifications are centralized through:
+
+```text
+core/notifications.py
+```
+
+Consumers do not need to know which Telegram bot should receive a specific event.
+
+Instead, they emit notification events.
+
+Current routing:
+
+```text
+workflow.failed
+      ↓
+NotificationService
+      ↓
+Heimdall
+```
+
+and:
+
+```text
+game.release_changed
+      ↓
+NotificationService
+      ↓
+Huginn
+```
+
+Conceptually:
+
+```python
+notifications.emit(
+    "workflow.failed",
+    message,
+)
+```
+
+instead of:
+
+```python
+notifications.heimdall(
+    message,
+)
+```
+
+This keeps notification producers decoupled from notification channels.
+
 ---
 
 # Video Game Automations
 
 ## Daily Video Game Releases
 
+Main script:
+
 ```text
 scripts/video_game_releases.py
 ```
 
-Checks IGDB for games released during the current day and sends the results to Telegram.
-
-The script also calculates a popularity score and can highlight the most relevant releases.
-
-It runs automatically through:
+Workflow:
 
 ```text
 .github/workflows/videogames.yml
 ```
 
-Required secrets:
+The automation:
+
+- Authenticates with IGDB.
+- Retrieves releases for the current day.
+- Filters and processes release information.
+- Calculates release relevance.
+- Builds a Telegram report.
+- Sends the result through Huginn.
+
+Required variables:
 
 ```text
 IGDB_CLIENT_ID
@@ -228,31 +556,42 @@ TELEGRAM_CHAT_ID
 
 ## Watchlist Release Monitor
 
+Main script:
+
 ```text
 scripts/watchlist_monitor.py
 ```
 
-Monitors games stored in:
+Watchlist data:
 
 ```text
 data/watchlist.json
 ```
 
-It checks IGDB for changes to release dates and platform information.
-
-When a relevant change is detected, the monitor can send a Telegram notification and update the stored watchlist.
-
-It runs through:
+Workflow:
 
 ```text
 .github/workflows/watchlist.yml
 ```
 
+The monitor:
+
+- Loads watched games.
+- Queries current IGDB information.
+- Retrieves platform-specific release dates.
+- Detects delays.
+- Detects release advances.
+- Detects newly announced dates.
+- Detects removed dates.
+- Detects platform changes.
+- Updates the stored watchlist.
+- Emits `game.release_changed` notifications when relevant.
+
 ---
 
 # API
 
-The Python API is implemented with FastAPI.
+The web API is implemented with FastAPI.
 
 Main entry point:
 
@@ -260,120 +599,190 @@ Main entry point:
 api/index.py
 ```
 
-It exposes endpoints for both Telegram bots and provides health checks for the deployed service.
+It handles Telegram webhook requests for:
 
-The API routes Telegram updates to either Huginn or Heimdall.
+```text
+Huginn
+Heimdall
+```
+
+Deployment configuration:
+
+```text
+vercel.json
+```
+
+---
+
+# Core Modules
+
+Shared application logic lives in:
+
+```text
+core/
+```
+
+Current modules include:
+
+```text
+core/
+├── config.py
+├── github.py
+├── heimdall.py
+├── huginn.py
+├── igdb.py
+├── notifications.py
+└── telegram.py
+```
+
+## `config.py`
+
+Shared application configuration.
+
+## `github.py`
+
+GitHub API operations used by the bots and monitoring tools.
+
+## `heimdall.py`
+
+Workflow monitoring and Heimdall Telegram behavior.
+
+## `huginn.py`
+
+Gaming assistant and watchlist Telegram behavior.
+
+## `igdb.py`
+
+Shared IGDB integration.
+
+## `notifications.py`
+
+Event-based notification routing.
+
+## `telegram.py`
+
+Low-level Telegram transport.
+
+---
+
+# Scripts
+
+Executable automation modules live under:
+
+```text
+scripts/
+```
+
+Current tools include:
+
+```text
+scripts/
+├── add_workflow.py
+├── notify.py
+├── package_manager.py
+├── video_game_releases.py
+└── watchlist_monitor.py
+```
+
+The `script-station` CLI provides a common interface over these tools.
 
 ---
 
 # Testing
 
-All tests live under a single root directory:
+Script Station uses **pytest**.
 
-```text
-tests/
-├── ruby/
-└── python/
-```
-
-Each language keeps its own test framework and configuration.
-
-## Ruby Tests
-
-Ruby tests use RSpec.
-
-Run them with:
-
-```bash
-rake test
-```
-
-or directly:
-
-```bash
-bundle exec rspec -I tests/ruby tests/ruby
-```
-
-Run RuboCop with:
-
-```bash
-bundle exec rubocop
-```
-
-Ruby tests are located in:
-
-```text
-tests/ruby/
-```
-
-The Ruby suite uses SimpleCov for coverage.
-
-The current coverage gate requires:
-
-```text
-Total coverage:      >= 90%
-Coverage per file:   >= 80%
-```
-
-The HTML coverage report is generated under:
-
-```text
-coverage/
-```
-
-and uploaded by GitHub Actions as:
-
-```text
-coverage-report
-```
-
----
-
-## Python Tests
-
-Python tests use pytest.
-
-They are located in:
+Tests are stored in:
 
 ```text
 tests/python/
 ```
 
-Run them with:
+Run the complete suite:
 
 ```bash
-pytest
+python -m pytest
 ```
 
-Pytest configuration is stored in:
+On Windows:
 
-```text
-pytest.ini
+```powershell
+py -m pytest
 ```
 
-To run Python tests with coverage:
+Run a specific file:
 
 ```bash
-pytest \
+python -m pytest tests/python/test_cli.py -vv
+```
+
+---
+
+# Coverage
+
+Run Python tests with coverage:
+
+```bash
+python -m pytest \
   --cov=core \
-  --cov=scripts \
   --cov=api \
-  --cov-report=term-missing
+  --cov=scripts \
+  --cov=station_cli \
+  --cov-report=term-missing \
+  --cov-fail-under=90
 ```
 
-External services such as GitHub, Telegram and IGDB should be mocked during tests so the test suite does not depend on real API calls or credentials.
+PowerShell:
 
-Test environment variables are configured in:
+```powershell
+py -m pytest `
+  --cov=core `
+  --cov=api `
+  --cov=scripts `
+  --cov=station_cli `
+  --cov-report=term-missing `
+  --cov-fail-under=90
+```
+
+The project requires at least:
 
 ```text
-tests/python/conftest.py
+90% Python coverage
+```
+
+External services such as GitHub, Telegram and IGDB are mocked during tests.
+
+Tests must not depend on real credentials or external API calls.
+
+---
+
+# Ruff
+
+Ruff is used for Python linting.
+
+Run:
+
+```bash
+python -m ruff check api core scripts station_cli.py tests/python
+```
+
+On Windows:
+
+```powershell
+py -m ruff check api core scripts station_cli.py tests/python
+```
+
+A successful result should be:
+
+```text
+All checks passed!
 ```
 
 ---
 
 # Quality Checks
 
-GitHub Actions runs automated quality checks for pull requests and pushes to `master`.
+GitHub Actions runs automated checks for pull requests and pushes to `master`.
 
 Workflow:
 
@@ -381,15 +790,91 @@ Workflow:
 .github/workflows/quality-checks.yml
 ```
 
-The current Ruby checks include:
+Current checks include:
 
 ```text
-RuboCop
-RSpec
-SimpleCov
+Ruff
+Pytest
+Python coverage
+CLI installation
+CLI --help smoke test
 ```
 
-Python tests use the same `tests/` structure and will be integrated into the same Quality Checks workflow.
+The workflow installs Script Station using:
+
+```bash
+python -m pip install -e .
+```
+
+and verifies:
+
+```bash
+script-station --help
+```
+
+All pull requests should have green Quality Checks before being merged.
+
+---
+
+# Automated Workflows
+
+Script Station currently contains:
+
+```text
+.github/workflows/
+├── quality-checks.yml
+├── videogames.yml
+└── watchlist.yml
+```
+
+## Quality Checks
+
+Runs code quality and tests.
+
+## Daily Video Game Releases
+
+Runs the scheduled daily release report.
+
+## Watchlist Release Monitor
+
+Checks the watchlist for release changes.
+
+Workflow failures can emit:
+
+```text
+workflow.failed
+```
+
+which is routed automatically to Heimdall.
+
+---
+
+# Dependency Management
+
+Runtime dependencies are defined in:
+
+```text
+requirements.txt
+```
+
+Development dependencies are defined in:
+
+```text
+requirements-dev.txt
+```
+
+Python project metadata and the CLI entry point are defined in:
+
+```text
+pyproject.toml
+```
+
+Dependabot monitors:
+
+```text
+Python dependencies
+GitHub Actions
+```
 
 ---
 
@@ -397,7 +882,9 @@ Python tests use the same `tests/` structure and will be integrated into the sam
 
 ```text
 script-station/
+│
 ├── .github/
+│   ├── dependabot.yml
 │   └── workflows/
 │       ├── quality-checks.yml
 │       ├── videogames.yml
@@ -413,129 +900,147 @@ script-station/
 │   ├── heimdall.py
 │   ├── huginn.py
 │   ├── igdb.py
+│   ├── notifications.py
 │   └── telegram.py
 │
 ├── data/
 │   └── watchlist.json
 │
-├── lib/
-│   └── ...
-│
 ├── scripts/
+│   ├── __init__.py
+│   ├── add_workflow.py
+│   ├── notify.py
+│   ├── package_manager.py
 │   ├── video_game_releases.py
 │   └── watchlist_monitor.py
 │
 ├── templates/
-│   └── ...
+│   ├── configs/
+│   │   └── add-workflow.yml
+│   └── workflows/
+│       └── update-readme-profile.yml
 │
 ├── tests/
-│   ├── ruby/
-│   │   ├── fixtures/
-│   │   ├── lib/
-│   │   │   ├── git-support/
-│   │   │   └── installation-support/
-│   │   ├── scanner_spec.rb
-│   │   └── spec_helper.rb
-│   │
 │   └── python/
-│       └── conftest.py
-│
-├── tty_menu/
-│   └── ...
+│       ├── conftest.py
+│       ├── test_add_workflow.py
+│       ├── test_api.py
+│       ├── test_cli.py
+│       ├── test_github.py
+│       ├── test_heimdall.py
+│       ├── test_huginn.py
+│       ├── test_igdb.py
+│       ├── test_notifications.py
+│       ├── test_notify.py
+│       ├── test_package_manager.py
+│       ├── test_telegram.py
+│       ├── test_video_game_releases.py
+│       └── test_watchlist_monitor.py
 │
 ├── .gitignore
-├── .rubocop.yml
-├── Gemfile
-├── Gemfile.lock
+├── pyproject.toml
 ├── pytest.ini
-├── Rakefile
 ├── README.md
-├── requirements.txt
 ├── requirements-dev.txt
+├── requirements.txt
+├── station_cli.py
 └── vercel.json
 ```
 
 ---
 
-# Adding Ruby Tools
+# Generated Local Files
 
-Ruby tools follow the existing Script-Station structure.
-
-Create the interactive menu entry under:
+Some directories can appear locally while developing but are not part of the application source code:
 
 ```text
-tty_menu/<functionality>-support/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+coverage-python/
+*.egg-info/
 ```
 
-and place the implementation under:
-
-```text
-lib/<functionality>-support/
-```
-
-Example:
-
-```text
-script-station/
-├── lib/
-│   └── <functionality>-support/
-│       ├── <name>.rb
-│       └── ...
-│
-└── tty_menu/
-    └── <functionality>-support/
-        ├── <name>.rb
-        └── ...
-```
-
-Tests for the functionality should be added under:
-
-```text
-tests/ruby/
-```
-
-following the same structure where appropriate.
+They are generated automatically and ignored by Git.
 
 ---
 
-# About the Menu
+# Development Workflow
 
-Script-Station uses the `Step` class to manage the interactive menu.
+Recommended workflow for changes:
+
+```text
+1. Create a branch.
+2. Implement the change.
+3. Add or update tests.
+4. Run Ruff.
+5. Run pytest.
+6. Check coverage.
+7. Push the branch.
+8. Open a pull request.
+9. Wait for Quality Checks.
+10. Merge when everything is green.
+```
+
+Before committing:
+
+```bash
+python -m ruff check api core scripts station_cli.py tests/python
+python -m pytest
+git diff --check
+```
+
+On Windows:
+
+```powershell
+py -m ruff check api core scripts station_cli.py tests/python
+py -m pytest
+git diff --check
+```
+
+---
+
+# Security
+
+- Never commit `.env`.
+- Never commit GitHub tokens.
+- Never commit Telegram bot tokens.
+- Never put production secrets inside YAML templates.
+- Use environment variables for credentials.
+- Mock external services during tests.
+- Use the minimum permissions required for GitHub tokens.
 
 Example:
 
-```ruby
-step do
-  # Logic to present options to the user
-end
+```yaml
+github_token_env: GITHUB_TOKEN
 ```
 
-## Backward Navigation
+instead of:
 
-To support backward navigation, steps should be nested:
-
-```ruby
-step do
-  # First level
-
-  step do
-    # Second level
-  end
-end
+```yaml
+github_token: real-secret-token
 ```
 
 ---
 
 # Contributing
 
-Contributions are welcome.
+Contributions should follow the existing Python architecture.
 
-When adding or modifying functionality:
+When adding functionality:
 
-1. Keep the existing project structure.
-2. Add or update tests.
-3. Run the relevant test suite locally.
-4. Run the linters.
-5. Open a pull request against `master`.
+1. Keep business logic outside CLI routing where possible.
+2. Reuse shared modules from `core/`.
+3. Add executable automation under `scripts/` when appropriate.
+4. Add tests under `tests/python/`.
+5. Keep external API calls mockable.
+6. Run Ruff and pytest locally.
+7. Open a pull request against `master`.
+8. Merge only when Quality Checks are green.
 
-All pull requests should pass the `Quality Checks` workflow before being merged.
+---
+
+# License
+
+No license has been defined yet.

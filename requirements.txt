@@ -1,2 +1,6 @@
 fastapi
+python-dotenv
+PyYAML
+questionary
+requests
 tzdata

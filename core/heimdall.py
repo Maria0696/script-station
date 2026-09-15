@@ -62,10 +62,7 @@ def format_run_time(date_string):
 
     run_time = (
         datetime.fromisoformat(
-            date_string.replace(
-                "Z",
-                "+00:00",
-            )
+            date_string
         )
         .astimezone(
             MADRID_TIMEZONE

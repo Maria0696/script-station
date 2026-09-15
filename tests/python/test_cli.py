@@ -1,20 +1,5 @@
-from station_cli import (
-    PROJECT_ROOT,
-    build_menu_command,
-    build_parser,
-    load_environment,
-    main,
-    run_heimdall_status,
-    run_menu,
-    run_notify,
-    run_releases,
-    run_watchlist,
-)
+import station_cli as cli
 
-
-# ============================================================
-# ENTORNO
-# ============================================================
 
 def test_load_environment(
     monkeypatch,
@@ -22,158 +7,47 @@ def test_load_environment(
     captured = []
 
     monkeypatch.setattr(
-        "station_cli.load_dotenv",
+        cli,
+        "load_dotenv",
         lambda path:
-            captured.append(path),
+            captured.append(
+                path
+            ),
     )
 
-    load_environment()
+    cli.load_environment()
 
     assert captured == [
-        PROJECT_ROOT
+        cli.PROJECT_ROOT
         / ".env"
     ]
 
 
-# ============================================================
-# MENÚ
-# ============================================================
-
-def test_build_menu_command_windows(
-    monkeypatch,
-):
-    monkeypatch.setattr(
-        "station_cli.os.name",
-        "nt",
-    )
-
-    assert build_menu_command() == [
-        "cmd",
-        "/c",
-        "bundle",
-        "exec",
-        "rake",
-        "start_tool",
-    ]
-
-
-def test_build_menu_command_unix(
-    monkeypatch,
-):
-    monkeypatch.setattr(
-        "station_cli.os.name",
-        "posix",
-    )
-
-    assert build_menu_command() == [
-        "bundle",
-        "exec",
-        "rake",
-        "start_tool",
-    ]
-
-
-def test_run_menu(
-    monkeypatch,
-):
-    captured = {}
-
-    class FakeResult:
-        returncode = 0
-
-    monkeypatch.setattr(
-        "station_cli.shutil.which",
-        lambda command:
-            "bundle",
-    )
-
-    monkeypatch.setattr(
-        "station_cli.build_menu_command",
-        lambda: [
-            "bundle",
-            "exec",
-            "rake",
-            "start_tool",
-        ],
-    )
-
-    def fake_run(
-        command,
-        cwd=None,
-        check=None,
-    ):
-        captured[
-            "command"
-        ] = command
-
-        captured[
-            "cwd"
-        ] = cwd
-
-        captured[
-            "check"
-        ] = check
-
-        return FakeResult()
-
-    monkeypatch.setattr(
-        "station_cli.subprocess.run",
-        fake_run,
-    )
-
-    result = run_menu()
-
-    assert result == 0
-
-    assert captured[
-        "command"
-    ] == [
-        "bundle",
-        "exec",
-        "rake",
-        "start_tool",
-    ]
-
-    assert (
-        captured["cwd"]
-        == PROJECT_ROOT
-    )
-
-    assert (
-        captured["check"]
-        is False
-    )
-
-
-def test_run_menu_without_bundle(
+def test_environment_ready_missing(
     monkeypatch,
     capsys,
 ):
-    monkeypatch.setattr(
-        "station_cli.shutil.which",
-        lambda command:
-            None,
+    monkeypatch.delenv(
+        "CLI_TEST_SECRET",
+        raising=False,
     )
 
-    result = run_menu()
+    assert (
+        cli.environment_ready(
+            (
+                "CLI_TEST_SECRET",
+            )
+        )
+        is False
+    )
 
-    output = (
-        capsys
+    assert (
+        "CLI_TEST_SECRET"
+        in capsys
         .readouterr()
         .err
     )
 
-    assert result == 1
-
-    assert (
-        "Bundler is not available"
-        in output
-    )
-
-
-# ============================================================
-# RELEASES
-# ============================================================
 
 def test_run_releases(
     monkeypatch,
@@ -185,24 +59,55 @@ def test_run_releases(
     called = []
 
     monkeypatch.setattr(
+        cli,
+        "environment_ready",
+        lambda required:
+            True,
+    )
+
+    monkeypatch.setattr(
         video_game_releases,
         "main",
         lambda:
-            called.append(True),
+            called.append(
+                True
+            ),
     )
 
-    result = run_releases()
-
-    assert result == 0
+    assert (
+        cli.run_releases()
+        == 0
+    )
 
     assert called == [
         True,
     ]
 
 
-# ============================================================
-# WATCHLIST
-# ============================================================
+def test_run_releases_cancelled(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        cli,
+        "environment_ready",
+        lambda required:
+            True,
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "confirm_action",
+        lambda message:
+            False,
+    )
+
+    assert (
+        cli.run_releases(
+            confirm=True
+        )
+        == 0
+    )
+
 
 def test_run_watchlist(
     monkeypatch,
@@ -214,24 +119,30 @@ def test_run_watchlist(
     called = []
 
     monkeypatch.setattr(
+        cli,
+        "environment_ready",
+        lambda required:
+            True,
+    )
+
+    monkeypatch.setattr(
         watchlist_monitor,
         "main",
         lambda:
-            called.append(True),
+            called.append(
+                True
+            ),
     )
 
-    result = run_watchlist()
-
-    assert result == 0
+    assert (
+        cli.run_watchlist()
+        == 0
+    )
 
     assert called == [
         True,
     ]
 
-
-# ============================================================
-# NOTIFY
-# ============================================================
 
 def test_run_notify(
     monkeypatch,
@@ -244,14 +155,17 @@ def test_run_notify(
         notify,
         "main",
         lambda args:
-            captured.append(args),
+            captured.append(
+                args
+            ),
     )
 
-    result = run_notify(
-        "workflow-failed"
+    assert (
+        cli.run_notify(
+            "workflow-failed"
+        )
+        == 0
     )
-
-    assert result == 0
 
     assert captured == [
         [
@@ -259,10 +173,6 @@ def test_run_notify(
         ]
     ]
 
-
-# ============================================================
-# HEIMDALL
-# ============================================================
 
 def test_run_heimdall_status(
     monkeypatch,
@@ -271,280 +181,508 @@ def test_run_heimdall_status(
     from core import heimdall
 
     monkeypatch.setattr(
+        cli,
+        "environment_ready",
+        lambda required:
+            True,
+    )
+
+    monkeypatch.setattr(
         heimdall,
         "build_heimdall_status",
         lambda:
             "TEST STATUS",
     )
 
-    result = (
-        run_heimdall_status()
+    assert (
+        cli.run_heimdall_status()
+        == 0
     )
 
-    output = (
-        capsys
+    assert (
+        "TEST STATUS"
+        in capsys
         .readouterr()
         .out
     )
 
-    assert result == 0
+
+def test_run_heimdall_failures(
+    monkeypatch,
+    capsys,
+):
+    from core import heimdall
+
+    monkeypatch.setattr(
+        cli,
+        "environment_ready",
+        lambda required:
+            True,
+    )
+
+    monkeypatch.setattr(
+        heimdall,
+        "build_heimdall_failures",
+        lambda:
+            "TEST FAILURES",
+    )
 
     assert (
-        "TEST STATUS"
-        in output
+        cli.run_heimdall_failures()
+        == 0
+    )
+
+    assert (
+        "TEST FAILURES"
+        in capsys
+        .readouterr()
+        .out
     )
 
 
-# ============================================================
-# PARSER
-# ============================================================
-
-def test_parser_releases():
-    parser = build_parser()
-
-    result = parser.parse_args(
+def test_git_support_menu(
+    monkeypatch,
+):
+    choices = iter(
         [
+            "Add workflow",
+            "Back",
+        ]
+    )
+
+    called = []
+
+    monkeypatch.setattr(
+        cli,
+        "select_option",
+        lambda message, options:
+            next(
+                choices
+            ),
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "run_add_workflow",
+        lambda:
+            called.append(
+                True
+            ),
+    )
+
+    cli.git_support_menu()
+
+    assert called == [
+        True,
+    ]
+
+
+def test_installation_support_menu(
+    monkeypatch,
+):
+    choices = iter(
+        [
+            "Package manager",
+            "Back",
+        ]
+    )
+
+    called = []
+
+    monkeypatch.setattr(
+        cli,
+        "select_option",
+        lambda message, options:
+            next(
+                choices
+            ),
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "run_package_manager",
+        lambda:
+            called.append(
+                True
+            ),
+    )
+
+    cli.installation_support_menu()
+
+    assert called == [
+        True,
+    ]
+
+
+def test_video_games_menu(
+    monkeypatch,
+):
+    choices = iter(
+        [
+            "Video Game Releases",
+            "Watchlist Monitor",
+            "Back",
+        ]
+    )
+
+    called = []
+
+    monkeypatch.setattr(
+        cli,
+        "select_option",
+        lambda message, options:
+            next(
+                choices
+            ),
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "run_releases",
+        lambda confirm=False:
+            called.append(
+                (
+                    "releases",
+                    confirm,
+                )
+            ),
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "run_watchlist",
+        lambda confirm=False:
+            called.append(
+                (
+                    "watchlist",
+                    confirm,
+                )
+            ),
+    )
+
+    cli.video_games_menu()
+
+    assert called == [
+        (
             "releases",
-        ]
-    )
-
-    assert (
-        result.command
-        == "releases"
-    )
-
-
-def test_parser_watchlist():
-    parser = build_parser()
-
-    result = parser.parse_args(
-        [
+            True,
+        ),
+        (
             "watchlist",
-        ]
-    )
-
-    assert (
-        result.command
-        == "watchlist"
-    )
+            True,
+        ),
+    ]
 
 
-def test_parser_notify():
-    parser = build_parser()
-
-    result = parser.parse_args(
+def test_heimdall_menu(
+    monkeypatch,
+):
+    choices = iter(
         [
-            "notify",
-            "workflow-failed",
+            "Status",
+            "Failures",
+            "Back",
         ]
     )
 
-    assert (
-        result.command
-        == "notify"
+    called = []
+
+    monkeypatch.setattr(
+        cli,
+        "select_option",
+        lambda message, options:
+            next(
+                choices
+            ),
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "run_heimdall_status",
+        lambda:
+            called.append(
+                "status"
+            ),
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "run_heimdall_failures",
+        lambda:
+            called.append(
+                "failures"
+            ),
+    )
+
+    cli.heimdall_menu()
+
+    assert called == [
+        "status",
+        "failures",
+    ]
+
+
+def test_interactive_menu(
+    monkeypatch,
+):
+    choices = iter(
+        [
+            "Git Support",
+            "Installation Support",
+            "Video Games",
+            "Heimdall",
+            "Exit",
+        ]
+    )
+
+    called = []
+
+    monkeypatch.setattr(
+        cli,
+        "select_option",
+        lambda message, options:
+            next(
+                choices
+            ),
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "git_support_menu",
+        lambda:
+            called.append(
+                "github"
+            ),
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "installation_support_menu",
+        lambda:
+            called.append(
+                "install"
+            ),
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "video_games_menu",
+        lambda:
+            called.append(
+                "games"
+            ),
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "heimdall_menu",
+        lambda:
+            called.append(
+                "heimdall"
+            ),
     )
 
     assert (
-        result.notify_command
-        == "workflow-failed"
+        cli.interactive_menu()
+        == 0
     )
 
+    assert called == [
+        "github",
+        "install",
+        "games",
+        "heimdall",
+    ]
 
-def test_parser_heimdall_status():
-    parser = build_parser()
 
-    result = parser.parse_args(
+def test_parser_nested_commands():
+    parser = (
+        cli.build_parser()
+    )
+
+    github = parser.parse_args(
+        [
+            "github",
+            "add-workflow",
+        ]
+    )
+
+    install = parser.parse_args(
+        [
+            "install",
+            "package-manager",
+        ]
+    )
+
+    heimdall = parser.parse_args(
         [
             "heimdall",
-            "status",
+            "failures",
         ]
     )
 
     assert (
-        result.command
-        == "heimdall"
+        github.github_command
+        == "add-workflow"
     )
 
     assert (
-        result.heimdall_command
-        == "status"
+        install.install_command
+        == "package-manager"
     )
 
+    assert (
+        heimdall.heimdall_command
+        == "failures"
+    )
 
-# ============================================================
-# MAIN
-# ============================================================
 
 def test_main_defaults_to_menu(
     monkeypatch,
 ):
     monkeypatch.setattr(
-        "station_cli.load_environment",
+        cli,
+        "load_environment",
         lambda:
             None,
     )
 
     monkeypatch.setattr(
-        "station_cli.run_menu",
+        cli,
+        "interactive_menu",
         lambda:
             0,
     )
 
-    assert main([]) == 0
+    assert (
+        cli.main([])
+        == 0
+    )
 
 
-def test_main_menu(
+def test_main_routes_commands(
     monkeypatch,
 ):
-    called = []
-
     monkeypatch.setattr(
-        "station_cli.load_environment",
+        cli,
+        "load_environment",
         lambda:
             None,
     )
 
     monkeypatch.setattr(
-        "station_cli.run_menu",
+        cli,
+        "run_releases",
         lambda:
-            called.append(True)
-            or 0,
-    )
-
-    result = main(
-        [
-            "menu",
-        ]
-    )
-
-    assert result == 0
-
-    assert called == [
-        True,
-    ]
-
-
-def test_main_releases(
-    monkeypatch,
-):
-    called = []
-
-    monkeypatch.setattr(
-        "station_cli.load_environment",
-        lambda:
-            None,
+            11,
     )
 
     monkeypatch.setattr(
-        "station_cli.run_releases",
+        cli,
+        "run_watchlist",
         lambda:
-            called.append(True)
-            or 0,
-    )
-
-    result = main(
-        [
-            "releases",
-        ]
-    )
-
-    assert result == 0
-
-    assert called == [
-        True,
-    ]
-
-
-def test_main_watchlist(
-    monkeypatch,
-):
-    called = []
-
-    monkeypatch.setattr(
-        "station_cli.load_environment",
-        lambda:
-            None,
+            12,
     )
 
     monkeypatch.setattr(
-        "station_cli.run_watchlist",
+        cli,
+        "run_add_workflow",
         lambda:
-            called.append(True)
-            or 0,
-    )
-
-    result = main(
-        [
-            "watchlist",
-        ]
-    )
-
-    assert result == 0
-
-    assert called == [
-        True,
-    ]
-
-
-def test_main_notify(
-    monkeypatch,
-):
-    captured = []
-
-    monkeypatch.setattr(
-        "station_cli.load_environment",
-        lambda:
-            None,
+            13,
     )
 
     monkeypatch.setattr(
-        "station_cli.run_notify",
+        cli,
+        "run_package_manager",
+        lambda:
+            14,
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "run_notify",
         lambda command:
-            captured.append(command)
-            or 0,
-    )
-
-    result = main(
-        [
-            "notify",
-            "workflow-failed",
-        ]
-    )
-
-    assert result == 0
-
-    assert captured == [
-        "workflow-failed",
-    ]
-
-
-def test_main_heimdall_status(
-    monkeypatch,
-):
-    called = []
-
-    monkeypatch.setattr(
-        "station_cli.load_environment",
-        lambda:
-            None,
+            15,
     )
 
     monkeypatch.setattr(
-        "station_cli.run_heimdall_status",
+        cli,
+        "run_heimdall_status",
         lambda:
-            called.append(True)
-            or 0,
+            16,
     )
 
-    result = main(
-        [
-            "heimdall",
-            "status",
-        ]
+    monkeypatch.setattr(
+        cli,
+        "run_heimdall_failures",
+        lambda:
+            17,
     )
 
-    assert result == 0
+    assert (
+        cli.main(
+            [
+                "releases",
+            ]
+        )
+        == 11
+    )
 
-    assert called == [
-        True,
-    ]
+    assert (
+        cli.main(
+            [
+                "watchlist",
+            ]
+        )
+        == 12
+    )
+
+    assert (
+        cli.main(
+            [
+                "github",
+                "add-workflow",
+            ]
+        )
+        == 13
+    )
+
+    assert (
+        cli.main(
+            [
+                "install",
+                "package-manager",
+            ]
+        )
+        == 14
+    )
+
+    assert (
+        cli.main(
+            [
+                "notify",
+                "workflow-failed",
+            ]
+        )
+        == 15
+    )
+
+    assert (
+        cli.main(
+            [
+                "heimdall",
+                "status",
+            ]
+        )
+        == 16
+    )
+
+    assert (
+        cli.main(
+            [
+                "heimdall",
+                "failures",
+            ]
+        )
+        == 17
+    )

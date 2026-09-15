@@ -16,8 +16,8 @@ dist/
 # Pytest
 .pytest_cache/
 
-# RSpec
-.rspec_status
+# Ruff
+.ruff_cache/
 
 # Logs
 logs/

@@ -1,7 +1,7 @@
 import json
 from datetime import (
+    UTC,
     datetime,
-    timezone,
 )
 
 from scripts import (
@@ -20,7 +20,7 @@ def timestamp(
             year,
             month,
             day,
-            tzinfo=timezone.utc,
+            tzinfo=UTC,
         ).timestamp()
     )
 

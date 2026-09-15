@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from core import igdb
 
@@ -10,7 +10,7 @@ def timestamp(year, month, day):
             year,
             month,
             day,
-            tzinfo=timezone.utc,
+            tzinfo=UTC,
         ).timestamp()
     )
 

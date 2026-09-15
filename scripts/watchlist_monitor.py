@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import requests
@@ -281,7 +281,7 @@ def timestamp_to_date(
 
     return datetime.fromtimestamp(
         timestamp,
-        tz=timezone.utc,
+        tz=UTC,
     ).date().isoformat()
 
 
