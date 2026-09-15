@@ -58,10 +58,15 @@ jobs:
           cache: pip
 
       - name: Install Python dependencies
-        run: python -m pip install -r requirements-dev.txt
+        run: |
+          python -m pip install -r requirements-dev.txt
+          python -m pip install -e .
 
       - name: Run Ruff
-        run: python -m ruff check api core scripts tests/python
+        run: python -m ruff check api core scripts station_cli.py tests/python
+
+      - name: Test Python CLI
+        run: script-station --help
 
       - name: Run Pytest
         run: |
@@ -69,6 +74,7 @@ jobs:
             --cov=core \
             --cov=api \
             --cov=scripts \
+            --cov=station_cli \
             --cov-report=term-missing \
             --cov-report=html:coverage-python \
             --cov-fail-under=90
