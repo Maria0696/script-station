@@ -27,7 +27,7 @@ jobs:
         run: pip install requests
 
       - name: Check watchlist release dates
-        run: python scripts/watchlist_monitor.py
+        run: python -m scripts.watchlist_monitor
         env:
           IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}

@@ -1,10 +1,19 @@
 import json
-from datetime import datetime, timezone
+from datetime import (
+    datetime,
+    timezone,
+)
 
-from scripts import watchlist_monitor as monitor
+from scripts import (
+    watchlist_monitor as monitor,
+)
 
 
-def timestamp(year, month, day):
+def timestamp(
+    year,
+    month,
+    day,
+):
     # Crea timestamps UTC para los tests
     return int(
         datetime(
@@ -20,17 +29,23 @@ def timestamp(year, month, day):
 # AUTENTICACIÓN
 # ============================================================
 
-def test_get_access_token(monkeypatch):
-    # Obtiene correctamente el token de Twitch
+def test_get_access_token(
+    monkeypatch,
+):
     captured = {}
 
     class FakeResponse:
-        def raise_for_status(self):
-            captured["raised"] = True
+        def raise_for_status(
+            self,
+        ):
+            captured[
+                "raised"
+            ] = True
 
         def json(self):
             return {
-                "access_token": "test-token",
+                "access_token":
+                    "test-token",
             }
 
     def fake_post(
@@ -50,34 +65,59 @@ def test_get_access_token(monkeypatch):
         fake_post,
     )
 
-    result = monitor.get_access_token()
-
-    assert result == "test-token"
-
-    assert captured["url"] == (
-        "https://id.twitch.tv/oauth2/token"
+    result = (
+        monitor.get_access_token()
     )
 
-    assert captured["params"] == {
-        "client_id": monitor.CLIENT_ID,
-        "client_secret": monitor.CLIENT_SECRET,
-        "grant_type": "client_credentials",
+    assert (
+        result
+        == "test-token"
+    )
+
+    assert (
+        captured["url"]
+        == (
+            "https://id.twitch.tv/"
+            "oauth2/token"
+        )
+    )
+
+    assert captured[
+        "params"
+    ] == {
+        "client_id":
+            monitor.CLIENT_ID,
+        "client_secret":
+            monitor.CLIENT_SECRET,
+        "grant_type":
+            "client_credentials",
     }
 
-    assert captured["timeout"] == 30
-    assert captured["raised"] is True
+    assert (
+        captured["timeout"]
+        == 30
+    )
+
+    assert (
+        captured["raised"]
+        is True
+    )
 
 
 def test_get_igdb_headers():
-    # Construye las cabeceras para IGDB
-    result = monitor.get_igdb_headers(
-        "test-token"
+    result = (
+        monitor.get_igdb_headers(
+            "test-token"
+        )
     )
 
     assert result == {
-        "Client-ID": monitor.CLIENT_ID,
-        "Authorization": "Bearer test-token",
-        "Accept": "application/json",
+        "Client-ID":
+            monitor.CLIENT_ID,
+        "Authorization":
+            "Bearer test-token",
+        "Accept":
+            "application/json",
     }
 
 
@@ -89,7 +129,6 @@ def test_load_watchlist_missing(
     monkeypatch,
     tmp_path,
 ):
-    # Devuelve vacío si no existe el archivo
     path = (
         tmp_path
         / "watchlist.json"
@@ -101,14 +140,16 @@ def test_load_watchlist_missing(
         path,
     )
 
-    assert monitor.load_watchlist() == []
+    assert (
+        monitor.load_watchlist()
+        == []
+    )
 
 
 def test_load_watchlist(
     monkeypatch,
     tmp_path,
 ):
-    # Lee correctamente la watchlist
     path = (
         tmp_path
         / "watchlist.json"
@@ -117,7 +158,8 @@ def test_load_watchlist(
     data = [
         {
             "id": 123,
-            "name": "Test Game",
+            "name":
+                "Test Game",
         }
     ]
 
@@ -142,7 +184,6 @@ def test_save_watchlist(
     monkeypatch,
     tmp_path,
 ):
-    # Guarda la watchlist en JSON
     path = (
         tmp_path
         / "watchlist.json"
@@ -157,21 +198,34 @@ def test_save_watchlist(
     data = [
         {
             "id": 123,
-            "name": "Pokémon Test",
+            "name":
+                "Pokémon Test",
         }
     ]
 
-    monitor.save_watchlist(data)
-
-    content = path.read_text(
-        encoding="utf-8"
+    monitor.save_watchlist(
+        data
     )
 
-    assert json.loads(content) == data
+    content = (
+        path.read_text(
+            encoding="utf-8"
+        )
+    )
 
-    assert content.endswith("\n")
+    assert (
+        json.loads(content)
+        == data
+    )
 
-    assert "Pokémon Test" in content
+    assert (
+        content.endswith("\n")
+    )
+
+    assert (
+        "Pokémon Test"
+        in content
+    )
 
 
 # ============================================================
@@ -179,9 +233,9 @@ def test_save_watchlist(
 # ============================================================
 
 def test_get_games_from_igdb_empty():
-    # Evita consultar IGDB sin IDs
     assert (
-        monitor.get_games_from_igdb(
+        monitor
+        .get_games_from_igdb(
             "token",
             [],
         )
@@ -192,22 +246,25 @@ def test_get_games_from_igdb_empty():
 def test_get_games_from_igdb(
     monkeypatch,
 ):
-    # Obtiene juegos indexados por ID
     captured = {}
 
     class FakeResponse:
-        def raise_for_status(self):
+        def raise_for_status(
+            self,
+        ):
             pass
 
         def json(self):
             return [
                 {
                     "id": 123,
-                    "name": "Game One",
+                    "name":
+                        "Game One",
                 },
                 {
                     "id": 456,
-                    "name": "Game Two",
+                    "name":
+                        "Game Two",
                 },
             ]
 
@@ -230,24 +287,36 @@ def test_get_games_from_igdb(
         fake_post,
     )
 
-    result = monitor.get_games_from_igdb(
-        "test-token",
-        [123, 456],
+    result = (
+        monitor
+        .get_games_from_igdb(
+            "test-token",
+            [
+                123,
+                456,
+            ],
+        )
     )
 
     assert result == {
         123: {
             "id": 123,
-            "name": "Game One",
+            "name":
+                "Game One",
         },
         456: {
             "id": 456,
-            "name": "Game Two",
+            "name":
+                "Game Two",
         },
     }
 
-    assert captured["url"] == (
-        "https://api.igdb.com/v4/games"
+    assert (
+        captured["url"]
+        == (
+            "https://api.igdb.com/"
+            "v4/games"
+        )
     )
 
     assert (
@@ -255,7 +324,10 @@ def test_get_games_from_igdb(
         in captured["query"]
     )
 
-    assert captured["timeout"] == 30
+    assert (
+        captured["timeout"]
+        == 30
+    )
 
 
 # ============================================================
@@ -263,9 +335,9 @@ def test_get_games_from_igdb(
 # ============================================================
 
 def test_get_release_dates_from_igdb_empty():
-    # Evita consultar fechas sin juegos
     assert (
-        monitor.get_release_dates_from_igdb(
+        monitor
+        .get_release_dates_from_igdb(
             "token",
             [],
         )
@@ -276,7 +348,6 @@ def test_get_release_dates_from_igdb_empty():
 def test_get_release_dates_from_igdb(
     monkeypatch,
 ):
-    # Filtra regiones y conserva primeras fechas
     releases = [
         {
             "game": 123,
@@ -287,7 +358,8 @@ def test_get_release_dates_from_igdb(
                 20,
             ),
             "release_region": {
-                "region": "europe",
+                "region":
+                    "europe",
             },
         },
         {
@@ -301,7 +373,8 @@ def test_get_release_dates_from_igdb(
                 25,
             ),
             "release_region": {
-                "region": "worldwide",
+                "region":
+                    "worldwide",
             },
         },
         {
@@ -322,7 +395,8 @@ def test_get_release_dates_from_igdb(
                 22,
             ),
             "release_region": {
-                "region": "japan",
+                "region":
+                    "japan",
             },
         },
         {
@@ -342,7 +416,9 @@ def test_get_release_dates_from_igdb(
     ]
 
     class FakeResponse:
-        def raise_for_status(self):
+        def raise_for_status(
+            self,
+        ):
             pass
 
         def json(self):
@@ -356,7 +432,8 @@ def test_get_release_dates_from_igdb(
     )
 
     result = (
-        monitor.get_release_dates_from_igdb(
+        monitor
+        .get_release_dates_from_igdb(
             "test-token",
             [123],
         )
@@ -364,8 +441,10 @@ def test_get_release_dates_from_igdb(
 
     assert result == {
         123: {
-            167: "2026-09-20",
-            6: "2026-09-25",
+            167:
+                "2026-09-20",
+            6:
+                "2026-09-25",
         }
     }
 
@@ -375,28 +454,33 @@ def test_get_release_dates_from_igdb(
 # ============================================================
 
 def test_timestamp_to_date():
-    # Convierte timestamp a YYYY-MM-DD
-    result = monitor.timestamp_to_date(
-        timestamp(
-            2026,
-            9,
-            20,
+    result = (
+        monitor.timestamp_to_date(
+            timestamp(
+                2026,
+                9,
+                20,
+            )
         )
     )
 
-    assert result == "2026-09-20"
+    assert (
+        result
+        == "2026-09-20"
+    )
 
 
 def test_timestamp_to_date_empty():
-    # Devuelve None si no hay timestamp
     assert (
-        monitor.timestamp_to_date(None)
+        monitor
+        .timestamp_to_date(
+            None
+        )
         is None
     )
 
 
 def test_display_date():
-    # Convierte fecha al formato visible
     assert (
         monitor.display_date(
             "2026-09-20"
@@ -406,59 +490,84 @@ def test_display_date():
 
 
 def test_display_date_empty():
-    # Muestra texto si no hay fecha
     assert (
-        monitor.display_date(None)
+        monitor.display_date(
+            None
+        )
         == "Sin fecha"
     )
 
 
 # ============================================================
-# TELEGRAM
+# NOTIFICACIONES
 # ============================================================
 
-def test_send_telegram(monkeypatch):
-    # Envía correctamente un aviso
+def test_send_notification(
+    monkeypatch,
+):
     captured = {}
 
-    class FakeResponse:
-        def raise_for_status(self):
-            captured["raised"] = True
-
-    def fake_post(
-        url,
-        json=None,
-        timeout=None,
+    def fake_huginn(
+        text,
+        reply_markup=None,
+        parse_mode=None,
+        chat_id=None,
     ):
-        captured["url"] = url
-        captured["json"] = json
-        captured["timeout"] = timeout
+        captured[
+            "text"
+        ] = text
 
-        return FakeResponse()
+        captured[
+            "reply_markup"
+        ] = reply_markup
+
+        captured[
+            "parse_mode"
+        ] = parse_mode
+
+        captured[
+            "chat_id"
+        ] = chat_id
+
+        return {
+            "ok": True,
+        }
 
     monkeypatch.setattr(
-        monitor.requests,
-        "post",
-        fake_post,
+        monitor.notifications,
+        "huginn",
+        fake_huginn,
     )
 
-    monitor.send_telegram(
-        "Test message"
+    result = (
+        monitor.send_notification(
+            "Test message"
+        )
     )
 
-    assert captured["url"] == (
-        "https://api.telegram.org/"
-        f"bot{monitor.BOT_TOKEN}/"
-        "sendMessage"
-    )
-
-    assert captured["json"] == {
-        "chat_id": monitor.CHAT_ID,
-        "text": "Test message",
+    assert result == {
+        "ok": True,
     }
 
-    assert captured["timeout"] == 30
-    assert captured["raised"] is True
+    assert (
+        captured["text"]
+        == "Test message"
+    )
+
+    assert (
+        captured["reply_markup"]
+        is None
+    )
+
+    assert (
+        captured["parse_mode"]
+        is None
+    )
+
+    assert (
+        captured["chat_id"]
+        is None
+    )
 
 
 # ============================================================
@@ -466,7 +575,6 @@ def test_send_telegram(monkeypatch):
 # ============================================================
 
 def test_build_platforms():
-    # Ordena plataformas y añade fechas
     game = {
         "platforms": [
             6,
@@ -475,25 +583,31 @@ def test_build_platforms():
     }
 
     release_dates = {
-        167: "2026-09-20",
-        6: "2026-09-25",
+        167:
+            "2026-09-20",
+        6:
+            "2026-09-25",
     }
 
-    result = monitor.build_platforms(
-        game,
-        release_dates,
+    result = (
+        monitor.build_platforms(
+            game,
+            release_dates,
+        )
     )
 
     assert result == [
         {
             "id": 167,
-            "label": "🔵 PS5",
+            "label":
+                "🔵 PS5",
             "release_date":
                 "2026-09-20",
         },
         {
             "id": 6,
-            "label": "💻 PC",
+            "label":
+                "💻 PC",
             "release_date":
                 "2026-09-25",
         },
@@ -501,22 +615,25 @@ def test_build_platforms():
 
 
 def test_build_platforms_adds_release_platform():
-    # Añade plataformas detectadas por fecha
     game = {
         "platforms": [],
     }
 
-    result = monitor.build_platforms(
-        game,
-        {
-            167: "2026-09-20",
-        },
+    result = (
+        monitor.build_platforms(
+            game,
+            {
+                167:
+                    "2026-09-20",
+            },
+        )
     )
 
     assert result == [
         {
             "id": 167,
-            "label": "🔵 PS5",
+            "label":
+                "🔵 PS5",
             "release_date":
                 "2026-09-20",
         }
@@ -524,7 +641,6 @@ def test_build_platforms_adds_release_platform():
 
 
 def test_build_platforms_groups_meta_quest():
-    # Evita duplicar Meta Quest
     game = {
         "platforms": [
             471,
@@ -532,16 +648,20 @@ def test_build_platforms_groups_meta_quest():
         ],
     }
 
-    result = monitor.build_platforms(
-        game,
-        {},
+    result = (
+        monitor.build_platforms(
+            game,
+            {},
+        )
     )
 
     assert result == [
         {
             "id": 471,
-            "label": "🥽 Meta Quest",
-            "release_date": None,
+            "label":
+                "🥽 Meta Quest",
+            "release_date":
+                None,
         }
     ]
 
@@ -551,12 +671,14 @@ def test_build_platforms_groups_meta_quest():
 # ============================================================
 
 def test_build_change_message_new_date():
-    # Informa de una fecha nueva
-    result = monitor.build_change_message(
-        "Test Game",
-        "🔵 PS5",
-        None,
-        "2026-09-20",
+    result = (
+        monitor
+        .build_change_message(
+            "Test Game",
+            "🔵 PS5",
+            None,
+            "2026-09-20",
+        )
     )
 
     assert result == (
@@ -568,12 +690,14 @@ def test_build_change_message_new_date():
 
 
 def test_build_change_message_removed_date():
-    # Informa de una fecha retirada
-    result = monitor.build_change_message(
-        "Test Game",
-        "🔵 PS5",
-        "2026-09-20",
-        None,
+    result = (
+        monitor
+        .build_change_message(
+            "Test Game",
+            "🔵 PS5",
+            "2026-09-20",
+            None,
+        )
     )
 
     assert (
@@ -581,17 +705,26 @@ def test_build_change_message_removed_date():
         in result
     )
 
-    assert "Antes: 20-09-2026" in result
-    assert "Ahora: Por confirmar" in result
+    assert (
+        "Antes: 20-09-2026"
+        in result
+    )
+
+    assert (
+        "Ahora: Por confirmar"
+        in result
+    )
 
 
 def test_build_change_message_delay():
-    # Detecta un retraso
-    result = monitor.build_change_message(
-        "Test Game",
-        "🔵 PS5",
-        "2026-09-20",
-        "2026-10-01",
+    result = (
+        monitor
+        .build_change_message(
+            "Test Game",
+            "🔵 PS5",
+            "2026-09-20",
+            "2026-10-01",
+        )
     )
 
     assert (
@@ -599,17 +732,26 @@ def test_build_change_message_delay():
         in result
     )
 
-    assert "Antes: 20-09-2026" in result
-    assert "Ahora: 01-10-2026" in result
+    assert (
+        "Antes: 20-09-2026"
+        in result
+    )
+
+    assert (
+        "Ahora: 01-10-2026"
+        in result
+    )
 
 
 def test_build_change_message_advance():
-    # Detecta un adelanto
-    result = monitor.build_change_message(
-        "Test Game",
-        "🔵 PS5",
-        "2026-10-01",
-        "2026-09-20",
+    result = (
+        monitor
+        .build_change_message(
+            "Test Game",
+            "🔵 PS5",
+            "2026-10-01",
+            "2026-09-20",
+        )
     )
 
     assert (
@@ -619,15 +761,19 @@ def test_build_change_message_advance():
 
 
 def test_build_change_message_same_date():
-    # No avisa si la fecha no cambia
-    result = monitor.build_change_message(
-        "Test Game",
-        "🔵 PS5",
-        "2026-09-20",
-        "2026-09-20",
+    result = (
+        monitor
+        .build_change_message(
+            "Test Game",
+            "🔵 PS5",
+            "2026-09-20",
+            "2026-09-20",
+        )
     )
 
-    assert result is None
+    assert (
+        result is None
+    )
 
 
 # ============================================================
@@ -638,7 +784,6 @@ def test_monitor_watchlist_empty(
     monkeypatch,
     capsys,
 ):
-    # Termina si la watchlist está vacía
     monkeypatch.setattr(
         monitor,
         "load_watchlist",
@@ -649,9 +794,15 @@ def test_monitor_watchlist_empty(
         monitor.monitor_watchlist()
     )
 
-    output = capsys.readouterr().out
+    output = (
+        capsys
+        .readouterr()
+        .out
+    )
 
-    assert result is False
+    assert (
+        result is False
+    )
 
     assert (
         "Watchlist is empty."
@@ -663,11 +814,11 @@ def test_monitor_watchlist_game_not_found(
     monkeypatch,
     capsys,
 ):
-    # Ignora juegos que IGDB ya no encuentra
     watchlist = [
         {
             "id": 123,
-            "name": "Missing Game",
+            "name":
+                "Missing Game",
         }
     ]
 
@@ -676,42 +827,57 @@ def test_monitor_watchlist_game_not_found(
     monkeypatch.setattr(
         monitor,
         "load_watchlist",
-        lambda: watchlist,
+        lambda:
+            watchlist,
     )
 
     monkeypatch.setattr(
         monitor,
         "get_access_token",
-        lambda: "token",
+        lambda:
+            "token",
     )
 
     monkeypatch.setattr(
         monitor,
         "get_games_from_igdb",
-        lambda token, ids: {},
+        lambda token, ids:
+            {},
     )
 
     monkeypatch.setattr(
         monitor,
         "get_release_dates_from_igdb",
-        lambda token, ids: {},
+        lambda token, ids:
+            {},
     )
 
     monkeypatch.setattr(
         monitor,
         "save_watchlist",
         lambda data:
-            saved.append(data),
+            saved.append(
+                data
+            ),
     )
 
     result = (
         monitor.monitor_watchlist()
     )
 
-    output = capsys.readouterr().out
+    output = (
+        capsys
+        .readouterr()
+        .out
+    )
 
-    assert result is False
-    assert saved == []
+    assert (
+        result is False
+    )
+
+    assert (
+        saved == []
+    )
 
     assert (
         "Game not found: "
@@ -724,11 +890,11 @@ def test_monitor_watchlist_migrates_old_format(
     monkeypatch,
     capsys,
 ):
-    # Migra silenciosamente el formato antiguo
     watchlist = [
         {
             "id": 123,
-            "name": "Old Game",
+            "name":
+                "Old Game",
             "platforms": [
                 "PS5",
                 "PC",
@@ -741,13 +907,15 @@ def test_monitor_watchlist_migrates_old_format(
     monkeypatch.setattr(
         monitor,
         "load_watchlist",
-        lambda: watchlist,
+        lambda:
+            watchlist,
     )
 
     monkeypatch.setattr(
         monitor,
         "get_access_token",
-        lambda: "token",
+        lambda:
+            "token",
     )
 
     monkeypatch.setattr(
@@ -756,14 +924,17 @@ def test_monitor_watchlist_migrates_old_format(
         lambda token, ids: {
             123: {
                 "id": 123,
-                "name": "New Name",
+                "name":
+                    "New Name",
                 "first_release_date":
                     timestamp(
                         2026,
                         9,
                         20,
                     ),
-                "platforms": [167],
+                "platforms": [
+                    167,
+                ],
             }
         },
     )
@@ -773,7 +944,8 @@ def test_monitor_watchlist_migrates_old_format(
         "get_release_dates_from_igdb",
         lambda token, ids: {
             123: {
-                167: "2026-09-20",
+                167:
+                    "2026-09-20",
             }
         },
     )
@@ -782,23 +954,34 @@ def test_monitor_watchlist_migrates_old_format(
         monitor,
         "save_watchlist",
         lambda data:
-            saved.append(data.copy()),
+            saved.append(
+                data.copy()
+            ),
     )
 
     result = (
         monitor.monitor_watchlist()
     )
 
-    output = capsys.readouterr().out
+    output = (
+        capsys
+        .readouterr()
+        .out
+    )
 
-    assert result is True
+    assert (
+        result is True
+    )
 
     assert (
         "Migrated platforms: New Name"
         in output
     )
 
-    assert len(saved) == 1
+    assert (
+        len(saved)
+        == 1
+    )
 
     assert (
         watchlist[0]["name"]
@@ -806,34 +989,44 @@ def test_monitor_watchlist_migrates_old_format(
     )
 
     assert (
-        watchlist[0]["release_date"]
+        watchlist[0][
+            "release_date"
+        ]
         == "2026-09-20"
     )
 
-    assert watchlist[0]["platforms"] == [
-        {
-            "id": 167,
-            "label": "🔵 PS5",
-            "release_date":
-                "2026-09-20",
-        }
-    ]
+    assert (
+        watchlist[0][
+            "platforms"
+        ]
+        == [
+            {
+                "id": 167,
+                "label":
+                    "🔵 PS5",
+                "release_date":
+                    "2026-09-20",
+            }
+        ]
+    )
 
 
 def test_monitor_watchlist_date_changed(
     monkeypatch,
 ):
-    # Detecta y notifica un cambio de fecha
     watchlist = [
         {
             "id": 123,
-            "name": "Test Game",
+            "name":
+                "Test Game",
             "release_date":
                 "2026-09-20",
             "platforms": [
                 {
-                    "id": 167,
-                    "label": "🔵 PS5",
+                    "id":
+                        167,
+                    "label":
+                        "🔵 PS5",
                     "release_date":
                         "2026-09-20",
                 }
@@ -847,13 +1040,15 @@ def test_monitor_watchlist_date_changed(
     monkeypatch.setattr(
         monitor,
         "load_watchlist",
-        lambda: watchlist,
+        lambda:
+            watchlist,
     )
 
     monkeypatch.setattr(
         monitor,
         "get_access_token",
-        lambda: "token",
+        lambda:
+            "token",
     )
 
     monkeypatch.setattr(
@@ -862,14 +1057,17 @@ def test_monitor_watchlist_date_changed(
         lambda token, ids: {
             123: {
                 "id": 123,
-                "name": "Test Game",
+                "name":
+                    "Test Game",
                 "first_release_date":
                     timestamp(
                         2026,
                         10,
                         1,
                     ),
-                "platforms": [167],
+                "platforms": [
+                    167,
+                ],
             }
         },
     )
@@ -879,32 +1077,47 @@ def test_monitor_watchlist_date_changed(
         "get_release_dates_from_igdb",
         lambda token, ids: {
             123: {
-                167: "2026-10-01",
+                167:
+                    "2026-10-01",
             }
         },
     )
 
     monkeypatch.setattr(
         monitor,
-        "send_telegram",
+        "send_notification",
         lambda message:
-            messages.append(message),
+            messages.append(
+                message
+            ),
     )
 
     monkeypatch.setattr(
         monitor,
         "save_watchlist",
         lambda data:
-            saved.append(data.copy()),
+            saved.append(
+                data.copy()
+            ),
     )
 
     result = (
         monitor.monitor_watchlist()
     )
 
-    assert result is True
-    assert len(messages) == 1
-    assert len(saved) == 1
+    assert (
+        result is True
+    )
+
+    assert (
+        len(messages)
+        == 1
+    )
+
+    assert (
+        len(saved)
+        == 1
+    )
 
     assert (
         "⏳ RETRASO DE LANZAMIENTO"
@@ -912,8 +1125,11 @@ def test_monitor_watchlist_date_changed(
     )
 
     assert (
-        watchlist[0]["platforms"][0]
-        ["release_date"]
+        watchlist[0][
+            "platforms"
+        ][0][
+            "release_date"
+        ]
         == "2026-10-01"
     )
 
@@ -921,17 +1137,19 @@ def test_monitor_watchlist_date_changed(
 def test_monitor_watchlist_without_changes(
     monkeypatch,
 ):
-    # No guarda si no hay ningún cambio
     watchlist = [
         {
             "id": 123,
-            "name": "Test Game",
+            "name":
+                "Test Game",
             "release_date":
                 "2026-09-20",
             "platforms": [
                 {
-                    "id": 167,
-                    "label": "🔵 PS5",
+                    "id":
+                        167,
+                    "label":
+                        "🔵 PS5",
                     "release_date":
                         "2026-09-20",
                 }
@@ -945,13 +1163,15 @@ def test_monitor_watchlist_without_changes(
     monkeypatch.setattr(
         monitor,
         "load_watchlist",
-        lambda: watchlist,
+        lambda:
+            watchlist,
     )
 
     monkeypatch.setattr(
         monitor,
         "get_access_token",
-        lambda: "token",
+        lambda:
+            "token",
     )
 
     monkeypatch.setattr(
@@ -960,14 +1180,17 @@ def test_monitor_watchlist_without_changes(
         lambda token, ids: {
             123: {
                 "id": 123,
-                "name": "Test Game",
+                "name":
+                    "Test Game",
                 "first_release_date":
                     timestamp(
                         2026,
                         9,
                         20,
                     ),
-                "platforms": [167],
+                "platforms": [
+                    167,
+                ],
             }
         },
     )
@@ -977,7 +1200,8 @@ def test_monitor_watchlist_without_changes(
         "get_release_dates_from_igdb",
         lambda token, ids: {
             123: {
-                167: "2026-09-20",
+                167:
+                    "2026-09-20",
             }
         },
     )
@@ -986,38 +1210,53 @@ def test_monitor_watchlist_without_changes(
         monitor,
         "save_watchlist",
         lambda data:
-            saved.append(data),
+            saved.append(
+                data
+            ),
     )
 
     monkeypatch.setattr(
         monitor,
-        "send_telegram",
+        "send_notification",
         lambda message:
-            sent.append(message),
+            sent.append(
+                message
+            ),
     )
 
     result = (
         monitor.monitor_watchlist()
     )
 
-    assert result is False
-    assert saved == []
-    assert sent == []
+    assert (
+        result is False
+    )
+
+    assert (
+        saved == []
+    )
+
+    assert (
+        sent == []
+    )
 
 
 def test_monitor_watchlist_platform_change(
     monkeypatch,
 ):
-    # Guarda si cambia el listado de plataformas
     watchlist = [
         {
             "id": 123,
-            "name": "Test Game",
+            "name":
+                "Test Game",
             "platforms": [
                 {
-                    "id": 167,
-                    "label": "🔵 PS5",
-                    "release_date": None,
+                    "id":
+                        167,
+                    "label":
+                        "🔵 PS5",
+                    "release_date":
+                        None,
                 }
             ],
         }
@@ -1028,13 +1267,15 @@ def test_monitor_watchlist_platform_change(
     monkeypatch.setattr(
         monitor,
         "load_watchlist",
-        lambda: watchlist,
+        lambda:
+            watchlist,
     )
 
     monkeypatch.setattr(
         monitor,
         "get_access_token",
-        lambda: "token",
+        lambda:
+            "token",
     )
 
     monkeypatch.setattr(
@@ -1043,7 +1284,8 @@ def test_monitor_watchlist_platform_change(
         lambda token, ids: {
             123: {
                 "id": 123,
-                "name": "Test Game",
+                "name":
+                    "Test Game",
                 "platforms": [
                     167,
                     6,
@@ -1055,43 +1297,62 @@ def test_monitor_watchlist_platform_change(
     monkeypatch.setattr(
         monitor,
         "get_release_dates_from_igdb",
-        lambda token, ids: {},
+        lambda token, ids:
+            {},
     )
 
     monkeypatch.setattr(
         monitor,
         "save_watchlist",
         lambda data:
-            saved.append(data.copy()),
+            saved.append(
+                data.copy()
+            ),
     )
 
     result = (
         monitor.monitor_watchlist()
     )
 
-    assert result is True
-    assert len(saved) == 1
+    assert (
+        result is True
+    )
 
-    assert len(
-        watchlist[0]["platforms"]
-    ) == 2
+    assert (
+        len(saved)
+        == 1
+    )
+
+    assert (
+        len(
+            watchlist[0][
+                "platforms"
+            ]
+        )
+        == 2
+    )
 
 
 # ============================================================
 # MAIN
 # ============================================================
 
-def test_main(monkeypatch):
-    # Ejecuta el monitor principal
+def test_main(
+    monkeypatch,
+):
     called = []
 
     monkeypatch.setattr(
         monitor,
         "monitor_watchlist",
         lambda:
-            called.append(True),
+            called.append(
+                True
+            ),
     )
 
     monitor.main()
 
-    assert called == [True]
+    assert called == [
+        True,
+    ]
