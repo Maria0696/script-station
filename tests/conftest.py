@@ -1,5 +1,6 @@
 import os
 
+
 TEST_ENV = {
     "TELEGRAM_BOT_TOKEN":
         "test-huginn-token",

@@ -36,7 +36,7 @@ jobs:
           python -m pip install -e .
 
       - name: Run Ruff
-        run: python -m ruff check api core scripts station_cli.py tests/python
+        run: python -m ruff check api core scripts station_cli.py tests
 
       - name: Test Python CLI
         run: script-station --help
@@ -50,7 +50,7 @@ jobs:
             --cov=station_cli \
             --cov-report=term-missing \
             --cov-report=html:coverage-python \
-            --cov-fail-under=90
+            --cov-fail-under=100
 
       - name: Upload Python coverage report
         if: always()

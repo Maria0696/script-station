@@ -1,5 +1,23 @@
+from types import SimpleNamespace
+
 import station_cli as cli
 
+
+class FakePrompt:
+
+    def __init__(
+        self,
+        value,
+    ):
+        self.value = value
+
+    def ask(self):
+        return self.value
+
+
+# ============================================================
+# ENTORNO
+# ============================================================
 
 def test_load_environment(
     monkeypatch,
@@ -48,6 +66,75 @@ def test_environment_ready_missing(
         .err
     )
 
+
+def test_environment_ready_success(
+    monkeypatch,
+):
+    monkeypatch.setenv(
+        "CLI_TEST_SECRET",
+        "value",
+    )
+
+    assert (
+        cli.environment_ready(
+            (
+                "CLI_TEST_SECRET",
+            )
+        )
+        is True
+    )
+
+
+# ============================================================
+# INTERACCIÓN
+# ============================================================
+
+def test_select_option(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        cli.questionary,
+        "select",
+        lambda *args, **kwargs:
+            FakePrompt(
+                "Selected"
+            ),
+    )
+
+    assert (
+        cli.select_option(
+            "Choose",
+            [
+                "Selected",
+            ],
+        )
+        == "Selected"
+    )
+
+
+def test_confirm_action(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        cli.questionary,
+        "confirm",
+        lambda *args, **kwargs:
+            FakePrompt(
+                True
+            ),
+    )
+
+    assert (
+        cli.confirm_action(
+            "Continue?"
+        )
+        is True
+    )
+
+
+# ============================================================
+# RELEASES
+# ============================================================
 
 def test_run_releases(
     monkeypatch,
@@ -109,6 +196,10 @@ def test_run_releases_cancelled(
     )
 
 
+# ============================================================
+# WATCHLIST
+# ============================================================
+
 def test_run_watchlist(
     monkeypatch,
 ):
@@ -144,6 +235,70 @@ def test_run_watchlist(
     ]
 
 
+def test_run_watchlist_cancelled(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        cli,
+        "environment_ready",
+        lambda required:
+            True,
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "confirm_action",
+        lambda message:
+            False,
+    )
+
+    assert (
+        cli.run_watchlist(
+            confirm=True
+        )
+        == 0
+    )
+
+
+# ============================================================
+# ENTORNO INCOMPLETO
+# ============================================================
+
+def test_commands_fail_without_environment(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        cli,
+        "environment_ready",
+        lambda required:
+            False,
+    )
+
+    assert (
+        cli.run_releases()
+        == 1
+    )
+
+    assert (
+        cli.run_watchlist()
+        == 1
+    )
+
+    assert (
+        cli.run_heimdall_status()
+        == 1
+    )
+
+    assert (
+        cli.run_heimdall_failures()
+        == 1
+    )
+
+
+# ============================================================
+# NOTIFY
+# ============================================================
+
 def test_run_notify(
     monkeypatch,
 ):
@@ -173,6 +328,10 @@ def test_run_notify(
         ]
     ]
 
+
+# ============================================================
+# HEIMDALL
+# ============================================================
 
 def test_run_heimdall_status(
     monkeypatch,
@@ -239,6 +398,54 @@ def test_run_heimdall_failures(
         .out
     )
 
+
+# ============================================================
+# WRAPPERS
+# ============================================================
+
+def test_run_add_workflow(
+    monkeypatch,
+):
+    from scripts import (
+        add_workflow,
+    )
+
+    monkeypatch.setattr(
+        add_workflow,
+        "main",
+        lambda:
+            3,
+    )
+
+    assert (
+        cli.run_add_workflow()
+        == 3
+    )
+
+
+def test_run_package_manager(
+    monkeypatch,
+):
+    from scripts import (
+        package_manager,
+    )
+
+    monkeypatch.setattr(
+        package_manager,
+        "main",
+        lambda:
+            4,
+    )
+
+    assert (
+        cli.run_package_manager()
+        == 4
+    )
+
+
+# ============================================================
+# MENÚS
+# ============================================================
 
 def test_git_support_menu(
     monkeypatch,
@@ -495,6 +702,10 @@ def test_interactive_menu(
     ]
 
 
+# ============================================================
+# PARSER
+# ============================================================
+
 def test_parser_nested_commands():
     parser = (
         cli.build_parser()
@@ -536,6 +747,41 @@ def test_parser_nested_commands():
         == "failures"
     )
 
+
+# ============================================================
+# DISPATCH
+# ============================================================
+
+def test_dispatch_fallback():
+    called = []
+
+    parser = SimpleNamespace(
+        print_help=lambda:
+            called.append(
+                True
+            )
+    )
+
+    parsed = SimpleNamespace(
+        command="unknown"
+    )
+
+    assert (
+        cli.dispatch(
+            parsed,
+            parser,
+        )
+        == 1
+    )
+
+    assert called == [
+        True,
+    ]
+
+
+# ============================================================
+# MAIN
+# ============================================================
 
 def test_main_defaults_to_menu(
     monkeypatch,
@@ -685,4 +931,43 @@ def test_main_routes_commands(
             ]
         )
         == 17
+    )
+
+
+def test_main_keyboard_interrupt(
+    monkeypatch,
+    capsys,
+):
+    class InterruptingParser:
+
+        def parse_args(
+            self,
+            args,
+        ):
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(
+        cli,
+        "load_environment",
+        lambda:
+            None,
+    )
+
+    monkeypatch.setattr(
+        cli,
+        "build_parser",
+        lambda:
+            InterruptingParser(),
+    )
+
+    assert (
+        cli.main([])
+        == 130
+    )
+
+    assert (
+        "Exiting Script Station"
+        in capsys
+        .readouterr()
+        .out
     )

@@ -5,6 +5,22 @@ from scripts import (
 )
 
 
+class FakePrompt:
+
+    def __init__(
+        self,
+        value,
+    ):
+        self.value = value
+
+    def ask(self):
+        return self.value
+
+
+# ============================================================
+# PACKAGE MANAGER
+# ============================================================
+
 def test_list_operating_systems():
     manager = (
         package_manager
@@ -225,4 +241,87 @@ def test_install_package_manager_failure(
             "Linux"
         )
         == 9
+    )
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+def test_main_cancelled_selection(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        package_manager.questionary,
+        "select",
+        lambda *args, **kwargs:
+            FakePrompt(
+                None
+            ),
+    )
+
+    assert (
+        package_manager.main()
+        == 0
+    )
+
+
+def test_main_not_confirmed(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        package_manager.questionary,
+        "select",
+        lambda *args, **kwargs:
+            FakePrompt(
+                "Windows"
+            ),
+    )
+
+    monkeypatch.setattr(
+        package_manager.questionary,
+        "confirm",
+        lambda *args, **kwargs:
+            FakePrompt(
+                False
+            ),
+    )
+
+    assert (
+        package_manager.main()
+        == 0
+    )
+
+
+def test_main_installs(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        package_manager.questionary,
+        "select",
+        lambda *args, **kwargs:
+            FakePrompt(
+                "Linux"
+            ),
+    )
+
+    monkeypatch.setattr(
+        package_manager.questionary,
+        "confirm",
+        lambda *args, **kwargs:
+            FakePrompt(
+                True
+            ),
+    )
+
+    monkeypatch.setattr(
+        package_manager.PackageManager,
+        "install_package_manager",
+        lambda self, operating_system:
+            7,
+    )
+
+    assert (
+        package_manager.main()
+        == 7
     )
