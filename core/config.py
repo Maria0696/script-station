@@ -5,32 +5,55 @@ import os
 # ============================================================
 
 # Huginn - Videojuegos
-HUGINN_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-HUGINN_CHAT_ID = str(os.environ["TELEGRAM_CHAT_ID"])
+HUGINN_BOT_TOKEN = os.getenv(
+    "TELEGRAM_BOT_TOKEN"
+)
+
+HUGINN_CHAT_ID = os.getenv(
+    "TELEGRAM_CHAT_ID"
+)
+
 
 # Heimdall - Monitorización
-HEIMDALL_BOT_TOKEN = os.environ["TELEGRAM_HEIMDALL_BOT_TOKEN"]
-HEIMDALL_CHAT_ID = str(os.environ["TELEGRAM_HEIMDALL_CHAT_ID"])
+HEIMDALL_BOT_TOKEN = os.getenv(
+    "TELEGRAM_HEIMDALL_BOT_TOKEN"
+)
+
+HEIMDALL_CHAT_ID = os.getenv(
+    "TELEGRAM_HEIMDALL_CHAT_ID"
+)
 
 
 # ============================================================
 # IGDB
 # ============================================================
 
-IGDB_CLIENT_ID = os.environ["IGDB_CLIENT_ID"]
-IGDB_CLIENT_SECRET = os.environ["IGDB_CLIENT_SECRET"]
+IGDB_CLIENT_ID = os.getenv(
+    "IGDB_CLIENT_ID"
+)
+
+IGDB_CLIENT_SECRET = os.getenv(
+    "IGDB_CLIENT_SECRET"
+)
 
 
 # ============================================================
 # GITHUB
 # ============================================================
 
-GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
+GITHUB_TOKEN = os.getenv(
+    "GITHUB_TOKEN"
+)
 
-GITHUB_REPO = "Maria0696/script-station"
+GITHUB_REPO = (
+    "Maria0696/script-station"
+)
+
 GITHUB_BRANCH = "master"
 
-WATCHLIST_PATH = "data/watchlist.json"
+WATCHLIST_PATH = (
+    "data/watchlist.json"
+)
 
 
 # ============================================================
@@ -78,7 +101,10 @@ VALID_REGIONS = {
 # ============================================================
 
 WORKFLOWS = {
-    "Daily Video Game Releases": "🎮 Daily Releases",
-    "Watchlist Release Monitor": "👀 Watchlist Monitor",
-    "Quality Checks": "🧪 Quality Checks",
+    "Daily Video Game Releases":
+        "🎮 Daily Releases",
+    "Watchlist Release Monitor":
+        "👀 Watchlist Monitor",
+    "Quality Checks":
+        "🧪 Quality Checks",
 }

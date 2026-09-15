@@ -1,0 +1,44 @@
+[build-system]
+requires = [
+    "setuptools>=68",
+]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "script-station"
+version = "0.1.0"
+description = "Automation and monitoring toolkit"
+readme = "README.md"
+requires-python = ">=3.11"
+
+dependencies = [
+    "fastapi",
+    "python-dotenv",
+    "PyYAML",
+    "questionary",
+    "requests",
+    "tzdata",
+]
+
+
+[project.scripts]
+script-station = "station_cli:main"
+
+
+[tool.setuptools]
+py-modules = [
+    "station_cli",
+]
+
+
+[tool.setuptools.packages.find]
+where = [
+    ".",
+]
+include = [
+    "api*",
+    "core*",
+    "scripts*",
+]
+namespaces = true

@@ -1,7 +1,8 @@
 version: 2
+
 updates:
-  # Ruby gems (Gemfile / Gemfile.lock)
-  - package-ecosystem: "bundler"
+  # Python dependencies
+  - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -13,11 +14,11 @@ updates:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
     groups:
-      ruby-dependencies:
+      python-dependencies:
         patterns:
           - "*"
 
-  # GitHub Actions used in .github/workflows
+  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

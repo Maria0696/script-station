@@ -1,5 +1,5 @@
 import json
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from urllib import parse, request
 
 from core.config import (
@@ -189,7 +189,7 @@ def format_release_date(timestamp):
 
     return datetime.fromtimestamp(
         timestamp,
-        tz=timezone.utc,
+        tz=UTC,
     ).date().isoformat()
 
 

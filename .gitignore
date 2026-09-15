@@ -6,12 +6,18 @@ coverage-python/
 # Python
 __pycache__/
 *.py[cod]
+.venv/
+
+# Python packaging
+*.egg-info/
+build/
+dist/
 
 # Pytest
 .pytest_cache/
 
-# RSpec
-.rspec_status
+# Ruff
+.ruff_cache/
 
 # Logs
 logs/

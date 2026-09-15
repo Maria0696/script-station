@@ -162,7 +162,9 @@ def test_notify_workflow_failure(
     )
 
     assert (
-        captured["chat_id"]
+        captured[
+            "chat_id"
+        ]
         is None
     )
 
@@ -180,7 +182,9 @@ def test_main(
         notify,
         "notify_workflow_failure",
         lambda:
-            called.append(True),
+            called.append(
+                True
+            ),
     )
 
     notify.main(
@@ -188,6 +192,36 @@ def test_main(
             "workflow-failed",
         ]
     )
+
+    assert called == [
+        True,
+    ]
+
+
+def test_main_uses_sys_argv(
+    monkeypatch,
+):
+    called = []
+
+    monkeypatch.setattr(
+        notify.sys,
+        "argv",
+        [
+            "notify",
+            "workflow-failed",
+        ],
+    )
+
+    monkeypatch.setattr(
+        notify,
+        "notify_workflow_failure",
+        lambda:
+            called.append(
+                True
+            ),
+    )
+
+    notify.main()
 
     assert called == [
         True,

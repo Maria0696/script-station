@@ -1,6 +1,6 @@
-org: test-org
-github_token: fake-token
-repo_list_path: tests/ruby/fixtures/examples/repos.txt
-workflow_template_path: tests/ruby/fixtures/examples/ci.yml
+org: my-org
+github_token_env: GITHUB_TOKEN
+repo_list_path: repos.txt
+workflow_template_path: templates/workflows/update-readme-profile.yml
 branch_suffix: ci
 dry_run: true
