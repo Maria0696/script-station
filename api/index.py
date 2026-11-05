@@ -1,9 +1,36 @@
+import logging
+
 from fastapi import FastAPI, Request
 
 from core.heimdall import handle_heimdall_update
 from core.huginn import handle_huginn_update
 
 app = FastAPI()
+
+logger = logging.getLogger(__name__)
+
+
+async def process_update(
+    request_data: Request,
+    handler,
+):
+    # Telegram reintenta el update si no recibe un 2xx,
+    # así que los errores se registran sin devolver 500
+    try:
+        update = await request_data.json()
+
+        return handler(
+            update
+        )
+
+    except Exception:
+        logger.exception(
+            "Error processing Telegram update"
+        )
+
+        return {
+            "ok": True
+        }
 
 
 # ============================================================
@@ -32,15 +59,15 @@ async def index_webhook(request_data: Request):
         "huginn",
     )
 
-    update = await request_data.json()
-
     if bot == "heimdall":
-        return handle_heimdall_update(
-            update
+        return await process_update(
+            request_data,
+            handle_heimdall_update,
         )
 
-    return handle_huginn_update(
-        update
+    return await process_update(
+        request_data,
+        handle_huginn_update,
     )
 
 
@@ -60,10 +87,9 @@ def huginn_health_check():
 @app.post("/api/telegram")
 async def huginn_webhook(request_data: Request):
     # Recibe updates de Huginn
-    update = await request_data.json()
-
-    return handle_huginn_update(
-        update
+    return await process_update(
+        request_data,
+        handle_huginn_update,
     )
 
 
@@ -83,8 +109,7 @@ def heimdall_health_check():
 @app.post("/api/heimdall")
 async def heimdall_webhook(request_data: Request):
     # Recibe updates de Heimdall
-    update = await request_data.json()
-
-    return handle_heimdall_update(
-        update
+    return await process_update(
+        request_data,
+        handle_heimdall_update,
     )
