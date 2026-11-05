@@ -136,12 +136,10 @@ def build_watchlist_message():
         ):
             for platform in platforms:
                 lines.append(
-                    
-                        "      "
-                        f"{platform['label']}"
-                        " — "
-                        f"{display_release_date(platform.get('release_date'))}"
-                    
+                    "      "
+                    f"{platform['label']}"
+                    " — "
+                    f"{display_release_date(platform.get('release_date'))}"
                 )
 
         # Compatibilidad con formato antiguo
@@ -155,12 +153,10 @@ def build_watchlist_message():
             )
 
             lines.append(
-                
-                    "      "
-                    f"{' | '.join(platforms)}"
-                    " — "
-                    f"{release_date}"
-                
+                "      "
+                f"{' | '.join(platforms)}"
+                " — "
+                f"{release_date}"
             )
 
         else:
@@ -173,12 +169,10 @@ def build_watchlist_message():
             )
 
             lines.append(
-                
-                    "      "
-                    "Plataformas por confirmar"
-                    " — "
-                    f"{release_date}"
-                
+                "      "
+                "Plataformas por confirmar"
+                " — "
+                f"{release_date}"
             )
 
         lines.append("")
@@ -370,12 +364,10 @@ def build_next_message():
             "releases"
         ]:
             lines.append(
-                
-                    "      "
-                    f"{release['label']}"
-                    " — "
-                    f"{display_release_date(release['date'])}"
-                
+                "      "
+                f"{release['label']}"
+                " — "
+                f"{display_release_date(release['date'])}"
             )
 
         lines.append("")

@@ -5,6 +5,11 @@ from pathlib import Path
 
 import requests
 
+from core.config import (
+    PLATFORM_LABELS,
+    PLATFORM_ORDER,
+    VALID_REGIONS,
+)
 from core.notifications import (
     notifications,
 )
@@ -20,44 +25,6 @@ WATCHLIST_PATH = (
     / "data"
     / "watchlist.json"
 )
-
-
-# IDs de plataformas de IGDB
-PLATFORM_LABELS = {
-    167: "🔵 PS5",
-    508: "🔴 Switch 2",
-    6: "💻 PC",
-    169: "🟢 Xbox Series",
-    48: "🔵 PS4",
-    49: "🟢 Xbox One",
-    130: "🔴 Switch",
-    390: "🥽 PS VR2",
-    471: "🥽 Meta Quest",
-    386: "🥽 Meta Quest",
-    163: "🥽 SteamVR",
-}
-
-
-PLATFORM_ORDER = [
-    167,
-    508,
-    6,
-    169,
-    48,
-    49,
-    130,
-    390,
-    471,
-    386,
-    163,
-]
-
-
-# Regiones válidas
-VALID_REGIONS = {
-    "europe",
-    "worldwide",
-}
 
 
 def get_access_token():
@@ -326,7 +293,7 @@ def build_platforms(
     )
 
     platforms = []
-    labels_added = set()
+    label_indexes = {}
 
     for platform_id in (
         PLATFORM_ORDER
@@ -343,9 +310,31 @@ def build_platforms(
             ]
         )
 
-        # Evita Meta Quest duplicado
-        if label in labels_added:
+        release_date = (
+            release_dates.get(
+                platform_id
+            )
+        )
+
+        # Agrupa Meta Quest 2 y 3 igual que Huginn
+        if label in label_indexes:
+            platform = platforms[
+                label_indexes[label]
+            ]
+
+            if (
+                platform["release_date"] is None
+                and release_date
+            ):
+                platform[
+                    "release_date"
+                ] = release_date
+
             continue
+
+        label_indexes[label] = len(
+            platforms
+        )
 
         platforms.append(
             {
@@ -354,14 +343,8 @@ def build_platforms(
                 "label":
                     label,
                 "release_date":
-                    release_dates.get(
-                        platform_id
-                    ),
+                    release_date,
             }
-        )
-
-        labels_added.add(
-            label
         )
 
     return platforms
