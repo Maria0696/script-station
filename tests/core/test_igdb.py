@@ -656,13 +656,13 @@ def test_build_platform_data(
     assert result == [
         {
             "id": 167,
-            "label": "PS5",
+            "label": "🔵 PS5",
             "release_date":
                 "2026-09-15",
         },
         {
             "id": 6,
-            "label": "PC",
+            "label": "💻 PC",
             "release_date":
                 "2026-09-20",
         },
@@ -693,7 +693,7 @@ def test_build_platform_data_adds_platform_from_release_date(
     assert result == [
         {
             "id": 167,
-            "label": "PS5",
+            "label": "🔵 PS5",
             "release_date":
                 "2026-09-15",
         },
@@ -728,7 +728,7 @@ def test_build_platform_data_groups_meta_quest(
     assert result == [
         {
             "id": 471,
-            "label": "Meta Quest",
+            "label": "🥽 Meta Quest",
             "release_date":
                 "2026-10-01",
         },
@@ -762,7 +762,7 @@ def test_build_platform_data_uses_second_quest_date_when_needed(
     assert result == [
         {
             "id": 471,
-            "label": "Meta Quest",
+            "label": "🥽 Meta Quest",
             "release_date":
                 "2026-10-02",
         },

@@ -27,3 +27,6 @@ tmp/
 
 # Environment variables
 .env
+
+# IDE
+.idea/

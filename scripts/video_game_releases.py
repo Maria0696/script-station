@@ -5,6 +5,11 @@ from zoneinfo import ZoneInfo
 
 import requests
 
+from core.config import (
+    PLATFORM_LABELS,
+    PLATFORM_ORDER,
+    VALID_REGIONS,
+)
 from core.notifications import (
     notifications,
 )
@@ -33,45 +38,6 @@ DEBUG = (
     ).lower()
     == "true"
 )
-
-
-# IDs de plataformas y nombre mostrado
-PLATFORM_LABELS = {
-    167: "🔵 PS5",
-    508: "🔴 Switch 2",
-    6: "💻 PC",
-    169: "🟢 Xbox Series",
-    48: "🔵 PS4",
-    49: "🟢 Xbox One",
-    130: "🔴 Switch",
-    390: "🥽 PS VR2",
-    471: "🥽 Meta Quest",
-    386: "🥽 Meta Quest",
-    163: "🥽 SteamVR",
-}
-
-
-# Orden en el que se muestran las plataformas
-PLATFORM_ORDER = [
-    167,
-    508,
-    6,
-    169,
-    48,
-    49,
-    130,
-    390,
-    471,
-    386,
-    163,
-]
-
-
-# Regiones válidas
-VALID_REGIONS = {
-    "europe",
-    "worldwide",
-}
 
 
 # Tipos de popularidad de IGDB

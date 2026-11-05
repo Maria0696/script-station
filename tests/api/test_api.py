@@ -201,3 +201,62 @@ def test_heimdall_webhook(
         "ok": True,
         "update": update,
     }
+
+
+# ============================================================
+# ERRORES
+# ============================================================
+
+def test_webhook_error_returns_ok(
+    monkeypatch,
+    caplog,
+):
+    # Un fallo interno no debe provocar reintentos de Telegram
+    def failing_handler(received):
+        raise OSError(
+            "GitHub unavailable"
+        )
+
+    monkeypatch.setattr(
+        api_index,
+        "handle_huginn_update",
+        failing_handler,
+    )
+
+    response = client.post(
+        "/api/telegram",
+        json={
+            "message": {
+                "text": "/watchlist",
+            }
+        },
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == {
+        "ok": True,
+    }
+
+    assert (
+        "Error processing Telegram update"
+        in caplog.text
+    )
+
+
+def test_webhook_invalid_json_returns_ok():
+    # Un cuerpo no válido tampoco devuelve 500
+    response = client.post(
+        "/api/heimdall",
+        content=b"not json",
+        headers={
+            "Content-Type":
+                "application/json",
+        },
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == {
+        "ok": True,
+    }

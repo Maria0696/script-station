@@ -61,17 +61,17 @@ WATCHLIST_PATH = (
 # ============================================================
 
 PLATFORM_LABELS = {
-    167: "PS5",
-    508: "Switch 2",
-    6: "PC",
-    169: "Xbox Series",
-    48: "PS4",
-    49: "Xbox One",
-    130: "Switch",
-    390: "PS VR2",
-    471: "Meta Quest",  # Meta Quest 3
-    386: "Meta Quest",  # Meta Quest 2
-    163: "SteamVR",
+    167: "🔵 PS5",
+    508: "🔴 Switch 2",
+    6: "💻 PC",
+    169: "🟢 Xbox Series",
+    48: "🔵 PS4",
+    49: "🟢 Xbox One",
+    130: "🔴 Switch",
+    390: "🥽 PS VR2",
+    471: "🥽 Meta Quest",  # Meta Quest 3
+    386: "🥽 Meta Quest",  # Meta Quest 2
+    163: "🥽 SteamVR",
 }
 
 

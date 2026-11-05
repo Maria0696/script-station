@@ -1,13 +1,9 @@
 import json
-import os
 from urllib import request
 
-HUGINN_BOT_TOKEN = os.getenv(
-    "TELEGRAM_BOT_TOKEN"
-)
-
-HEIMDALL_BOT_TOKEN = os.getenv(
-    "TELEGRAM_HEIMDALL_BOT_TOKEN"
+from core.config import (
+    HEIMDALL_BOT_TOKEN,
+    HUGINN_BOT_TOKEN,
 )
 
 

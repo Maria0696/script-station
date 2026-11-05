@@ -666,6 +666,34 @@ def test_build_platforms_groups_meta_quest():
     ]
 
 
+def test_build_platforms_uses_second_quest_date_when_needed():
+    game = {
+        "platforms": [
+            471,
+            386,
+        ],
+    }
+
+    result = (
+        monitor.build_platforms(
+            game,
+            {
+                386: "2026-10-02",
+            },
+        )
+    )
+
+    assert result == [
+        {
+            "id": 471,
+            "label":
+                "🥽 Meta Quest",
+            "release_date":
+                "2026-10-02",
+        }
+    ]
+
+
 # ============================================================
 # MENSAJES DE CAMBIO
 # ============================================================
