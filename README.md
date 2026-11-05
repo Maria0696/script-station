@@ -695,7 +695,7 @@ Script Station uses **pytest**.
 Tests are stored in:
 
 ```text
-tests/python/
+tests/
 ```
 
 Run the complete suite:
@@ -713,7 +713,7 @@ py -m pytest
 Run a specific file:
 
 ```bash
-python -m pytest tests/python/test_cli.py -vv
+python -m pytest tests/cli/test_cli.py -vv
 ```
 
 ---
@@ -729,7 +729,7 @@ python -m pytest \
   --cov=scripts \
   --cov=station_cli \
   --cov-report=term-missing \
-  --cov-fail-under=90
+  --cov-fail-under=100
 ```
 
 PowerShell:
@@ -741,13 +741,13 @@ py -m pytest `
   --cov=scripts `
   --cov=station_cli `
   --cov-report=term-missing `
-  --cov-fail-under=90
+  --cov-fail-under=100
 ```
 
 The project requires at least:
 
 ```text
-90% Python coverage
+100% Python coverage
 ```
 
 External services such as GitHub, Telegram and IGDB are mocked during tests.
@@ -763,13 +763,13 @@ Ruff is used for Python linting.
 Run:
 
 ```bash
-python -m ruff check api core scripts station_cli.py tests/python
+python -m ruff check api core scripts station_cli.py tests
 ```
 
 On Windows:
 
 ```powershell
-py -m ruff check api core scripts station_cli.py tests/python
+py -m ruff check api core scripts station_cli.py tests
 ```
 
 A successful result should be:
@@ -921,19 +921,22 @@ script-station/
 │       └── update-readme-profile.yml
 │
 ├── tests/
-│   └── python/
-│       ├── conftest.py
+│   ├── conftest.py
+│   ├── api/
+│   │   └── test_api.py
+│   ├── cli/
+│   │   └── test_cli.py
+│   ├── core/
+│   │   ├── test_github.py
+│   │   ├── test_heimdall.py
+│   │   ├── test_huginn.py
+│   │   ├── test_igdb.py
+│   │   ├── test_notifications.py
+│   │   └── test_telegram.py
+│   └── scripts/
 │       ├── test_add_workflow.py
-│       ├── test_api.py
-│       ├── test_cli.py
-│       ├── test_github.py
-│       ├── test_heimdall.py
-│       ├── test_huginn.py
-│       ├── test_igdb.py
-│       ├── test_notifications.py
 │       ├── test_notify.py
 │       ├── test_package_manager.py
-│       ├── test_telegram.py
 │       ├── test_video_game_releases.py
 │       └── test_watchlist_monitor.py
 │
@@ -985,7 +988,7 @@ Recommended workflow for changes:
 Before committing:
 
 ```bash
-python -m ruff check api core scripts station_cli.py tests/python
+python -m ruff check api core scripts station_cli.py tests
 python -m pytest
 git diff --check
 ```
@@ -993,7 +996,7 @@ git diff --check
 On Windows:
 
 ```powershell
-py -m ruff check api core scripts station_cli.py tests/python
+py -m ruff check api core scripts station_cli.py tests
 py -m pytest
 git diff --check
 ```
@@ -1033,7 +1036,7 @@ When adding functionality:
 1. Keep business logic outside CLI routing where possible.
 2. Reuse shared modules from `core/`.
 3. Add executable automation under `scripts/` when appropriate.
-4. Add tests under `tests/python/`.
+4. Add tests under `tests/`.
 5. Keep external API calls mockable.
 6. Run Ruff and pytest locally.
 7. Open a pull request against `master`.

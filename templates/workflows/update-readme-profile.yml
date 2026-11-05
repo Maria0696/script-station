@@ -3,6 +3,7 @@ name: Update README.md
 on:
   push:
     branches:
+      - main
       - master
 
   schedule:
@@ -20,7 +21,7 @@ jobs:
     name: generate github profile 3d contrib
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: yoshi389111/github-profile-3d-contrib@latest
         env:
@@ -34,5 +35,5 @@ jobs:
           git add -A .
 
           if git commit -m "[bot] Update README with latest info"; then
-            git push origin main
+            git push
           fi
