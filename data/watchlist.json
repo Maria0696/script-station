@@ -7,7 +7,8 @@
       {
         "id": 167,
         "label": "🔵 PS5",
-        "release_date": "2027-05-20"
+        "release_date": "2027-05-20",
+        "date_precision": "day"
       }
     ]
   },
@@ -19,17 +20,20 @@
       {
         "id": 167,
         "label": "🔵 PS5",
-        "release_date": "2027-12-31"
+        "release_date": "2027-12-31",
+        "date_precision": "year"
       },
       {
         "id": 6,
         "label": "💻 PC",
-        "release_date": "2027-12-31"
+        "release_date": "2027-12-31",
+        "date_precision": "year"
       },
       {
         "id": 169,
         "label": "🟢 Xbox Series",
-        "release_date": "2027-12-31"
+        "release_date": "2027-12-31",
+        "date_precision": "year"
       }
     ]
   },
@@ -41,9 +45,13 @@
       {
         "id": 167,
         "label": "🔵 PS5",
-        "release_date": "2026-09-15"
+        "release_date": "2026-09-15",
+        "date_precision": "day",
+        "release_notified": true
       }
-    ]
+    ],
+    "status": "released",
+    "released_on": "2026-09-15"
   },
   {
     "id": 381235,
@@ -53,22 +61,26 @@
       {
         "id": 167,
         "label": "🔵 PS5",
-        "release_date": "2027-02-12"
+        "release_date": "2027-02-12",
+        "date_precision": "day"
       },
       {
         "id": 508,
         "label": "🔴 Switch 2",
-        "release_date": "2027-02-12"
+        "release_date": "2027-02-12",
+        "date_precision": "day"
       },
       {
         "id": 6,
         "label": "💻 PC",
-        "release_date": "2027-02-12"
+        "release_date": "2027-02-12",
+        "date_precision": "day"
       },
       {
         "id": 169,
         "label": "🟢 Xbox Series",
-        "release_date": "2027-02-12"
+        "release_date": "2027-02-12",
+        "date_precision": "day"
       }
     ]
   }
