@@ -352,7 +352,10 @@ def test_get_release_dates(monkeypatch):
 
     result = igdb.get_release_dates([123, 456])
 
-    assert result == {123: {167: "2026-09-15"}, 456: {6: "2026-09-20"}}
+    assert result == {
+        123: {167: {"date": "2026-09-15", "precision": "day"}},
+        456: {6: {"date": "2026-09-20", "precision": "day"}},
+    }
 
     assert calls[0]["endpoint"] == "release_dates"
     assert "where game = (123,456)" in calls[0]["query"]
@@ -371,10 +374,16 @@ def test_get_release_dates_empty(monkeypatch):
 def test_get_platform_release_dates(monkeypatch):
     # Devuelve las fechas de un solo juego
     monkeypatch.setattr(
-        igdb, "get_release_dates", lambda game_ids: {game_ids[0]: {167: "2026-09-15"}}
+        igdb,
+        "get_release_dates",
+        lambda game_ids: {
+            game_ids[0]: {167: {"date": "2026-09-15", "precision": "day"}}
+        },
     )
 
-    assert igdb.get_platform_release_dates(123) == {167: "2026-09-15"}
+    assert igdb.get_platform_release_dates(123) == {
+        167: {"date": "2026-09-15", "precision": "day"}
+    }
 
 
 def test_get_platform_release_dates_without_dates(monkeypatch):
@@ -438,7 +447,10 @@ def test_build_platform_data(monkeypatch):
     monkeypatch.setattr(
         igdb,
         "get_platform_release_dates",
-        lambda game_id: {167: "2026-09-15", 6: "2026-09-20"},
+        lambda game_id: {
+            167: {"date": "2026-09-15", "precision": "day"},
+            6: {"date": "2026-09-20", "precision": "day"},
+        },
     )
 
     game = {"id": 123, "platforms": [6, 167]}
@@ -446,8 +458,18 @@ def test_build_platform_data(monkeypatch):
     result = igdb.build_platform_data(game)
 
     assert result == [
-        {"id": 167, "label": "🔵 PS5", "release_date": "2026-09-15"},
-        {"id": 6, "label": "💻 PC", "release_date": "2026-09-20"},
+        {
+            "id": 167,
+            "label": "🔵 PS5",
+            "release_date": "2026-09-15",
+            "date_precision": "day",
+        },
+        {
+            "id": 6,
+            "label": "💻 PC",
+            "release_date": "2026-09-20",
+            "date_precision": "day",
+        },
     ]
 
 
@@ -460,20 +482,31 @@ def test_build_platform_data_with_known_dates(monkeypatch):
 
     result = igdb.build_platform_data({"id": 123, "platforms": [167]}, {})
 
-    assert result == [{"id": 167, "label": "🔵 PS5", "release_date": None}]
+    assert result == [
+        {"id": 167, "label": "🔵 PS5", "release_date": None, "date_precision": None}
+    ]
 
 
 def test_build_platform_data_adds_platform_from_release_date(monkeypatch):
     # Añade plataformas detectadas por su fecha
     monkeypatch.setattr(
-        igdb, "get_platform_release_dates", lambda game_id: {167: "2026-09-15"}
+        igdb,
+        "get_platform_release_dates",
+        lambda game_id: {167: {"date": "2026-09-15", "precision": "day"}},
     )
 
     game = {"id": 123, "platforms": []}
 
     result = igdb.build_platform_data(game)
 
-    assert result == [{"id": 167, "label": "🔵 PS5", "release_date": "2026-09-15"}]
+    assert result == [
+        {
+            "id": 167,
+            "label": "🔵 PS5",
+            "release_date": "2026-09-15",
+            "date_precision": "day",
+        }
+    ]
 
 
 def test_build_platform_data_groups_meta_quest(monkeypatch):
@@ -481,7 +514,10 @@ def test_build_platform_data_groups_meta_quest(monkeypatch):
     monkeypatch.setattr(
         igdb,
         "get_platform_release_dates",
-        lambda game_id: {471: "2026-10-01", 386: "2026-10-02"},
+        lambda game_id: {
+            471: {"date": "2026-10-01", "precision": "day"},
+            386: {"date": "2026-10-02", "precision": "day"},
+        },
     )
 
     game = {"id": 123, "platforms": [471, 386]}
@@ -489,14 +525,21 @@ def test_build_platform_data_groups_meta_quest(monkeypatch):
     result = igdb.build_platform_data(game)
 
     assert result == [
-        {"id": 471, "label": "🥽 Meta Quest", "release_date": "2026-10-01"}
+        {
+            "id": 471,
+            "label": "🥽 Meta Quest",
+            "release_date": "2026-10-01",
+            "date_precision": "day",
+        }
     ]
 
 
 def test_build_platform_data_uses_second_quest_date_when_needed(monkeypatch):
     # Usa la fecha de Quest disponible
     monkeypatch.setattr(
-        igdb, "get_platform_release_dates", lambda game_id: {386: "2026-10-02"}
+        igdb,
+        "get_platform_release_dates",
+        lambda game_id: {386: {"date": "2026-10-02", "precision": "day"}},
     )
 
     game = {"id": 123, "platforms": [471, 386]}
@@ -504,7 +547,12 @@ def test_build_platform_data_uses_second_quest_date_when_needed(monkeypatch):
     result = igdb.build_platform_data(game)
 
     assert result == [
-        {"id": 471, "label": "🥽 Meta Quest", "release_date": "2026-10-02"}
+        {
+            "id": 471,
+            "label": "🥽 Meta Quest",
+            "release_date": "2026-10-02",
+            "date_precision": "day",
+        }
     ]
 
 
@@ -611,3 +659,128 @@ def test_igdb_request_reports_last_response_after_retries(monkeypatch, flaky_ser
         igdb.igdb_request("games", "fields id;")
 
     assert FlakyHandler.calls == 4
+
+
+# ============================================================
+# PRECISIÓN DE FECHAS
+# ============================================================
+
+
+def test_get_release_dates_reads_precision(monkeypatch):
+    # Lee date_format y descarta las fechas TBD
+    mock_igdb_request(
+        monkeypatch,
+        [
+            {
+                "game": 1,
+                "platform": 167,
+                "date": timestamp(2027, 12, 31),
+                "date_format": {"format": "YYYY"},
+            },
+            {
+                "game": 2,
+                "platform": 167,
+                "date": timestamp(2027, 3, 31),
+                "date_format": {"format": "YYYYQ1"},
+            },
+            {
+                "game": 3,
+                "platform": 167,
+                "date": timestamp(2027, 5, 31),
+                "date_format": {"format": "YYYYMM"},
+            },
+            {
+                "game": 4,
+                "platform": 167,
+                "date": timestamp(2027, 12, 31),
+                "date_format": {"format": "TBD"},
+            },
+        ],
+    )
+
+    result = igdb.get_release_dates([1, 2, 3, 4])
+
+    assert result == {
+        1: {167: {"date": "2027-12-31", "precision": "year"}},
+        2: {167: {"date": "2027-03-31", "precision": "quarter"}},
+        3: {167: {"date": "2027-05-31", "precision": "month"}},
+    }
+
+
+@pytest.mark.parametrize(
+    ("release", "expected"),
+    [
+        ({"date_format": {"format": "YYYYMMDD"}}, "day"),
+        ({"date_format": {"format": "YYYYMM"}}, "month"),
+        ({"date_format": {"format": "YYYYQ4"}}, "quarter"),
+        ({"date_format": {"format": "YYYY"}}, "year"),
+        ({"date_format": {"format": "TBD"}}, None),
+        ({"date_format": 2}, "day"),
+        ({}, "day"),
+    ],
+)
+def test_get_date_precision(release, expected):
+    assert igdb.get_date_precision(release) == expected
+
+
+@pytest.mark.parametrize(
+    ("date_string", "precision", "expected"),
+    [
+        ("2027-03-15", "day", "15-03-2027"),
+        ("2027-03-31", "month", "Marzo 2027"),
+        ("2027-03-31", "quarter", "T1 2027"),
+        ("2027-12-31", "quarter", "T4 2027"),
+        ("2027-12-31", "year", "2027"),
+        (None, "year", "Sin fecha"),
+    ],
+)
+def test_display_release_date_with_precision(date_string, precision, expected):
+    assert igdb.display_release_date(date_string, precision) == expected
+
+
+def test_display_platform_date_assumes_day_for_old_data():
+    # Las plataformas guardadas antes no tienen date_precision
+    assert igdb.display_platform_date({"release_date": "2027-12-31"}) == "31-12-2027"
+
+    year_only = {"release_date": "2027-12-31", "date_precision": "year"}
+
+    assert igdb.display_platform_date(year_only) == "2027"
+
+
+@pytest.mark.parametrize(
+    ("date_string", "precision", "expected"),
+    [
+        ("2027-03-15", "day", ("2027-03-15", "2027-03-15")),
+        ("2028-02-29", "month", ("2028-02-01", "2028-02-29")),
+        ("2027-12-31", "quarter", ("2027-10-01", "2027-12-31")),
+        ("2027-05-31", "quarter", ("2027-04-01", "2027-06-30")),
+        ("2027-12-31", "year", ("2027-01-01", "2027-12-31")),
+    ],
+)
+def test_release_period(date_string, precision, expected):
+    start, end = igdb.release_period(date_string, precision)
+
+    assert (start.isoformat(), end.isoformat()) == expected
+
+
+def test_is_more_precise():
+    assert igdb.is_more_precise("day", "year") is True
+    assert igdb.is_more_precise("quarter", "month") is False
+    assert igdb.is_more_precise("year", "year") is False
+
+
+def test_build_platform_data_keeps_precision_when_grouping_quest():
+    # Quest 3 sin fecha toma la fecha y la precisión de Quest 2
+    result = igdb.build_platform_data(
+        {"id": 1, "platforms": [471, 386]},
+        {386: {"date": "2027-12-31", "precision": "year"}},
+    )
+
+    assert result == [
+        {
+            "id": 471,
+            "label": "🥽 Meta Quest",
+            "release_date": "2027-12-31",
+            "date_precision": "year",
+        }
+    ]

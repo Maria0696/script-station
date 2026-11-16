@@ -1,3 +1,4 @@
+import calendar
 import time
 from datetime import UTC, date, datetime
 
@@ -18,6 +19,36 @@ IGDB_API_URL = "https://api.igdb.com/v4"
 
 # Renueva el token un poco antes de que caduque
 TOKEN_EXPIRY_MARGIN = 60
+
+# Precisión de cada date_format de IGDB. "TBD" no es una fecha.
+# Para mes, trimestre o año, IGDB usa el último día del periodo
+DATE_PRECISIONS = {
+    "YYYYMMDD": "day",
+    "YYYYMM": "month",
+    "YYYYQ1": "quarter",
+    "YYYYQ2": "quarter",
+    "YYYYQ3": "quarter",
+    "YYYYQ4": "quarter",
+    "YYYY": "year",
+}
+
+# De más a menos concreta
+PRECISION_ORDER = ("day", "month", "quarter", "year")
+
+MONTH_NAMES = (
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
+)
 
 # Token de Twitch compartido mientras siga vigente
 _token_cache = {"access_token": None, "expires_at": 0.0}
@@ -161,7 +192,9 @@ def get_igdb_games(game_ids):
         id,
         name,
         first_release_date,
-        platforms;
+        platforms,
+        aggregated_rating,
+        aggregated_rating_count;
 
     where id = ({ids});
 
@@ -183,7 +216,7 @@ def get_igdb_game(game_id):
 
 def get_release_dates(game_ids):
     # Primera fecha válida por juego y plataforma:
-    # {game_id: {platform_id: "YYYY-MM-DD"}}
+    # {game_id: {platform_id: {"date": "YYYY-MM-DD", "precision": "day"}}}
     if not game_ids:
         return {}
 
@@ -194,6 +227,7 @@ def get_release_dates(game_ids):
         game,
         platform,
         date,
+        date_format.format,
         release_region.region;
 
     where game = ({ids})
@@ -217,12 +251,15 @@ def get_release_dates(game_ids):
             continue
 
         release_date = format_release_date(release.get("date"))
+        precision = get_date_precision(release)
 
-        if not release_date:
+        if not release_date or not precision:
             continue
 
         # Conserva la primera fecha válida
-        release_dates.setdefault(game_id, {}).setdefault(platform_id, release_date)
+        release_dates.setdefault(game_id, {}).setdefault(
+            platform_id, {"date": release_date, "precision": precision}
+        )
 
     return release_dates
 
@@ -287,12 +324,74 @@ def format_release_date(timestamp):
     return datetime.fromtimestamp(timestamp, tz=UTC).date().isoformat()
 
 
-def display_release_date(date_string):
-    # Convierte YYYY-MM-DD a DD-MM-YYYY
+def get_date_precision(release):
+    # Precisión de una fecha de IGDB; None si está por determinar.
+    # Sin date_format se asume día, como hacía IGDB antes
+    date_format = release.get("date_format")
+
+    if not isinstance(date_format, dict):
+        return "day"
+
+    return DATE_PRECISIONS.get(date_format.get("format"))
+
+
+def display_release_date(date_string, precision="day"):
+    # Muestra la fecha según su precisión:
+    # 15-03-2027, Marzo 2027, T1 2027 o 2027
     if not date_string:
         return "Sin fecha"
 
-    return date.fromisoformat(date_string).strftime("%d-%m-%Y")
+    value = date.fromisoformat(date_string)
+
+    if precision == "year":
+        return str(value.year)
+
+    if precision == "quarter":
+        return f"T{(value.month - 1) // 3 + 1} {value.year}"
+
+    if precision == "month":
+        return f"{MONTH_NAMES[value.month - 1].capitalize()} {value.year}"
+
+    return value.strftime("%d-%m-%Y")
+
+
+def get_platform_precision(platform):
+    # Precisión guardada; los datos antiguos eran siempre por día
+    return platform.get("date_precision") or "day"
+
+
+def display_platform_date(platform):
+    # Fecha visible de una plataforma de la watchlist
+    return display_release_date(
+        platform.get("release_date"), get_platform_precision(platform)
+    )
+
+
+def release_period(date_string, precision="day"):
+    # Primer y último día que abarca una fecha imprecisa
+    value = date.fromisoformat(date_string)
+
+    if precision == "year":
+        return date(value.year, 1, 1), date(value.year, 12, 31)
+
+    if precision == "quarter":
+        first_month = (value.month - 1) // 3 * 3 + 1
+        last_month = first_month + 2
+        last_day = calendar.monthrange(value.year, last_month)[1]
+
+        return date(value.year, first_month, 1), date(value.year, last_month, last_day)
+
+    if precision == "month":
+        last_day = calendar.monthrange(value.year, value.month)[1]
+
+        return date(value.year, value.month, 1), date(value.year, value.month, last_day)
+
+    return value, value
+
+
+def is_more_precise(precision, other):
+    # True si precision concreta más que other
+    return PRECISION_ORDER.index(precision) < PRECISION_ORDER.index(other)
 
 
 # ============================================================
@@ -319,7 +418,10 @@ def build_platform_data(game, release_dates=None):
 
         label = PLATFORM_LABELS[platform_id]
 
-        release_date = release_dates.get(platform_id)
+        release = release_dates.get(platform_id) or {}
+
+        release_date = release.get("date")
+        precision = release.get("precision")
 
         # Agrupa Meta Quest 2 y 3
         if label in label_indexes:
@@ -327,13 +429,19 @@ def build_platform_data(game, release_dates=None):
 
             if platform["release_date"] is None and release_date:
                 platform["release_date"] = release_date
+                platform["date_precision"] = precision
 
             continue
 
         label_indexes[label] = len(platforms)
 
         platforms.append(
-            {"id": platform_id, "label": label, "release_date": release_date}
+            {
+                "id": platform_id,
+                "label": label,
+                "release_date": release_date,
+                "date_precision": precision,
+            }
         )
 
     return platforms

@@ -1,9 +1,18 @@
+import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from core.config import HEIMDALL_CHAT_ID, WORKFLOWS
 from core.github import get_workflow_runs, rerun_failed_workflow_run
-from core.telegram import answer_heimdall_callback, send_heimdall_message
+from core.telegram import (
+    answer_heimdall_callback,
+    get_update_chat_id,
+    send_heimdall_message,
+)
+
+logger = logging.getLogger(__name__)
+
+ERROR_MESSAGE = "❌ No he podido consultar GitHub. Inténtalo de nuevo en un rato."
 
 MADRID_TIMEZONE = ZoneInfo("Europe/Madrid")
 
@@ -300,8 +309,8 @@ def handle_heimdall_message(message):
 # ============================================================
 
 
-def handle_heimdall_update(update):
-    # Entrada principal de Heimdall
+def dispatch_heimdall_update(update):
+    # Envía el update a su handler
     callback = update.get("callback_query")
 
     if isinstance(callback, dict):
@@ -313,3 +322,30 @@ def handle_heimdall_update(update):
         return handle_heimdall_message(message)
 
     return {"ok": True}
+
+
+def report_heimdall_error(update):
+    # Avisa en el chat en vez de quedarse callado
+    chat_id = get_update_chat_id(update)
+
+    if chat_id != HEIMDALL_CHAT_ID:
+        return
+
+    try:
+        send_heimdall_message(chat_id, ERROR_MESSAGE)
+
+    except Exception:
+        logger.exception("Could not send the Heimdall error message")
+
+
+def handle_heimdall_update(update):
+    # Entrada principal de Heimdall
+    try:
+        return dispatch_heimdall_update(update)
+
+    except Exception:
+        logger.exception("Heimdall could not process an update")
+
+        report_heimdall_error(update)
+
+        return {"ok": True}

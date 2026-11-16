@@ -437,6 +437,7 @@ Available commands include:
 /watch
 /watchlist
 /next
+/released
 /unwatch
 /help
 ```
@@ -445,11 +446,14 @@ Huginn can:
 
 - Search for games.
 - Retrieve platform information.
-- Retrieve release dates.
+- Retrieve release dates with their precision (`15-03-2027`, `Marzo 2027`, `T1 2027` or `2027`).
 - Add games to the watchlist.
 - Remove games from the watchlist.
-- Show watched games.
+- Show watched games that are not out yet (`/watchlist`).
+- Show watched games that are already out (`/released`).
 - Show upcoming releases.
+
+If a command fails (for example, IGDB or GitHub is down), Huginn replies with an error message instead of staying silent. Adding or removing a game retries once if the watchlist monitor saved the file at the same time (GitHub `409`).
 
 ---
 
@@ -598,9 +602,16 @@ The monitor:
 - Detects release advances.
 - Detects newly announced dates.
 - Detects removed dates.
+- Detects when a vague date becomes concrete (`2027` → `15-03-2027`), without reporting it as an advance.
 - Detects platform changes.
+- Announces watched games on release day (`🎉 ¡SALE HOY!`), with the critic score when IGDB has one.
+- Archives a game once all its dated platforms are out. Archived games are no longer queried.
 - Saves the updated watchlist to `master` through the GitHub API.
 - Emits `game.release_changed` notifications only after the watchlist is saved, so a failed save never repeats a notification on the next run.
+
+IGDB stores vague dates (`2027`, `Q1 2027`, `March 2027`) as the last day of the period. Each platform keeps a `date_precision` (`day`, `month`, `quarter` or `year`), and changes are compared as periods.
+
+Release alerts are idempotent: each platform keeps `release_notified`. If a daily run is missed, the alert arrives the next day. Releases more than 7 days old are archived without an alert.
 
 The watchlist is read and written through the GitHub API, so running the monitor locally (`script-station watchlist`) also commits to `master` and needs `GITHUB_TOKEN`.
 

@@ -1,6 +1,7 @@
 import base64
 import json
 from urllib import request
+from urllib.error import HTTPError
 
 from core.config import GITHUB_BRANCH, GITHUB_REPO, GITHUB_TOKEN, WATCHLIST_PATH
 
@@ -63,6 +64,30 @@ def save_watchlist(watchlist, sha, message="chore: update game watchlist"):
             "branch": GITHUB_BRANCH,
         },
     )
+
+
+def update_watchlist(change, message="chore: update game watchlist"):
+    # Lee, modifica y guarda la watchlist. change(watchlist) la modifica
+    # en sitio y devuelve (resultado, cambiado). Si otro proceso la
+    # guardó entretanto (409), repite una vez con la versión nueva
+    attempts = 2
+
+    for attempt in range(1, attempts + 1):
+        watchlist, sha = get_watchlist()
+
+        result, changed = change(watchlist)
+
+        if not changed:
+            return result
+
+        try:
+            save_watchlist(watchlist, sha, message)
+
+            return result
+
+        except HTTPError as error:
+            if error.code != 409 or attempt == attempts:
+                raise
 
 
 def get_workflow_runs():

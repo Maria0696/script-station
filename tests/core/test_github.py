@@ -1,5 +1,8 @@
 import base64
 import json
+from urllib.error import HTTPError
+
+import pytest
 
 from core import github
 
@@ -270,3 +273,90 @@ def test_rerun_failed_workflow_run(monkeypatch):
     assert captured["path"] == ("actions/runs/123/rerun-failed-jobs")
 
     assert captured["data"] is None
+
+
+# ============================================================
+# ACTUALIZAR LA WATCHLIST
+# ============================================================
+
+
+def http_error(code):
+    return HTTPError("https://api.github.com", code, "error", {}, None)
+
+
+def mock_storage(monkeypatch, versions, save_errors=()):
+    # get_watchlist devuelve cada versión por turno; save_watchlist
+    # lanza los errores indicados en orden y registra lo guardado
+    reads = iter(versions)
+    errors = list(save_errors)
+    saves = []
+
+    monkeypatch.setattr(github, "get_watchlist", lambda: next(reads))
+
+    def fake_save(watchlist, sha, message):
+        if errors:
+            raise errors.pop(0)
+
+        saves.append((list(watchlist), sha, message))
+
+    monkeypatch.setattr(github, "save_watchlist", fake_save)
+
+    return saves
+
+
+def add_game(game_id):
+    def change(watchlist):
+        watchlist.append(game_id)
+
+        return game_id, True
+
+    return change
+
+
+def test_update_watchlist_saves_change(monkeypatch):
+    saves = mock_storage(monkeypatch, [([1], "sha-1")])
+
+    result = github.update_watchlist(add_game(2), message="chore: test")
+
+    assert result == 2
+    assert saves == [([1, 2], "sha-1", "chore: test")]
+
+
+def test_update_watchlist_without_change(monkeypatch):
+    # Sin cambios no hay commit
+    saves = mock_storage(monkeypatch, [([1], "sha-1")])
+
+    result = github.update_watchlist(lambda watchlist: ("same", False))
+
+    assert result == "same"
+    assert saves == []
+
+
+def test_update_watchlist_retries_conflict(monkeypatch):
+    # Otro proceso guardó entretanto: se repite sobre la versión nueva
+    saves = mock_storage(
+        monkeypatch, [([1], "sha-1"), ([1, 3], "sha-2")], save_errors=[http_error(409)]
+    )
+
+    github.update_watchlist(add_game(2))
+
+    # No se pierde el juego 3 que guardó el otro proceso
+    assert saves == [([1, 3, 2], "sha-2", "chore: update game watchlist")]
+
+
+def test_update_watchlist_gives_up_after_second_conflict(monkeypatch):
+    mock_storage(
+        monkeypatch,
+        [([1], "sha-1"), ([1], "sha-2")],
+        save_errors=[http_error(409), http_error(409)],
+    )
+
+    with pytest.raises(HTTPError):
+        github.update_watchlist(add_game(2))
+
+
+def test_update_watchlist_does_not_retry_other_errors(monkeypatch):
+    mock_storage(monkeypatch, [([1], "sha-1")], save_errors=[http_error(422)])
+
+    with pytest.raises(HTTPError):
+        github.update_watchlist(add_game(2))

@@ -626,3 +626,58 @@ def test_handle_heimdall_update_empty():
     result = heimdall.handle_heimdall_update({})
 
     assert result == {"ok": True}
+
+
+# ============================================================
+# ERRORES
+# ============================================================
+
+
+def failing_dispatch(update):
+    raise OSError("GitHub unavailable")
+
+
+def test_update_error_is_reported_in_chat(monkeypatch, caplog):
+    # Si GitHub falla en /status, Heimdall lo dice
+    sent = []
+
+    monkeypatch.setattr(heimdall, "dispatch_heimdall_update", failing_dispatch)
+    monkeypatch.setattr(
+        heimdall, "send_heimdall_message", lambda chat_id, text: sent.append(text)
+    )
+
+    result = heimdall.handle_heimdall_update(
+        {"message": {"chat": {"id": int(heimdall.HEIMDALL_CHAT_ID)}, "text": "/status"}}
+    )
+
+    assert result == {"ok": True}
+    assert sent == [heimdall.ERROR_MESSAGE]
+    assert "Heimdall could not process an update" in caplog.text
+
+
+def test_update_error_is_not_reported_to_other_chats(monkeypatch):
+    sent = []
+
+    monkeypatch.setattr(heimdall, "dispatch_heimdall_update", failing_dispatch)
+    monkeypatch.setattr(
+        heimdall, "send_heimdall_message", lambda chat_id, text: sent.append(text)
+    )
+
+    heimdall.handle_heimdall_update({"message": {"chat": {"id": 999}}})
+
+    assert sent == []
+
+
+def test_update_error_survives_failed_error_message(monkeypatch, caplog):
+    def failing_send(chat_id, text):
+        raise OSError("Telegram unavailable")
+
+    monkeypatch.setattr(heimdall, "dispatch_heimdall_update", failing_dispatch)
+    monkeypatch.setattr(heimdall, "send_heimdall_message", failing_send)
+
+    result = heimdall.handle_heimdall_update(
+        {"message": {"chat": {"id": int(heimdall.HEIMDALL_CHAT_ID)}}}
+    )
+
+    assert result == {"ok": True}
+    assert "Could not send the Heimdall error message" in caplog.text

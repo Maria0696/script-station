@@ -43,6 +43,9 @@ GITHUB_BRANCH = "master"
 
 WATCHLIST_PATH = "data/watchlist.json"
 
+# Estado de los juegos que ya han salido en todas sus plataformas
+RELEASED_STATUS = "released"
+
 
 # ============================================================
 # CRON

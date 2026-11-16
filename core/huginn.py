@@ -1,20 +1,30 @@
+import logging
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from core.config import HUGINN_CHAT_ID
-from core.github import get_watchlist, save_watchlist
+from core.config import HUGINN_CHAT_ID, RELEASED_STATUS
+from core.github import get_watchlist, update_watchlist
 from core.igdb import (
     build_platform_data,
+    display_platform_date,
     display_release_date,
     format_release_date,
     get_igdb_game,
     search_igdb_games,
 )
-from core.telegram import answer_huginn_callback, send_huginn_message
+from core.telegram import (
+    answer_huginn_callback,
+    get_update_chat_id,
+    send_huginn_message,
+)
+
+logger = logging.getLogger(__name__)
 
 MADRID_TIMEZONE = ZoneInfo("Europe/Madrid")
 
 NEXT_GAME_LIMIT = 5
+
+ERROR_MESSAGE = "❌ No he podido completar la acción. Inténtalo de nuevo en un rato."
 
 
 # ============================================================
@@ -44,6 +54,8 @@ def build_help_message():
         + "Muestra los juegos guardados.\n\n"
         + "/next\n"
         + "Muestra los próximos lanzamientos.\n\n"
+        + "/released\n"
+        + "Muestra los juegos de tu lista que ya han salido.\n\n"
         + "/unwatch\n"
         + "Elimina un juego de tu lista.\n\n"
         + "/help\n"
@@ -76,16 +88,28 @@ def build_removed_message(game):
     return f"🗑️ Eliminado: {game['name']}"
 
 
+def is_archived(game):
+    # Juego que ya ha salido en todas sus plataformas
+    return game.get("status") == RELEASED_STATUS
+
+
 def build_watchlist_message():
-    # Construye /watchlist
+    # Construye /watchlist con los juegos pendientes de salir
     watchlist, _ = get_watchlist()
 
-    if not watchlist:
+    active_games = [game for game in watchlist if not is_archived(game)]
+    archived_count = len(watchlist) - len(active_games)
+    archived_line = f"📦 Ya lanzados: {archived_count} (/released)"
+
+    if not active_games:
+        if archived_count:
+            return f"👀 No tienes juegos pendientes de salir.\n\n{archived_line}"
+
         return "👀 Tu lista está vacía."
 
     lines = [build_title("MI LISTADO DE JUEGOS", icon="👀", indent=12).rstrip(), ""]
 
-    for game in watchlist:
+    for game in active_games:
         lines.append(f"🎮 {game['name']}")
 
         platforms = game.get("platforms", [])
@@ -94,10 +118,7 @@ def build_watchlist_message():
         if platforms and isinstance(platforms[0], dict):
             for platform in platforms:
                 lines.append(
-                    "      "
-                    f"{platform['label']}"
-                    " — "
-                    f"{display_release_date(platform.get('release_date'))}"
+                    f"      {platform['label']} — {display_platform_date(platform)}"
                 )
 
         # Compatibilidad con formato antiguo
@@ -111,6 +132,32 @@ def build_watchlist_message():
 
             lines.append(f"      Plataformas por confirmar — {release_date}")
 
+        lines.append("")
+
+    if archived_count:
+        lines.append(archived_line)
+
+    return "\n".join(lines).rstrip()
+
+
+def build_released_message():
+    # Construye /released con los juegos archivados, más recientes primero
+    watchlist, _ = get_watchlist()
+
+    released_games = sorted(
+        (game for game in watchlist if is_archived(game)),
+        key=lambda game: game.get("released_on") or "",
+        reverse=True,
+    )
+
+    if not released_games:
+        return "📦 Todavía no ha salido ningún juego de tu lista."
+
+    lines = [build_title("YA LANZADOS", icon="📦", indent=18).rstrip(), ""]
+
+    for game in released_games:
+        lines.append(f"🎮 {game['name']}")
+        lines.append(f"      {display_release_date(game.get('released_on'))}")
         lines.append("")
 
     return "\n".join(lines).rstrip()
@@ -142,6 +189,9 @@ def get_upcoming_games():
     upcoming_games = []
 
     for game in watchlist:
+        if is_archived(game):
+            continue
+
         platforms = game.get("platforms", [])
 
         future_releases = []
@@ -161,6 +211,7 @@ def get_upcoming_games():
                         "label": platform["label"],
                         "date": date_string,
                         "date_obj": release_date,
+                        "display": display_platform_date(platform),
                     }
                 )
 
@@ -177,7 +228,12 @@ def get_upcoming_games():
                     label = "Plataformas por confirmar"
 
                 future_releases.append(
-                    {"label": label, "date": date_string, "date_obj": release_date}
+                    {
+                        "label": label,
+                        "date": date_string,
+                        "date_obj": release_date,
+                        "display": display_release_date(date_string),
+                    }
                 )
 
         if not future_releases:
@@ -212,9 +268,7 @@ def build_next_message():
         lines.append(f"🎮 {game['name']}")
 
         for release in game["releases"]:
-            lines.append(
-                f"      {release['label']} — {display_release_date(release['date'])}"
-            )
+            lines.append(f"      {release['label']} — {release['display']}")
 
         lines.append("")
 
@@ -260,51 +314,51 @@ def add_game_to_watchlist(game_id):
     if not game:
         return None, False
 
-    watchlist, sha = get_watchlist()
+    def add(watchlist):
+        existing_game = next(
+            (item for item in watchlist if item["id"] == game["id"]), None
+        )
 
-    existing_game = next((item for item in watchlist if item["id"] == game["id"]), None)
+        # Devuelve el juego existente
+        if existing_game:
+            return (existing_game, False), False
 
-    # Devuelve el juego existente
-    if existing_game:
-        return existing_game, False
+        release_date = format_release_date(game.get("first_release_date"))
 
-    release_date = format_release_date(game.get("first_release_date"))
+        platforms = build_platform_data(game)
 
-    platforms = build_platform_data(game)
+        watchlist.append(
+            {
+                "id": game["id"],
+                "name": game["name"],
+                "release_date": release_date,
+                "platforms": platforms,
+            }
+        )
 
-    watchlist.append(
-        {
-            "id": game["id"],
-            "name": game["name"],
-            "release_date": release_date,
-            "platforms": platforms,
-        }
-    )
+        # Datos usados en el mensaje
+        game["release_date"] = release_date
+        game["platform_data"] = platforms
 
-    save_watchlist(watchlist, sha)
+        return (game, True), True
 
-    # Datos usados en el mensaje
-    game["release_date"] = release_date
-
-    game["platform_data"] = platforms
-
-    return game, True
+    # Si el monitor guarda a la vez, update_watchlist lo reintenta
+    return update_watchlist(add)
 
 
 def remove_game_from_watchlist(game_id):
     # Elimina un juego de la lista
-    watchlist, sha = get_watchlist()
+    def remove(watchlist):
+        game = next((item for item in watchlist if item["id"] == game_id), None)
 
-    game = next((item for item in watchlist if item["id"] == game_id), None)
+        if not game:
+            return (None, False), False
 
-    if not game:
-        return None, False
+        watchlist[:] = [item for item in watchlist if item["id"] != game_id]
 
-    updated_watchlist = [item for item in watchlist if item["id"] != game_id]
+        return (game, True), True
 
-    save_watchlist(updated_watchlist, sha)
-
-    return game, True
+    return update_watchlist(remove)
 
 
 # ============================================================
@@ -398,6 +452,10 @@ def handle_huginn_message(message):
     elif text == "/watchlist":
         send_huginn_message(chat_id, build_watchlist_message())
 
+    # Juegos que ya han salido
+    elif text == "/released":
+        send_huginn_message(chat_id, build_released_message())
+
     # Eliminar juego
     elif text == "/unwatch":
         watchlist, _ = get_watchlist()
@@ -441,8 +499,8 @@ def handle_huginn_message(message):
 # ============================================================
 
 
-def handle_huginn_update(update):
-    # Entrada principal de Huginn
+def dispatch_huginn_update(update):
+    # Envía el update a su handler
     callback = update.get("callback_query")
 
     if isinstance(callback, dict):
@@ -454,3 +512,30 @@ def handle_huginn_update(update):
         return handle_huginn_message(message)
 
     return {"ok": True}
+
+
+def report_huginn_error(update):
+    # Avisa en el chat en vez de quedarse callado
+    chat_id = get_update_chat_id(update)
+
+    if chat_id != HUGINN_CHAT_ID:
+        return
+
+    try:
+        send_huginn_message(chat_id, ERROR_MESSAGE)
+
+    except Exception:
+        logger.exception("Could not send the Huginn error message")
+
+
+def handle_huginn_update(update):
+    # Entrada principal de Huginn
+    try:
+        return dispatch_huginn_update(update)
+
+    except Exception:
+        logger.exception("Huginn could not process an update")
+
+        report_huginn_error(update)
+
+        return {"ok": True}
