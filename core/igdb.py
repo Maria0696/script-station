@@ -36,6 +36,24 @@ DATE_PRECISIONS = {
 # De más a menos concreta
 PRECISION_ORDER = ("day", "month", "quarter", "year")
 
+# game_types de IGDB que se ofrecen al buscar: juego principal, expansión
+# independiente, remake, remaster y edición ampliada
+SEARCH_GAME_TYPES = "0, 4, 8, 9, 10"
+
+# website_types de IGDB que son tiendas, en el orden de los botones
+STORE_WEBSITE_TYPES = {
+    23: "PlayStation",
+    22: "Xbox",
+    24: "Nintendo",
+    13: "Steam",
+    16: "Epic",
+    17: "GOG",
+}
+
+# IGDB guarda los enlaces de PlayStation y Xbox de la tienda de EE. UU.;
+# el id del producto es global, así que basta con cambiar el idioma
+STORE_LOCALES = {"PlayStation": "es-es", "Xbox": "es-ES"}
+
 MONTH_NAMES = (
     "enero",
     "febrero",
@@ -141,18 +159,31 @@ def search_igdb_games(game_name):
     # Escapa el texto del usuario para que no rompa ni altere la consulta
     safe_name = game_name.replace("\\", "\\\\").replace('"', '\\"')
 
+    # La búsqueda de IGDB ordena mal ("Tomb Raider" devuelve los de 1996-2003
+    # antes que el nuevo): se piden más resultados, sin DLC, ports ni packs
     query = f"""
     search "{safe_name}";
 
     fields
         id,
         name,
-        first_release_date;
+        first_release_date,
+        platforms;
 
-    limit 5;
+    where game_type = ({SEARCH_GAME_TYPES});
+
+    limit 10;
     """
 
-    return igdb_request("games", query)
+    games = igdb_request("games", query)
+
+    # Primero los que aún no tienen fecha y los más recientes: en un
+    # seguidor de lanzamientos casi siempre se busca un juego nuevo
+    return sorted(
+        games,
+        key=lambda game: game.get("first_release_date") or float("inf"),
+        reverse=True,
+    )
 
 
 def get_igdb_games(game_ids):
@@ -168,7 +199,9 @@ def get_igdb_games(game_ids):
         first_release_date,
         platforms,
         aggregated_rating,
-        aggregated_rating_count;
+        aggregated_rating_count,
+        websites.url,
+        websites.type;
 
     where id = ({ids});
 
@@ -180,6 +213,53 @@ def get_igdb_games(game_ids):
 
 def get_igdb_game(game_id):
     return get_igdb_games([game_id]).get(game_id)
+
+
+def get_store_links(game):
+    # [(tienda, url)] en el orden de STORE_WEBSITE_TYPES, una por tienda
+    links = {}
+
+    for website in game.get("websites", []):
+        store = STORE_WEBSITE_TYPES.get(website.get("type"))
+        url = website.get("url")
+
+        if not store or not url or store in links:
+            continue
+
+        locale = STORE_LOCALES.get(store)
+
+        if locale:
+            url = url.replace("/en-us/", f"/{locale}/")
+
+        links[store] = url
+
+    return [
+        (store, links[store])
+        for store in STORE_WEBSITE_TYPES.values()
+        if store in links
+    ]
+
+
+def get_release_year(game):
+    # Año de first_release_date, o "TBA" si aún no tiene fecha
+    release_date = format_release_date(game.get("first_release_date"))
+
+    return release_date[:4] if release_date else "TBA"
+
+
+def get_platform_names(platform_ids, limit=3):
+    # "PS5, PC, Xbox Series +2" con las plataformas soportadas, sin emoji
+    names = []
+
+    for platform_id in PLATFORM_ORDER:
+        name = PLATFORM_LABELS[platform_id].split(" ", 1)[1]
+
+        if platform_id in platform_ids and name not in names:
+            names.append(name)
+
+    shown = ", ".join(names[:limit])
+
+    return f"{shown} +{len(names) - limit}" if len(names) > limit else shown
 
 
 # ============================================================

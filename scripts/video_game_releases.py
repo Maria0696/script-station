@@ -239,8 +239,20 @@ def build_messages(games):
     return messages
 
 
-def send_notification(text):
-    return notifications.huginn(text, parse_mode="HTML")
+def build_follow_keyboard(games):
+    # "👀 Seguir" para los destacados. Huginn ya entiende watch:<id> (el
+    # mismo botón que /watch); uno por juego serían hasta ~50 botones
+    buttons = [
+        [{"text": f"👀 Seguir {game['name']}", "callback_data": f"watch:{game['id']}"}]
+        for game in games
+        if game["featured"]
+    ]
+
+    return {"inline_keyboard": buttons} if buttons else None
+
+
+def send_notification(text, reply_markup=None):
+    return notifications.huginn(text, reply_markup=reply_markup, parse_mode="HTML")
 
 
 def main():
@@ -250,8 +262,11 @@ def main():
     games = add_popularity_data(games)
     games = mark_featured_games(games)
 
-    for message in build_messages(games):
-        send_notification(message)
+    # Los destacados van primero, así que siempre están en el primer mensaje
+    keyboard = build_follow_keyboard(games)
+
+    for index, message in enumerate(build_messages(games)):
+        send_notification(message, keyboard if index == 0 else None)
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -23,6 +23,11 @@ MADRID_TZ = ZoneInfo("Europe/Madrid")
 # las más antiguas se marcan y archivan sin avisar
 RELEASE_ALERT_WINDOW_DAYS = 7
 
+# La nota de la crítica se avisa con al menos 3 reseñas y como mucho
+# 14 días después de la salida
+MIN_CRITIC_REVIEWS = 3
+CRITIC_SCORE_WINDOW_DAYS = 14
+
 
 def get_today():
     # "Hoy" es el día de Madrid
@@ -56,16 +61,78 @@ def build_release_message(game_name, platforms, igdb_game, today):
         for platform in platforms
     )
 
-    # La nota de la crítica suele aparecer el mismo día de salida
-    rating = igdb_game.get("aggregated_rating")
+    score_line = build_critic_score_line(igdb_game)
 
-    if rating:
-        count = igdb_game.get("aggregated_rating_count")
-        reviews = f" ({count} reseñas)" if count else ""
-
-        lines.extend(["", f"⭐ Crítica: {round(rating)}/100{reviews}"])
+    if score_line:
+        lines.extend(["", score_line])
 
     return "\n".join(lines)
+
+
+def build_critic_score_line(igdb_game):
+    # Con pocas reseñas la nota no es fiable; suele llegar días después
+    # de la salida, y entonces la avisa check_critic_score
+    rating = igdb_game.get("aggregated_rating")
+    count = igdb_game.get("aggregated_rating_count") or 0
+
+    if not rating or count < MIN_CRITIC_REVIEWS:
+        return None
+
+    return f"⭐ Crítica: {round(rating)}/100 ({count} reseñas)"
+
+
+def build_store_keyboard(igdb_game):
+    # Botones a las tiendas, dos por fila
+    buttons = [
+        {"text": f"🛒 {store}", "url": url}
+        for store, url in igdb.get_store_links(igdb_game)
+    ]
+
+    if not buttons:
+        return None
+
+    return {"inline_keyboard": [buttons[i : i + 2] for i in range(0, len(buttons), 2)]}
+
+
+def first_release_day(item, today):
+    # Primer día en que salió alguna plataforma; None si aún no ha salido
+    released = [
+        date.fromisoformat(platform["release_date"])
+        for platform in item.get("platforms", [])
+        if is_released(platform, today)
+    ]
+
+    return min(released) if released else None
+
+
+def awaiting_critic_score(item, today):
+    # Ha salido hace poco y aún no se ha avisado de su nota
+    if item.get("rating_notified"):
+        return False
+
+    released_on = first_release_day(item, today)
+
+    return bool(released_on) and today - released_on <= timedelta(
+        days=CRITIC_SCORE_WINDOW_DAYS
+    )
+
+
+def check_critic_score(item, igdb_game, today):
+    # Avisa una vez de la nota de la crítica si llega en los días
+    # siguientes a la salida (y no venía ya en el aviso de salida)
+    if not awaiting_critic_score(item, today):
+        return None
+
+    score_line = build_critic_score_line(igdb_game)
+
+    if not score_line:
+        return None
+
+    item["rating_notified"] = True
+
+    logger.info("Critic score: %s", item["name"])
+
+    return f"📊 NOTA DE LA CRÍTICA\n\n🎮 {item['name']}\n{score_line}"
 
 
 def load_watchlist():
@@ -78,8 +145,8 @@ def save_watchlist(watchlist, sha):
     )
 
 
-def send_notification(text):
-    return notifications.emit("game.release_changed", text)
+def send_notification(text, reply_markup=None):
+    return notifications.emit("game.release_changed", text, reply_markup=reply_markup)
 
 
 def build_change_message(
@@ -200,22 +267,32 @@ def monitor_watchlist():
 
         return False
 
-    # Los juegos ya lanzados quedan archivados y no se consultan
+    today = get_today()
+
     active_games = [game for game in watchlist if game.get("status") != RELEASED_STATUS]
 
-    if not active_games:
+    # Los archivados ya no se vigilan, salvo los recién salidos que aún
+    # esperan la nota de la crítica
+    scoring_games = [
+        game
+        for game in watchlist
+        if game.get("status") == RELEASED_STATUS and awaiting_critic_score(game, today)
+    ]
+
+    if not active_games and not scoring_games:
         logger.info("No unreleased games to monitor.")
 
         return False
 
     game_ids = [game["id"] for game in active_games]
 
-    igdb_games = igdb.get_igdb_games(game_ids)
+    igdb_games = igdb.get_igdb_games(game_ids + [game["id"] for game in scoring_games])
 
     release_dates = igdb.get_release_dates(game_ids)
 
-    today = get_today()
     changes_found = False
+
+    # (texto, botones) que se envían cuando la watchlist ya está guardada
     pending_messages = []
 
     for item in active_games:
@@ -286,7 +363,7 @@ def monitor_watchlist():
             )
 
             if message:
-                pending_messages.append(message)
+                pending_messages.append((message, None))
 
             logger.info(
                 "Date changed: %s | %s | %s (%s) -> %s (%s)",
@@ -305,7 +382,11 @@ def monitor_watchlist():
         )
 
         if release_message:
-            pending_messages.append(release_message)
+            pending_messages.append((release_message, build_store_keyboard(igdb_game)))
+
+            # Si la nota ya va en el aviso de salida, no se repite después
+            if build_critic_score_line(igdb_game):
+                item["rating_notified"] = True
 
         # Plataformas añadidas o quitadas se guardan sin aviso
         if stored_platforms != current_platforms:
@@ -313,7 +394,18 @@ def monitor_watchlist():
 
             changes_found = True
 
+        if add_critic_score_message(item, igdb_game, today, pending_messages):
+            changes_found = True
+
         if archive_if_released(item, today):
+            changes_found = True
+
+    for item in scoring_games:
+        igdb_game = igdb_games.get(item["id"])
+
+        if igdb_game and add_critic_score_message(
+            item, igdb_game, today, pending_messages
+        ):
             changes_found = True
 
     if changes_found:
@@ -321,10 +413,20 @@ def monitor_watchlist():
 
     # Avisa solo cuando el cambio ya está guardado:
     # si el guardado falla, el aviso no se repite cada día
-    for message in pending_messages:
-        send_notification(message)
+    for message, reply_markup in pending_messages:
+        send_notification(message, reply_markup)
 
     return changes_found
+
+
+def add_critic_score_message(item, igdb_game, today, pending_messages):
+    # True si hay aviso de nota (y por tanto un cambio que guardar)
+    message = check_critic_score(item, igdb_game, today)
+
+    if message:
+        pending_messages.append((message, None))
+
+    return bool(message)
 
 
 def main():

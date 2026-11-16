@@ -259,7 +259,9 @@ def test_monitor_watchlist_date_changed(monkeypatch):
     )
 
     monkeypatch.setattr(
-        monitor, "send_notification", lambda message: messages.append(message)
+        monitor,
+        "send_notification",
+        lambda message, reply_markup: messages.append(message),
     )
 
     monkeypatch.setattr(
@@ -311,7 +313,9 @@ def mock_delayed_game(monkeypatch, events):
     )
 
     monkeypatch.setattr(
-        monitor, "send_notification", lambda message: events.append("notify")
+        monitor,
+        "send_notification",
+        lambda message, reply_markup: events.append("notify"),
     )
 
 
@@ -389,7 +393,7 @@ def test_monitor_watchlist_without_changes(monkeypatch):
     monkeypatch.setattr(monitor, "save_watchlist", lambda data, sha: saved.append(data))
 
     monkeypatch.setattr(
-        monitor, "send_notification", lambda message: sent.append(message)
+        monitor, "send_notification", lambda message, reply_markup: sent.append(message)
     )
 
     result = monitor.monitor_watchlist()
@@ -506,7 +510,11 @@ def mock_ill(monkeypatch, stored_platform, new_release, events):
         monitor.igdb, "get_release_dates", lambda ids: {142520: {167: new_release}}
     )
 
-    monkeypatch.setattr(monitor, "send_notification", events.append)
+    monkeypatch.setattr(
+        monitor,
+        "send_notification",
+        lambda message, reply_markup: events.append(message),
+    )
 
     monkeypatch.setattr(
         monitor, "save_watchlist", lambda data, sha: events.append("save")
@@ -613,12 +621,17 @@ def test_build_release_message_earlier_without_rating():
     assert message == "🎉 YA DISPONIBLE\n\n🎮 Game\n🔵 PS5 — 30-12-2025"
 
 
-def test_build_release_message_rating_without_count():
-    message = monitor.build_release_message(
-        "Game", [platform(167, "2026-01-01")], {"aggregated_rating": 70.2}, TODAY
-    )
+def test_build_release_message_hides_unreliable_rating():
+    # Con menos de 3 reseñas la nota no se muestra
+    for game in (
+        {"aggregated_rating": 70.2},
+        {"aggregated_rating": 70.2, "aggregated_rating_count": 2},
+    ):
+        message = monitor.build_release_message(
+            "Game", [platform(167, "2026-01-01")], game, TODAY
+        )
 
-    assert message.endswith("⭐ Crítica: 70/100")
+        assert "Crítica" not in message
 
 
 def mock_game(monkeypatch, stored_platforms, igdb_dates, events, **igdb_fields):
@@ -646,7 +659,11 @@ def mock_game(monkeypatch, stored_platforms, igdb_dates, events, **igdb_fields):
         },
     )
 
-    monkeypatch.setattr(monitor, "send_notification", events.append)
+    monkeypatch.setattr(
+        monitor,
+        "send_notification",
+        lambda message, reply_markup: events.append(message),
+    )
 
     monkeypatch.setattr(
         monitor, "save_watchlist", lambda data, sha: events.append("save")
@@ -664,6 +681,7 @@ def test_monitor_watchlist_alerts_release_and_archives(monkeypatch):
         {167: "2026-01-01"},
         events,
         aggregated_rating=90,
+        aggregated_rating_count=5,
     )
 
     assert monitor.monitor_watchlist() is True
@@ -751,3 +769,186 @@ def test_archive_if_released_needs_a_dated_platform():
 
     assert monitor.archive_if_released(item, TODAY) is False
     assert "status" not in item
+
+
+# ============================================================
+# TIENDAS Y NOTA DE LA CRÍTICA
+# ============================================================
+
+STEAM = {"type": 13, "url": "https://store.steampowered.com/app/1"}
+PLAYSTATION = {"type": 23, "url": "https://store.playstation.com/en-us/concept/2"}
+GOG = {"type": 17, "url": "https://www.gog.com/game/3"}
+
+
+def test_build_store_keyboard_two_per_row():
+    keyboard = monitor.build_store_keyboard({"websites": [STEAM, PLAYSTATION, GOG]})
+
+    assert keyboard == {
+        "inline_keyboard": [
+            [
+                {
+                    "text": "🛒 PlayStation",
+                    "url": "https://store.playstation.com/es-es/concept/2",
+                },
+                {"text": "🛒 Steam", "url": "https://store.steampowered.com/app/1"},
+            ],
+            [{"text": "🛒 GOG", "url": "https://www.gog.com/game/3"}],
+        ]
+    }
+
+
+def test_build_store_keyboard_without_stores():
+    assert monitor.build_store_keyboard({"websites": []}) is None
+
+
+def test_build_critic_score_line():
+    line = monitor.build_critic_score_line(
+        {"aggregated_rating": 87.75, "aggregated_rating_count": 12}
+    )
+
+    assert line == "⭐ Crítica: 88/100 (12 reseñas)"
+
+
+def released_item(release_date, **extra):
+    return {
+        "id": 1,
+        "name": "Game",
+        "platforms": [platform(167, release_date)],
+        **extra,
+    }
+
+
+SCORED = {"aggregated_rating": 81, "aggregated_rating_count": 5}
+
+
+def test_check_critic_score_after_release():
+    item = released_item("2025-12-25")
+
+    message = monitor.check_critic_score(item, SCORED, TODAY)
+
+    assert message == "📊 NOTA DE LA CRÍTICA\n\n🎮 Game\n⭐ Crítica: 81/100 (5 reseñas)"
+    assert item["rating_notified"] is True
+
+    # Solo una vez
+    assert monitor.check_critic_score(item, SCORED, TODAY) is None
+
+
+@pytest.mark.parametrize(
+    ("item", "igdb_game"),
+    [
+        # Aún no ha salido
+        (released_item("2026-02-01"), SCORED),
+        # Fuera del plazo de 14 días
+        (released_item("2025-12-17"), SCORED),
+        # Sin reseñas suficientes
+        (released_item("2025-12-25"), {"aggregated_rating": 81}),
+        # Fecha imprecisa: no cuenta como salida
+        ({"name": "Game", "platforms": [platform(167, "2025-12-31", "year")]}, SCORED),
+    ],
+)
+def test_check_critic_score_skips(item, igdb_game):
+    assert monitor.check_critic_score(item, igdb_game, TODAY) is None
+
+
+def test_awaiting_critic_score_last_day_of_window():
+    assert monitor.awaiting_critic_score(released_item("2025-12-18"), TODAY) is True
+
+
+def test_monitor_watchlist_release_alert_with_stores_and_score(monkeypatch):
+    # El aviso de salida lleva tiendas; con nota, no hay aviso de nota aparte
+    sent = []
+
+    watchlist = mock_game(
+        monkeypatch,
+        [platform(167, "2026-01-01")],
+        {167: "2026-01-01"},
+        [],
+        aggregated_rating=90,
+        aggregated_rating_count=5,
+        websites=[STEAM],
+    )
+
+    monkeypatch.setattr(
+        monitor,
+        "send_notification",
+        lambda message, reply_markup: sent.append((message, reply_markup)),
+    )
+
+    monitor.monitor_watchlist()
+
+    assert len(sent) == 1
+    message, keyboard = sent[0]
+
+    assert "⭐ Crítica: 90/100 (5 reseñas)" in message
+    assert keyboard["inline_keyboard"][0][0]["text"] == "🛒 Steam"
+    assert watchlist[0]["rating_notified"] is True
+
+
+def test_monitor_watchlist_critic_score_for_archived_game(monkeypatch):
+    # Archivado hace 5 días: se consulta solo para avisar de la nota
+    sent = []
+    saved = []
+
+    watchlist = [
+        released_item("2025-12-27", status="released", released_on="2025-12-27"),
+        # Archivado hace meses: no se consulta
+        {
+            "id": 2,
+            "name": "Old",
+            "status": "released",
+            "platforms": [platform(167, "2025-09-15")],
+        },
+    ]
+
+    queried = []
+
+    def fake_games(ids):
+        queried.append(ids)
+
+        return {1: {"id": 1, "name": "Game", **SCORED}}
+
+    monkeypatch.setattr(monitor, "load_watchlist", lambda: (watchlist, "sha"))
+    monkeypatch.setattr(monitor.igdb, "get_igdb_games", fake_games)
+    monkeypatch.setattr(monitor.igdb, "get_release_dates", lambda ids: {})
+    monkeypatch.setattr(monitor, "save_watchlist", lambda data, sha: saved.append(True))
+    monkeypatch.setattr(
+        monitor, "send_notification", lambda message, reply_markup: sent.append(message)
+    )
+
+    assert monitor.monitor_watchlist() is True
+
+    assert queried == [[1]]
+    assert saved == [True]
+    assert sent[0].startswith("📊 NOTA DE LA CRÍTICA")
+    assert watchlist[0]["rating_notified"] is True
+
+
+def test_monitor_watchlist_archived_game_missing_in_igdb(monkeypatch):
+    watchlist = [released_item("2025-12-27", status="released")]
+
+    monkeypatch.setattr(monitor, "load_watchlist", lambda: (watchlist, "sha"))
+    monkeypatch.setattr(monitor.igdb, "get_igdb_games", lambda ids: {})
+    monkeypatch.setattr(monitor.igdb, "get_release_dates", lambda ids: {})
+
+    assert monitor.monitor_watchlist() is False
+
+
+def test_monitor_watchlist_critic_score_for_active_game(monkeypatch):
+    # Salió en PS5 hace días (ya avisado) y la nota llega hoy;
+    # PC sigue pendiente, así que el juego no está archivado
+    sent = []
+
+    mock_game(
+        monkeypatch,
+        [platform(167, "2025-12-28", release_notified=True), platform(6, "2026-06-01")],
+        {167: "2025-12-28", 6: "2026-06-01"},
+        [],
+        **SCORED,
+    )
+
+    monkeypatch.setattr(
+        monitor, "send_notification", lambda message, reply_markup: sent.append(message)
+    )
+
+    assert monitor.monitor_watchlist() is True
+    assert sent == ["📊 NOTA DE LA CRÍTICA\n\n🎮 Game\n⭐ Crítica: 81/100 (5 reseñas)"]

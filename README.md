@@ -444,7 +444,7 @@ Available commands include:
 
 Huginn can:
 
-- Search for games.
+- Search for games. Results skip DLC, ports and bundles, list undated and newest games first, and show the year and platforms on each button, e.g. `Tomb Raider (2013) · PC, PS4, Xbox One`. IGDB search ranking is weak, so for older franchises a full name works best.
 - Retrieve platform information.
 - Retrieve release dates with their precision (`15-03-2027`, `Marzo 2027`, `T1 2027` or `2027`).
 - Add games to the watchlist.
@@ -561,7 +561,7 @@ The automation:
 - Retrieves releases for the current day from IGDB.
 - Filters and processes release information.
 - Calculates release relevance.
-- Builds a Telegram report.
+- Builds a Telegram report, with a `👀 Seguir` button for each featured (⭐) game that adds it to the watchlist.
 - Sends the result through Huginn.
 
 Required variables:
@@ -606,7 +606,8 @@ The monitor:
 - Detects removed dates.
 - Detects when a vague date becomes concrete (`2027` → `15-03-2027`), without reporting it as an advance.
 - Detects platform changes.
-- Announces watched games on release day (`🎉 ¡SALE HOY!`), with the critic score when IGDB has one.
+- Announces watched games on release day (`🎉 ¡SALE HOY!`), with store buttons (PlayStation, Xbox, Nintendo, Steam, Epic, GOG; PlayStation and Xbox links point to the Spanish store).
+- Sends the critic score once it is reliable (at least 3 reviews): in the release alert if it is already there, or as a `📊 NOTA DE LA CRÍTICA` alert up to 14 days after release.
 - Archives a game once all its dated platforms are out. Archived games are no longer queried.
 - Saves the updated watchlist to `master` through the GitHub API.
 - Emits `game.release_changed` notifications only after the watchlist is saved, so a failed save never repeats a notification on the next run.
