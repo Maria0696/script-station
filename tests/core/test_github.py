@@ -7,220 +7,95 @@ from core import github
 # PETICIONES HTTP
 # ============================================================
 
-def test_github_request_with_json_response(
-    monkeypatch,
-):
+
+def test_github_request_with_json_response(monkeypatch):
     captured = {}
 
     class FakeResponse:
-
         def __enter__(self):
             return self
 
-        def __exit__(
-            self,
-            exc_type,
-            exc_value,
-            traceback,
-        ):
+        def __exit__(self, exc_type, exc_value, traceback):
             pass
 
         def read(self):
             return b'{"ok": true}'
 
-    def fake_urlopen(
-        req,
-        timeout,
-    ):
-        captured[
-            "request"
-        ] = req
+    def fake_urlopen(req, timeout):
+        captured["request"] = req
 
-        captured[
-            "timeout"
-        ] = timeout
+        captured["timeout"] = timeout
 
         return FakeResponse()
 
-    monkeypatch.setattr(
-        github.request,
-        "urlopen",
-        fake_urlopen,
+    monkeypatch.setattr(github.request, "urlopen", fake_urlopen)
+
+    result = github.github_request("PUT", "contents/test.json", {"value": "test"})
+
+    assert result == {"ok": True}
+
+    assert captured["timeout"] == 30
+
+    assert captured["request"].full_url == (
+        "https://api.github.com/repos/Maria0696/script-station/contents/test.json"
     )
 
-    result = github.github_request(
-        "PUT",
-        "contents/test.json",
-        {
-            "value":
-                "test",
-        },
-    )
+    assert captured["request"].get_method() == "PUT"
 
-    assert result == {
-        "ok": True,
-    }
+    assert json.loads(captured["request"].data) == {"value": "test"}
 
-    assert (
-        captured["timeout"]
-        == 30
-    )
+    headers = {key.lower(): value for key, value in captured["request"].header_items()}
 
-    assert (
-        captured[
-            "request"
-        ].full_url
-        == (
-            "https://api.github.com/repos/"
-            "Maria0696/script-station/"
-            "contents/test.json"
-        )
-    )
+    assert headers["authorization"] == (f"Bearer {github.GITHUB_TOKEN}")
 
-    assert (
-        captured[
-            "request"
-        ].get_method()
-        == "PUT"
-    )
+    assert headers["accept"] == ("application/vnd.github+json")
 
-    assert json.loads(
-        captured[
-            "request"
-        ].data
-    ) == {
-        "value":
-            "test",
-    }
+    assert headers["x-github-api-version"] == "2022-11-28"
 
-    headers = {
-        key.lower():
-            value
-        for key, value
-        in captured[
-            "request"
-        ].header_items()
-    }
-
-    assert (
-        headers[
-            "authorization"
-        ]
-        == (
-            f"Bearer "
-            f"{github.GITHUB_TOKEN}"
-        )
-    )
-
-    assert (
-        headers["accept"]
-        == (
-            "application/vnd."
-            "github+json"
-        )
-    )
-
-    assert (
-        headers[
-            "x-github-api-version"
-        ]
-        == "2022-11-28"
-    )
-
-    assert (
-        headers[
-            "content-type"
-        ]
-        == "application/json"
-    )
+    assert headers["content-type"] == "application/json"
 
 
-def test_github_request_without_body(
-    monkeypatch,
-):
+def test_github_request_without_body(monkeypatch):
     captured = {}
 
     class FakeResponse:
-
         def __enter__(self):
             return self
 
-        def __exit__(
-            self,
-            exc_type,
-            exc_value,
-            traceback,
-        ):
+        def __exit__(self, exc_type, exc_value, traceback):
             pass
 
         def read(self):
-            return (
-                b'{"value": 123}'
-            )
+            return b'{"value": 123}'
 
-    def fake_urlopen(
-        req,
-        timeout,
-    ):
-        captured[
-            "request"
-        ] = req
+    def fake_urlopen(req, timeout):
+        captured["request"] = req
 
         return FakeResponse()
 
-    monkeypatch.setattr(
-        github.request,
-        "urlopen",
-        fake_urlopen,
-    )
+    monkeypatch.setattr(github.request, "urlopen", fake_urlopen)
 
-    result = github.github_request(
-        "GET",
-        "actions/runs",
-    )
+    result = github.github_request("GET", "actions/runs")
 
-    assert result == {
-        "value": 123,
-    }
+    assert result == {"value": 123}
 
-    assert (
-        captured[
-            "request"
-        ].data
-        is None
-    )
+    assert captured["request"].data is None
 
 
-def test_github_request_without_content(
-    monkeypatch,
-):
+def test_github_request_without_content(monkeypatch):
     class FakeResponse:
-
         def __enter__(self):
             return self
 
-        def __exit__(
-            self,
-            exc_type,
-            exc_value,
-            traceback,
-        ):
+        def __exit__(self, exc_type, exc_value, traceback):
             pass
 
         def read(self):
             return b""
 
-    monkeypatch.setattr(
-        github.request,
-        "urlopen",
-        lambda req, timeout:
-            FakeResponse(),
-    )
+    monkeypatch.setattr(github.request, "urlopen", lambda req, timeout: FakeResponse())
 
-    result = github.github_request(
-        "GET",
-        "actions/runs",
-    )
+    result = github.github_request("GET", "actions/runs")
 
     assert result == {}
 
@@ -229,422 +104,169 @@ def test_github_request_without_content(
 # WATCHLIST
 # ============================================================
 
-def test_get_watchlist(
-    monkeypatch,
-):
-    watchlist = [
-        {
-            "id": 123,
-            "name":
-                "Test Game",
-        },
-        {
-            "id": 456,
-            "name":
-                "Another Game",
-        },
-    ]
 
-    encoded_content = (
-        base64
-        .b64encode(
-            json.dumps(
-                watchlist
-            ).encode(
-                "utf-8"
-            )
-        )
-        .decode(
-            "utf-8"
-        )
+def test_get_watchlist(monkeypatch):
+    watchlist = [{"id": 123, "name": "Test Game"}, {"id": 456, "name": "Another Game"}]
+
+    encoded_content = base64.b64encode(json.dumps(watchlist).encode("utf-8")).decode(
+        "utf-8"
     )
 
     captured = {}
 
-    def fake_github_request(
-        method,
-        path,
-        data=None,
-    ):
-        captured[
-            "method"
-        ] = method
+    def fake_github_request(method, path, data=None):
+        captured["method"] = method
 
-        captured[
-            "path"
-        ] = path
+        captured["path"] = path
 
-        return {
-            "content":
-                encoded_content,
-            "sha":
-                "test-sha",
-        }
+        return {"content": encoded_content, "sha": "test-sha"}
 
-    monkeypatch.setattr(
-        github,
-        "github_request",
-        fake_github_request,
-    )
+    monkeypatch.setattr(github, "github_request", fake_github_request)
 
-    result, sha = (
-        github.get_watchlist()
-    )
+    result, sha = github.get_watchlist()
 
     assert result == watchlist
 
-    assert sha == (
-        "test-sha"
-    )
+    assert sha == ("test-sha")
 
-    assert (
-        captured["method"]
-        == "GET"
-    )
+    assert captured["method"] == "GET"
 
-    assert (
-        captured["path"]
-        == (
-            "contents/"
-            "data/watchlist.json"
-            "?ref=master"
-        )
-    )
+    assert captured["path"] == ("contents/data/watchlist.json?ref=master")
 
 
-def test_save_watchlist(
-    monkeypatch,
-):
-    watchlist = [
-        {
-            "id": 123,
-            "name":
-                "Pokémon Test",
-        }
-    ]
+def test_save_watchlist(monkeypatch):
+    watchlist = [{"id": 123, "name": "Pokémon Test"}]
 
     captured = {}
 
-    def fake_github_request(
-        method,
-        path,
-        data=None,
-    ):
-        captured[
-            "method"
-        ] = method
+    def fake_github_request(method, path, data=None):
+        captured["method"] = method
 
-        captured[
-            "path"
-        ] = path
+        captured["path"] = path
 
-        captured[
-            "data"
-        ] = data
+        captured["data"] = data
 
         return {}
 
-    monkeypatch.setattr(
-        github,
-        "github_request",
-        fake_github_request,
-    )
+    monkeypatch.setattr(github, "github_request", fake_github_request)
 
-    github.save_watchlist(
-        watchlist,
-        "test-sha",
-    )
+    github.save_watchlist(watchlist, "test-sha")
 
-    assert (
-        captured["method"]
-        == "PUT"
-    )
+    assert captured["method"] == "PUT"
 
-    assert (
-        captured["path"]
-        == (
-            "contents/"
-            "data/watchlist.json"
-        )
-    )
+    assert captured["path"] == ("contents/data/watchlist.json")
 
-    assert (
-        captured[
-            "data"
-        ][
-            "message"
-        ]
-        == (
-            "chore: update "
-            "game watchlist"
-        )
-    )
+    assert captured["data"]["message"] == ("chore: update game watchlist")
 
-    assert (
-        captured[
-            "data"
-        ][
-            "sha"
-        ]
-        == "test-sha"
-    )
+    assert captured["data"]["sha"] == "test-sha"
 
-    assert (
-        captured[
-            "data"
-        ][
-            "branch"
-        ]
-        == "master"
-    )
+    assert captured["data"]["branch"] == "master"
 
-    decoded_content = (
-        base64
-        .b64decode(
-            captured[
-                "data"
-            ][
-                "content"
-            ]
-        )
-        .decode(
-            "utf-8"
-        )
-    )
+    decoded_content = base64.b64decode(captured["data"]["content"]).decode("utf-8")
 
-    assert json.loads(
-        decoded_content
-    ) == watchlist
+    assert json.loads(decoded_content) == watchlist
 
-    assert (
-        "Pokémon Test"
-        in decoded_content
-    )
+    assert "Pokémon Test" in decoded_content
 
-    assert (
-        decoded_content.endswith("\n")
-    )
+    assert decoded_content.endswith("\n")
 
 
-def test_save_watchlist_with_custom_message(
-    monkeypatch,
-):
+def test_save_watchlist_with_custom_message(monkeypatch):
     captured = {}
 
     monkeypatch.setattr(
-        github,
-        "github_request",
-        lambda method, path, data:
-            captured.update(data),
+        github, "github_request", lambda method, path, data: captured.update(data)
     )
 
-    github.save_watchlist(
-        [],
-        "test-sha",
-        message="chore: custom",
-    )
+    github.save_watchlist([], "test-sha", message="chore: custom")
 
-    assert (
-        captured["message"]
-        == "chore: custom"
-    )
+    assert captured["message"] == "chore: custom"
 
 
 # ============================================================
 # WORKFLOWS
 # ============================================================
 
-def test_dispatch_workflow(
-    monkeypatch,
-):
+
+def test_dispatch_workflow(monkeypatch):
     captured = {}
 
-    def fake_request(
-        method,
-        path,
-        data=None,
-    ):
-        captured[
-            "method"
-        ] = method
+    def fake_request(method, path, data=None):
+        captured["method"] = method
 
-        captured[
-            "path"
-        ] = path
+        captured["path"] = path
 
-        captured[
-            "data"
-        ] = data
+        captured["data"] = data
 
         return {}
 
-    monkeypatch.setattr(
-        github,
-        "github_request",
-        fake_request,
-    )
+    monkeypatch.setattr(github, "github_request", fake_request)
 
-    result = (
-        github.dispatch_workflow(
-            "watchlist.yml"
-        )
-    )
+    result = github.dispatch_workflow("watchlist.yml")
 
     assert result == {}
 
     assert captured == {
         "method": "POST",
-        "path": (
-            "actions/workflows/"
-            "watchlist.yml/dispatches"
-        ),
-        "data": {
-            "ref": "master",
-        },
+        "path": ("actions/workflows/watchlist.yml/dispatches"),
+        "data": {"ref": "master"},
     }
 
-def test_get_workflow_runs(
-    monkeypatch,
-):
+
+def test_get_workflow_runs(monkeypatch):
     workflow_runs = [
-        {
-            "id": 1,
-            "name":
-                "Quality Checks",
-        },
-        {
-            "id": 2,
-            "name":
-                (
-                    "Daily Video "
-                    "Game Releases"
-                ),
-        },
+        {"id": 1, "name": "Quality Checks"},
+        {"id": 2, "name": ("Daily Video Game Releases")},
     ]
 
     captured = {}
 
-    def fake_github_request(
-        method,
-        path,
-        data=None,
-    ):
-        captured[
-            "method"
-        ] = method
+    def fake_github_request(method, path, data=None):
+        captured["method"] = method
 
-        captured[
-            "path"
-        ] = path
+        captured["path"] = path
 
-        return {
-            "workflow_runs":
-                workflow_runs,
-        }
+        return {"workflow_runs": workflow_runs}
 
-    monkeypatch.setattr(
-        github,
-        "github_request",
-        fake_github_request,
-    )
+    monkeypatch.setattr(github, "github_request", fake_github_request)
 
-    result = (
-        github.get_workflow_runs()
-    )
+    result = github.get_workflow_runs()
 
-    assert result == (
-        workflow_runs
-    )
+    assert result == (workflow_runs)
 
-    assert (
-        captured["method"]
-        == "GET"
-    )
+    assert captured["method"] == "GET"
 
-    assert (
-        captured["path"]
-        == (
-            "actions/runs"
-            "?branch=master"
-            "&per_page=50"
-        )
-    )
+    assert captured["path"] == ("actions/runs?branch=master&per_page=50")
 
 
-def test_get_workflow_runs_without_results(
-    monkeypatch,
-):
-    monkeypatch.setattr(
-        github,
-        "github_request",
-        lambda method, path:
-            {},
-    )
+def test_get_workflow_runs_without_results(monkeypatch):
+    monkeypatch.setattr(github, "github_request", lambda method, path: {})
 
-    result = (
-        github.get_workflow_runs()
-    )
+    result = github.get_workflow_runs()
 
     assert result == []
 
 
-def test_rerun_failed_workflow_run(
-    monkeypatch,
-):
+def test_rerun_failed_workflow_run(monkeypatch):
     captured = {}
 
-    def fake_request(
-        method,
-        path,
-        data=None,
-    ):
-        captured[
-            "method"
-        ] = method
+    def fake_request(method, path, data=None):
+        captured["method"] = method
 
-        captured[
-            "path"
-        ] = path
+        captured["path"] = path
 
-        captured[
-            "data"
-        ] = data
+        captured["data"] = data
 
-        return {
-            "ok": True,
-        }
+        return {"ok": True}
 
-    monkeypatch.setattr(
-        github,
-        "github_request",
-        fake_request,
-    )
+    monkeypatch.setattr(github, "github_request", fake_request)
 
-    result = (
-        github
-        .rerun_failed_workflow_run(
-            123
-        )
-    )
+    result = github.rerun_failed_workflow_run(123)
 
-    assert result == {
-        "ok": True,
-    }
+    assert result == {"ok": True}
 
-    assert (
-        captured["method"]
-        == "POST"
-    )
+    assert captured["method"] == "POST"
 
-    assert (
-        captured["path"]
-        == (
-            "actions/runs/123/"
-            "rerun-failed-jobs"
-        )
-    )
+    assert captured["path"] == ("actions/runs/123/rerun-failed-jobs")
 
-    assert (
-        captured["data"]
-        is None
-    )
+    assert captured["data"] is None

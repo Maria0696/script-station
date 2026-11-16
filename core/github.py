@@ -2,24 +2,12 @@ import base64
 import json
 from urllib import request
 
-from core.config import (
-    GITHUB_BRANCH,
-    GITHUB_REPO,
-    GITHUB_TOKEN,
-    WATCHLIST_PATH,
-)
+from core.config import GITHUB_BRANCH, GITHUB_REPO, GITHUB_TOKEN, WATCHLIST_PATH
 
 
-def github_request(
-    method,
-    path,
-    data=None,
-):
+def github_request(method, path, data=None):
     # Ejecuta una llamada a GitHub
-    url = (
-        "https://api.github.com/repos/"
-        f"{GITHUB_REPO}/{path}"
-    )
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/{path}"
 
     body = None
 
@@ -38,7 +26,8 @@ def github_request(
         method=method,
     )
 
-    with request.urlopen(req, timeout=30) as response:
+    # La URL siempre parte de una base https:// fija
+    with request.urlopen(req, timeout=30) as response:  # noqa: S310
         content = response.read()
 
     if not content:
@@ -49,41 +38,20 @@ def github_request(
 
 def get_watchlist():
     # Lee watchlist.json desde GitHub
-    result = github_request(
-        "GET",
-        (
-            f"contents/{WATCHLIST_PATH}"
-            f"?ref={GITHUB_BRANCH}"
-        ),
-    )
+    result = github_request("GET", (f"contents/{WATCHLIST_PATH}?ref={GITHUB_BRANCH}"))
 
-    content = base64.b64decode(
-        result["content"]
-    ).decode("utf-8")
+    content = base64.b64decode(result["content"]).decode("utf-8")
 
-    return (
-        json.loads(content),
-        result["sha"],
-    )
+    return (json.loads(content), result["sha"])
 
 
-def save_watchlist(
-    watchlist,
-    sha,
-    message="chore: update game watchlist",
-):
+def save_watchlist(watchlist, sha, message="chore: update game watchlist"):
     # Actualiza watchlist.json en GitHub.
     # El sha hace que GitHub rechace la escritura
     # si otro proceso cambió el archivo entretanto
-    content = json.dumps(
-        watchlist,
-        ensure_ascii=False,
-        indent=2,
-    ) + "\n"
+    content = json.dumps(watchlist, ensure_ascii=False, indent=2) + "\n"
 
-    encoded_content = base64.b64encode(
-        content.encode("utf-8")
-    ).decode("utf-8")
+    encoded_content = base64.b64encode(content.encode("utf-8")).decode("utf-8")
 
     github_request(
         "PUT",
@@ -99,45 +67,20 @@ def save_watchlist(
 
 def get_workflow_runs():
     # Obtiene las últimas ejecuciones de master
-    result = github_request(
-        "GET",
-        (
-            "actions/runs"
-            f"?branch={GITHUB_BRANCH}"
-            "&per_page=50"
-        ),
-    )
+    result = github_request("GET", (f"actions/runs?branch={GITHUB_BRANCH}&per_page=50"))
 
-    return result.get(
-        "workflow_runs",
-        [],
-    )
+    return result.get("workflow_runs", [])
 
 
-def dispatch_workflow(
-    workflow_file,
-):
+def dispatch_workflow(workflow_file):
     # Lanza un workflow con workflow_dispatch
     return github_request(
         "POST",
-        (
-            "actions/workflows/"
-            f"{workflow_file}/dispatches"
-        ),
-        {
-            "ref": GITHUB_BRANCH,
-        },
+        (f"actions/workflows/{workflow_file}/dispatches"),
+        {"ref": GITHUB_BRANCH},
     )
 
 
-def rerun_failed_workflow_run(
-    run_id,
-):
+def rerun_failed_workflow_run(run_id):
     # Reejecuta los jobs fallidos de un workflow
-    return github_request(
-        "POST",
-        (
-            f"actions/runs/{run_id}"
-            "/rerun-failed-jobs"
-        ),
-    )
+    return github_request("POST", (f"actions/runs/{run_id}/rerun-failed-jobs"))

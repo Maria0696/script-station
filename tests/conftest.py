@@ -3,39 +3,27 @@ import os
 import pytest
 
 TEST_ENV = {
-    "TELEGRAM_BOT_TOKEN":
-        "test-huginn-token",
-    "TELEGRAM_CHAT_ID":
-        "123456",
-    "TELEGRAM_HEIMDALL_BOT_TOKEN":
-        "test-heimdall-token",
-    "TELEGRAM_HEIMDALL_CHAT_ID":
-        "654321",
-    "IGDB_CLIENT_ID":
-        "test-client-id",
-    "IGDB_CLIENT_SECRET":
-        "test-client-secret",
-    "GITHUB_TOKEN":
-        "test-github-token",
-    "TELEGRAM_WEBHOOK_SECRET":
-        "test-huginn-secret",
-    "TELEGRAM_HEIMDALL_WEBHOOK_SECRET":
-        "test-heimdall-secret",
-    "CRON_SECRET":
-        "test-cron-secret",
+    "TELEGRAM_BOT_TOKEN": "test-huginn-token",
+    "TELEGRAM_CHAT_ID": "123456",
+    "TELEGRAM_HEIMDALL_BOT_TOKEN": "test-heimdall-token",
+    "TELEGRAM_HEIMDALL_CHAT_ID": "654321",
+    "IGDB_CLIENT_ID": "test-client-id",
+    "IGDB_CLIENT_SECRET": "test-client-secret",
+    "GITHUB_TOKEN": "test-github-token",
+    "TELEGRAM_WEBHOOK_SECRET": "test-huginn-secret",
+    "TELEGRAM_HEIMDALL_WEBHOOK_SECRET": "test-heimdall-secret",
+    "CRON_SECRET": "test-cron-secret",
 }
 
 
 # Los tests siempre usan credenciales falsas.
 # Nunca deben heredar secretos reales del entorno local.
 for key, value in TEST_ENV.items():
-    os.environ[
-        key
-    ] = value
+    os.environ[key] = value
 
 
 # Se importa después de fijar el entorno de test
-from core import igdb
+from core import igdb  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -48,37 +36,20 @@ def clear_igdb_token_cache():
     igdb.clear_token_cache()
 
 
-def pytest_report_teststatus(
-    report,
-    config,
-):
+def pytest_report_teststatus(report, config):
     # Muestra estado y duración de cada test
     if report.when != "call":
         return None
 
-    duration = (
-        report.duration * 1000
-    )
+    duration = report.duration * 1000
 
     if report.passed:
-        return (
-            "passed",
-            ".",
-            f"PASSED ({duration:.2f}ms)",
-        )
+        return ("passed", ".", f"PASSED ({duration:.2f}ms)")
 
     if report.failed:
-        return (
-            "failed",
-            "F",
-            f"FAILED ({duration:.2f}ms)",
-        )
+        return ("failed", "F", f"FAILED ({duration:.2f}ms)")
 
     if report.skipped:
-        return (
-            "skipped",
-            "s",
-            f"SKIPPED ({duration:.2f}ms)",
-        )
+        return ("skipped", "s", f"SKIPPED ({duration:.2f}ms)")
 
     return None

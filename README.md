@@ -26,7 +26,7 @@ It combines an interactive terminal interface, GitHub automation utilities, Tele
 
 # Requirements
 
-Python **3.11 or newer**.
+Python **3.12 or newer** (production and CI run 3.12).
 
 Check your version with:
 
@@ -66,14 +66,16 @@ py -m pip install -r requirements-dev.txt
 Install Script Station in editable mode:
 
 ```bash
-python -m pip install -e .
+python -m pip install -e . --no-deps
 ```
 
 On Windows:
 
 ```powershell
-py -m pip install -e .
+py -m pip install -e . --no-deps
 ```
+
+`--no-deps` keeps the exact versions from `requirements-dev.txt`.
 
 This installs the global project command:
 
@@ -682,6 +684,7 @@ core/
 ├── heimdall.py
 ├── huginn.py
 ├── igdb.py
+├── logs.py
 ├── notifications.py
 └── telegram.py
 ```
@@ -706,7 +709,11 @@ Gaming assistant and watchlist Telegram behavior.
 
 The only IGDB client. Huginn, the daily releases report and the watchlist monitor all go through it.
 
-It reuses the Twitch token until it expires, sends queries as UTF-8, filters regions and platforms, and includes the IGDB response body in HTTP errors.
+It reuses the Twitch token until it expires, retries rate limits (429) and temporary server errors (5xx) with backoff, sends queries as UTF-8, filters regions and platforms, and includes the IGDB response body in HTTP errors.
+
+## `logs.py`
+
+Shared logging setup for the GitHub Actions scripts. `DEBUG=true` enables debug messages, such as the per-game popularity scores of the daily report.
 
 ## `notifications.py`
 
@@ -811,17 +818,19 @@ Tests must not depend on real credentials or external API calls.
 
 # Ruff
 
-Ruff is used for Python linting.
+Ruff is used for linting and formatting. Its rules and formatter settings live in `pyproject.toml` (`[tool.ruff]`), so every Ruff release checks the same rules.
 
-Run:
+Format the code, then lint it:
 
 ```bash
+python -m ruff format api core scripts station_cli.py tests
 python -m ruff check api core scripts station_cli.py tests
 ```
 
 On Windows:
 
 ```powershell
+py -m ruff format api core scripts station_cli.py tests
 py -m ruff check api core scripts station_cli.py tests
 ```
 
@@ -829,6 +838,14 @@ A successful result should be:
 
 ```text
 All checks passed!
+```
+
+CI runs `ruff format --check` and fails on unformatted code.
+
+The commit that first applied the formatter is listed in `.git-blame-ignore-revs`. GitHub skips it in blame views. To skip it locally too:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
 ```
 
 ---
@@ -856,7 +873,7 @@ CLI --help smoke test
 The workflow installs Script Station using:
 
 ```bash
-python -m pip install -e .
+python -m pip install -e . --no-deps
 ```
 
 and verifies:
@@ -904,23 +921,23 @@ which is routed automatically to Heimdall.
 
 # Dependency Management
 
-Runtime dependencies are defined in:
+`pyproject.toml` is the single source of dependencies: runtime dependencies in `dependencies`, development tools in the `dev` extra.
 
-```text
-requirements.txt
+`requirements.txt` and `requirements-dev.txt` are **generated lock files** with exact versions, resolved for Python 3.12 on Linux (the Vercel and GitHub Actions runtime). Vercel, CI and local development install the same versions. Do not edit them by hand.
+
+To change a dependency, edit `pyproject.toml` and regenerate both files with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv pip compile pyproject.toml \
+  --python-version 3.12 --python-platform x86_64-unknown-linux-gnu \
+  -o requirements.txt
+
+uv pip compile pyproject.toml --extra dev -c requirements.txt \
+  --python-version 3.12 --python-platform x86_64-unknown-linux-gnu \
+  -o requirements-dev.txt
 ```
 
-Development dependencies are defined in:
-
-```text
-requirements-dev.txt
-```
-
-Python project metadata and the CLI entry point are defined in:
-
-```text
-pyproject.toml
-```
+Add `--upgrade` to move every pin to the newest allowed version.
 
 Dependabot monitors:
 
@@ -953,6 +970,7 @@ script-station/
 │   ├── heimdall.py
 │   ├── huginn.py
 │   ├── igdb.py
+│   ├── logs.py
 │   ├── notifications.py
 │   └── telegram.py
 │
@@ -1041,6 +1059,7 @@ Recommended workflow for changes:
 Before committing:
 
 ```bash
+python -m ruff format api core scripts station_cli.py tests
 python -m ruff check api core scripts station_cli.py tests
 python -m pytest
 git diff --check
@@ -1049,6 +1068,7 @@ git diff --check
 On Windows:
 
 ```powershell
+py -m ruff format api core scripts station_cli.py tests
 py -m ruff check api core scripts station_cli.py tests
 py -m pytest
 git diff --check

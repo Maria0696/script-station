@@ -2,6 +2,8 @@ import time
 from datetime import UTC, date, datetime
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 from core.config import (
     IGDB_CLIENT_ID,
@@ -11,22 +13,43 @@ from core.config import (
     VALID_REGIONS,
 )
 
-TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token"
+TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token"  # noqa: S105
 IGDB_API_URL = "https://api.igdb.com/v4"
 
 # Renueva el token un poco antes de que caduque
 TOKEN_EXPIRY_MARGIN = 60
 
 # Token de Twitch compartido mientras siga vigente
-_token_cache = {
-    "access_token": None,
-    "expires_at": 0.0,
-}
+_token_cache = {"access_token": None, "expires_at": 0.0}
+
+
+def create_session():
+    # Reintenta límites de uso (429) y errores temporales (5xx).
+    # Las consultas a IGDB son de solo lectura, así que repetir
+    # un POST es seguro. Esperas: 0.5 s, 1 s, 2 s o Retry-After
+    retry = Retry(
+        total=3,
+        backoff_factor=0.5,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=frozenset({"POST"}),
+        respect_retry_after_header=True,
+        # Devuelve la última respuesta para incluirla en el error
+        raise_on_status=False,
+    )
+
+    session = requests.Session()
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+
+    return session
+
+
+session = create_session()
 
 
 # ============================================================
 # PETICIONES HTTP
 # ============================================================
+
 
 def clear_token_cache():
     # Olvida el token guardado
@@ -38,13 +61,10 @@ def get_igdb_token():
     # Reutiliza el token de Twitch hasta que caduca
     now = time.monotonic()
 
-    if (
-        _token_cache["access_token"]
-        and now < _token_cache["expires_at"]
-    ):
+    if _token_cache["access_token"] and now < _token_cache["expires_at"]:
         return _token_cache["access_token"]
 
-    response = requests.post(
+    response = session.post(
         TWITCH_TOKEN_URL,
         params={
             "client_id": IGDB_CLIENT_ID,
@@ -59,21 +79,14 @@ def get_igdb_token():
     data = response.json()
 
     _token_cache["access_token"] = data["access_token"]
-    _token_cache["expires_at"] = (
-        now
-        + data.get("expires_in", 0)
-        - TOKEN_EXPIRY_MARGIN
-    )
+    _token_cache["expires_at"] = now + data.get("expires_in", 0) - TOKEN_EXPIRY_MARGIN
 
     return data["access_token"]
 
 
-def igdb_request(
-    endpoint,
-    query,
-):
+def igdb_request(endpoint, query):
     # Ejecuta una consulta a IGDB
-    response = requests.post(
+    response = session.post(
         f"{IGDB_API_URL}/{endpoint}",
         headers={
             "Client-ID": IGDB_CLIENT_ID,
@@ -98,10 +111,7 @@ def igdb_request(
 
 def platform_filter():
     # Plataformas soportadas para las consultas
-    return ",".join(
-        str(platform_id)
-        for platform_id in PLATFORM_ORDER
-    )
+    return ",".join(str(platform_id) for platform_id in PLATFORM_ORDER)
 
 
 def is_valid_region(release):
@@ -111,28 +121,19 @@ def is_valid_region(release):
     if not isinstance(region, dict):
         return True
 
-    region_name = (
-        region.get("region")
-        or ""
-    ).lower()
+    region_name = (region.get("region") or "").lower()
 
-    return (
-        not region_name
-        or region_name in VALID_REGIONS
-    )
+    return not region_name or region_name in VALID_REGIONS
 
 
 # ============================================================
 # JUEGOS
 # ============================================================
 
+
 def search_igdb_games(game_name):
     # Busca juegos por nombre
-    safe_name = (
-        game_name
-        .replace("\\", "\\\\")
-        .replace('"', '\\"')
-    )
+    safe_name = game_name.replace("\\", "\\\\").replace('"', '\\"')
 
     query = f"""
     search "{safe_name}";
@@ -145,10 +146,7 @@ def search_igdb_games(game_name):
     limit 5;
     """
 
-    return igdb_request(
-        "games",
-        query,
-    )
+    return igdb_request("games", query)
 
 
 def get_igdb_games(game_ids):
@@ -156,10 +154,7 @@ def get_igdb_games(game_ids):
     if not game_ids:
         return {}
 
-    ids = ",".join(
-        str(game_id)
-        for game_id in game_ids
-    )
+    ids = ",".join(str(game_id) for game_id in game_ids)
 
     query = f"""
     fields
@@ -173,25 +168,18 @@ def get_igdb_games(game_ids):
     limit 500;
     """
 
-    return {
-        game["id"]: game
-        for game in igdb_request(
-            "games",
-            query,
-        )
-    }
+    return {game["id"]: game for game in igdb_request("games", query)}
 
 
 def get_igdb_game(game_id):
     # Obtiene un juego exacto
-    return get_igdb_games(
-        [game_id]
-    ).get(game_id)
+    return get_igdb_games([game_id]).get(game_id)
 
 
 # ============================================================
 # FECHAS DE LANZAMIENTO
 # ============================================================
+
 
 def get_release_dates(game_ids):
     # Primera fecha válida por juego y plataforma:
@@ -199,10 +187,7 @@ def get_release_dates(game_ids):
     if not game_ids:
         return {}
 
-    ids = ",".join(
-        str(game_id)
-        for game_id in game_ids
-    )
+    ids = ",".join(str(game_id) for game_id in game_ids)
 
     query = f"""
     fields
@@ -221,52 +206,33 @@ def get_release_dates(game_ids):
 
     release_dates = {}
 
-    for release in igdb_request(
-        "release_dates",
-        query,
-    ):
+    for release in igdb_request("release_dates", query):
         game_id = release.get("game")
         platform_id = release.get("platform")
 
         if isinstance(game_id, dict):
             game_id = game_id.get("id")
 
-        if (
-            platform_id not in PLATFORM_LABELS
-            or not is_valid_region(release)
-        ):
+        if platform_id not in PLATFORM_LABELS or not is_valid_region(release):
             continue
 
-        release_date = format_release_date(
-            release.get("date")
-        )
+        release_date = format_release_date(release.get("date"))
 
         if not release_date:
             continue
 
         # Conserva la primera fecha válida
-        release_dates.setdefault(
-            game_id,
-            {},
-        ).setdefault(
-            platform_id,
-            release_date,
-        )
+        release_dates.setdefault(game_id, {}).setdefault(platform_id, release_date)
 
     return release_dates
 
 
 def get_platform_release_dates(game_id):
     # Fechas por plataforma de un solo juego
-    return get_release_dates(
-        [game_id]
-    ).get(game_id, {})
+    return get_release_dates([game_id]).get(game_id, {})
 
 
-def get_releases_between(
-    start_timestamp,
-    end_timestamp,
-):
+def get_releases_between(start_timestamp, end_timestamp):
     # Lanzamientos en plataformas soportadas en un intervalo
     query = f"""
     fields
@@ -286,29 +252,17 @@ def get_releases_between(
     sort date asc;
     """
 
-    return igdb_request(
-        "release_dates",
-        query,
-    )
+    return igdb_request("release_dates", query)
 
 
-def get_popularity_primitives(
-    game_ids,
-    popularity_types,
-):
+def get_popularity_primitives(game_ids, popularity_types):
     # Métricas de popularidad de varios juegos
     if not game_ids:
         return []
 
-    ids = ",".join(
-        str(game_id)
-        for game_id in game_ids
-    )
+    ids = ",".join(str(game_id) for game_id in game_ids)
 
-    types = ",".join(
-        str(popularity_type)
-        for popularity_type in popularity_types
-    )
+    types = ",".join(str(popularity_type) for popularity_type in popularity_types)
 
     query = f"""
     fields
@@ -322,10 +276,7 @@ def get_popularity_primitives(
     limit 500;
     """
 
-    return igdb_request(
-        "popularity_primitives",
-        query,
-    )
+    return igdb_request("popularity_primitives", query)
 
 
 def format_release_date(timestamp):
@@ -333,10 +284,7 @@ def format_release_date(timestamp):
     if not timestamp:
         return None
 
-    return datetime.fromtimestamp(
-        timestamp,
-        tz=UTC,
-    ).date().isoformat()
+    return datetime.fromtimestamp(timestamp, tz=UTC).date().isoformat()
 
 
 def display_release_date(date_string):
@@ -344,38 +292,23 @@ def display_release_date(date_string):
     if not date_string:
         return "Sin fecha"
 
-    return date.fromisoformat(
-        date_string
-    ).strftime(
-        "%d-%m-%Y"
-    )
+    return date.fromisoformat(date_string).strftime("%d-%m-%Y")
 
 
 # ============================================================
 # PLATAFORMAS
 # ============================================================
 
-def build_platform_data(
-    game,
-    release_dates=None,
-):
+
+def build_platform_data(game, release_dates=None):
     # Une plataformas con sus fechas.
     # Sin release_dates, las consulta a IGDB
     if release_dates is None:
-        release_dates = get_platform_release_dates(
-            game["id"]
-        )
+        release_dates = get_platform_release_dates(game["id"])
 
-    platform_ids = set(
-        game.get(
-            "platforms",
-            [],
-        )
-    )
+    platform_ids = set(game.get("platforms", []))
 
-    platform_ids.update(
-        release_dates.keys()
-    )
+    platform_ids.update(release_dates.keys())
 
     platforms = []
     label_indexes = {}
@@ -384,40 +317,23 @@ def build_platform_data(
         if platform_id not in platform_ids:
             continue
 
-        label = PLATFORM_LABELS[
-            platform_id
-        ]
+        label = PLATFORM_LABELS[platform_id]
 
-        release_date = release_dates.get(
-            platform_id
-        )
+        release_date = release_dates.get(platform_id)
 
         # Agrupa Meta Quest 2 y 3
         if label in label_indexes:
-            platform = platforms[
-                label_indexes[label]
-            ]
+            platform = platforms[label_indexes[label]]
 
-            if (
-                platform["release_date"] is None
-                and release_date
-            ):
-                platform[
-                    "release_date"
-                ] = release_date
+            if platform["release_date"] is None and release_date:
+                platform["release_date"] = release_date
 
             continue
 
-        label_indexes[label] = len(
-            platforms
-        )
+        label_indexes[label] = len(platforms)
 
         platforms.append(
-            {
-                "id": platform_id,
-                "label": label,
-                "release_date": release_date,
-            }
+            {"id": platform_id, "label": label, "release_date": release_date}
         )
 
     return platforms
