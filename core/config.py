@@ -108,4 +108,5 @@ WORKFLOWS = {
     "Watchlist Release Monitor": "👀 Watchlist Monitor",
     "Quality Checks": "🧪 Quality Checks",
     "Daily Watchdog": "⏰ Daily Watchdog",
+    "Post-deploy Smoke Test": "🚦 Smoke Test",
 }

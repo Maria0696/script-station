@@ -961,7 +961,7 @@ POST /api/heimdall  -> 401 without the secret
 GET  /api/cron      -> 401 without the secret
 ```
 
-A webhook that answers without its secret counts as a failure, just like an endpoint that is down. The workflow retries twice while the domain switches to the new deployment. On failure, Heimdall receives the usual `workflow.failed` alert. Deployment runs carry a commit SHA instead of a branch, so they do not appear in Heimdall `/status`.
+A webhook that answers without its secret counts as a failure, just like an endpoint that is down. The workflow retries twice while the domain switches to the new deployment. On failure, Heimdall receives the usual `workflow.failed` alert, and `/status` shows the latest result.
 
 Workflow failures can emit:
 
