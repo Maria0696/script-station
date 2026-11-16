@@ -844,3 +844,108 @@ def test_build_watchlist_message_shows_precision(monkeypatch):
     )
 
     assert "🔵 PS5 — 2027" in huginn.build_watchlist_message()
+
+
+# ============================================================
+# JUEGOS LANZADOS
+# ============================================================
+
+ACTIVE_GAME = {
+    "id": 1,
+    "name": "Ill",
+    "platforms": [
+        {
+            "id": 167,
+            "label": "🔵 PS5",
+            "release_date": "2099-12-31",
+            "date_precision": "year",
+        }
+    ],
+}
+
+RELEASED_GAMES = [
+    {
+        "id": 2,
+        "name": "Marvel's Wolverine",
+        "status": "released",
+        "released_on": "2026-09-15",
+        "platforms": [],
+    },
+    {
+        "id": 3,
+        "name": "Newer Game",
+        "status": "released",
+        "released_on": "2026-10-20",
+        "platforms": [],
+    },
+]
+
+
+def mock_watchlist(monkeypatch, games):
+    monkeypatch.setattr(huginn, "get_watchlist", lambda: (games, "sha"))
+
+
+def test_build_watchlist_message_hides_released_games(monkeypatch):
+    # /watchlist solo muestra lo pendiente y cuenta lo archivado
+    mock_watchlist(monkeypatch, [ACTIVE_GAME, *RELEASED_GAMES])
+
+    result = huginn.build_watchlist_message()
+
+    assert "🎮 Ill" in result
+    assert "Wolverine" not in result
+    assert result.endswith("📦 Ya lanzados: 2 (/released)")
+
+
+def test_build_watchlist_message_only_released_games(monkeypatch):
+    mock_watchlist(monkeypatch, RELEASED_GAMES)
+
+    assert huginn.build_watchlist_message() == (
+        "👀 No tienes juegos pendientes de salir.\n\n📦 Ya lanzados: 2 (/released)"
+    )
+
+
+def test_build_released_message(monkeypatch):
+    # Más recientes primero
+    mock_watchlist(monkeypatch, [ACTIVE_GAME, *RELEASED_GAMES])
+
+    result = huginn.build_released_message()
+
+    assert "📦 YA LANZADOS" in result
+    assert "Ill" not in result
+    assert result.index("Newer Game") < result.index("Marvel's Wolverine")
+    assert "      15-09-2026" in result
+
+
+def test_build_released_message_empty(monkeypatch):
+    mock_watchlist(monkeypatch, [ACTIVE_GAME])
+
+    assert huginn.build_released_message() == (
+        "📦 Todavía no ha salido ningún juego de tu lista."
+    )
+
+
+def test_get_upcoming_games_skips_released_games(monkeypatch):
+    mock_watchlist(monkeypatch, [ACTIVE_GAME, *RELEASED_GAMES])
+
+    names = [game["name"] for game in huginn.get_upcoming_games()]
+
+    assert names == ["Ill"]
+
+
+def test_handle_released_command(monkeypatch):
+    sent = []
+
+    monkeypatch.setattr(huginn, "build_released_message", lambda: "released list")
+    monkeypatch.setattr(
+        huginn, "send_huginn_message", lambda chat_id, text: sent.append(text)
+    )
+
+    huginn.handle_huginn_message(
+        {"chat": {"id": int(huginn.HUGINN_CHAT_ID)}, "text": "/released"}
+    )
+
+    assert sent == ["released list"]
+
+
+def test_help_lists_released_command():
+    assert "/released" in huginn.build_help_message()

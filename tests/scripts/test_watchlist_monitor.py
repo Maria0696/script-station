@@ -1,9 +1,18 @@
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 
 from scripts import watchlist_monitor as monitor
+
+# "Hoy" fijo: anterior a todas las fechas de los tests,
+# para que no dependan del día en que se ejecutan
+TODAY = date(2026, 1, 1)
+
+
+@pytest.fixture(autouse=True)
+def fixed_today(monkeypatch):
+    monkeypatch.setattr(monitor, "get_today", lambda: TODAY)
 
 
 def timestamp(year, month, day):
@@ -579,3 +588,214 @@ def test_monitor_watchlist_notifies_concrete_date(monkeypatch):
     assert events[0] == "save"
     assert events[1].startswith("📅 FECHA CONCRETADA")
     assert "Antes: 2027\nAhora: 15-03-2027" in events[1]
+
+
+# ============================================================
+# SALIDAS Y ARCHIVO
+# ============================================================
+
+real_get_today = monitor.get_today
+
+
+def test_get_today_uses_madrid_time():
+    assert real_get_today() == datetime.now(monitor.MADRID_TZ).date()
+
+
+def platform(platform_id, release_date, precision="day", **extra):
+    labels = {167: "🔵 PS5", 6: "💻 PC"}
+
+    return {
+        "id": platform_id,
+        "label": labels[platform_id],
+        "release_date": release_date,
+        "date_precision": precision,
+        **extra,
+    }
+
+
+@pytest.mark.parametrize(
+    ("stored", "expected"),
+    [
+        (platform(167, "2026-01-01"), True),
+        (platform(167, "2025-12-31"), True),
+        (platform(167, "2026-01-02"), False),
+        # Una fecha imprecisa nunca cuenta como salida
+        (platform(167, "2025-12-31", "year"), False),
+        (platform(167, None, None), False),
+        ({"id": 167, "release_date": "2025-12-31"}, True),
+    ],
+)
+def test_is_released(stored, expected):
+    assert monitor.is_released(stored, TODAY) is expected
+
+
+def test_build_release_message_today_with_rating():
+    message = monitor.build_release_message(
+        "Marvel's Wolverine",
+        [platform(167, "2026-01-01")],
+        {"aggregated_rating": 87.75, "aggregated_rating_count": 4},
+        TODAY,
+    )
+
+    assert message == (
+        "🎉 ¡SALE HOY!\n\n"
+        "🎮 Marvel's Wolverine\n"
+        "🔵 PS5 — 01-01-2026\n\n"
+        "⭐ Crítica: 88/100 (4 reseñas)"
+    )
+
+
+def test_build_release_message_earlier_without_rating():
+    message = monitor.build_release_message(
+        "Game", [platform(167, "2025-12-30")], {}, TODAY
+    )
+
+    assert message == "🎉 YA DISPONIBLE\n\n🎮 Game\n🔵 PS5 — 30-12-2025"
+
+
+def test_build_release_message_rating_without_count():
+    message = monitor.build_release_message(
+        "Game", [platform(167, "2026-01-01")], {"aggregated_rating": 70.2}, TODAY
+    )
+
+    assert message.endswith("⭐ Crítica: 70/100")
+
+
+def mock_game(monkeypatch, stored_platforms, igdb_dates, events, **igdb_fields):
+    # Juego 1 con las plataformas guardadas y las fechas actuales de IGDB
+    watchlist = [{"id": 1, "name": "Game", "platforms": stored_platforms}]
+    platform_ids = list(igdb_dates)
+
+    monkeypatch.setattr(monitor, "load_watchlist", lambda: (watchlist, "sha"))
+
+    monkeypatch.setattr(
+        monitor.igdb,
+        "get_igdb_games",
+        lambda ids: {
+            1: {"id": 1, "name": "Game", "platforms": platform_ids, **igdb_fields}
+        },
+    )
+
+    monkeypatch.setattr(
+        monitor.igdb,
+        "get_release_dates",
+        lambda ids: {
+            1: {
+                platform_id: {"date": release_date, "precision": "day"}
+                for platform_id, release_date in igdb_dates.items()
+            }
+        },
+    )
+
+    monkeypatch.setattr(monitor, "send_notification", events.append)
+
+    monkeypatch.setattr(
+        monitor, "save_watchlist", lambda data, sha: events.append("save")
+    )
+
+    return watchlist
+
+
+def test_monitor_watchlist_alerts_release_and_archives(monkeypatch):
+    # Sale hoy: avisa después de guardar, marca y archiva
+    events = []
+
+    watchlist = mock_game(
+        monkeypatch,
+        [platform(167, "2026-01-01")],
+        {167: "2026-01-01"},
+        events,
+        aggregated_rating=90,
+    )
+
+    assert monitor.monitor_watchlist() is True
+
+    assert events[0] == "save"
+    assert events[1].startswith("🎉 ¡SALE HOY!")
+    assert "⭐ Crítica: 90/100" in events[1]
+
+    game = watchlist[0]
+
+    assert game["status"] == "released"
+    assert game["released_on"] == "2026-01-01"
+    assert game["platforms"][0]["release_notified"] is True
+
+
+def test_monitor_watchlist_alerts_missed_release(monkeypatch):
+    # Si el monitor no se ejecutó ayer, avisa hoy igualmente
+    events = []
+
+    mock_game(monkeypatch, [platform(167, "2025-12-30")], {167: "2025-12-30"}, events)
+
+    monitor.monitor_watchlist()
+
+    assert events[1].startswith("🎉 YA DISPONIBLE")
+
+
+def test_monitor_watchlist_archives_old_release_silently(monkeypatch):
+    # Salió hace meses (Wolverine): se archiva sin avisar
+    events = []
+
+    watchlist = mock_game(
+        monkeypatch, [platform(167, "2025-09-15")], {167: "2025-09-15"}, events
+    )
+
+    monitor.monitor_watchlist()
+
+    assert events == ["save"]
+    assert watchlist[0]["status"] == "released"
+
+
+def test_monitor_watchlist_partial_release(monkeypatch):
+    # Sale en PS5 y en PC más tarde: avisa de PS5 y sigue vigilando
+    events = []
+
+    watchlist = mock_game(
+        monkeypatch,
+        [platform(167, "2026-01-01"), platform(6, "2026-06-01")],
+        {167: "2026-01-01", 6: "2026-06-01"},
+        events,
+    )
+
+    monitor.monitor_watchlist()
+
+    assert "🔵 PS5" in events[1]
+    assert "💻 PC" not in events[1]
+    assert "status" not in watchlist[0]
+
+
+def test_monitor_watchlist_does_not_repeat_release_alert(monkeypatch):
+    # Ya avisado en una ejecución anterior: no hay cambios ni aviso
+    events = []
+
+    mock_game(
+        monkeypatch,
+        [platform(167, "2026-01-01", release_notified=True), platform(6, "2026-06-01")],
+        {167: "2026-01-01", 6: "2026-06-01"},
+        events,
+    )
+
+    assert monitor.monitor_watchlist() is False
+    assert events == []
+
+
+def test_monitor_watchlist_skips_archived_games(monkeypatch):
+    # Los juegos archivados no se consultan a IGDB
+    watchlist = [{"id": 1, "name": "Game", "status": "released", "platforms": []}]
+
+    monkeypatch.setattr(monitor, "load_watchlist", lambda: (watchlist, "sha"))
+
+    def fail(ids):
+        raise AssertionError("unexpected IGDB call")
+
+    monkeypatch.setattr(monitor.igdb, "get_igdb_games", fail)
+
+    assert monitor.monitor_watchlist() is False
+
+
+def test_archive_if_released_needs_a_dated_platform():
+    # Sin ninguna fecha no se puede saber si ha salido
+    item = {"name": "Game", "platforms": [platform(167, None, None)]}
+
+    assert monitor.archive_if_released(item, TODAY) is False
+    assert "status" not in item

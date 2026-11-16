@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from core.config import HUGINN_CHAT_ID
+from core.config import HUGINN_CHAT_ID, RELEASED_STATUS
 from core.github import get_watchlist, save_watchlist
 from core.igdb import (
     build_platform_data,
@@ -45,6 +45,8 @@ def build_help_message():
         + "Muestra los juegos guardados.\n\n"
         + "/next\n"
         + "Muestra los próximos lanzamientos.\n\n"
+        + "/released\n"
+        + "Muestra los juegos de tu lista que ya han salido.\n\n"
         + "/unwatch\n"
         + "Elimina un juego de tu lista.\n\n"
         + "/help\n"
@@ -77,16 +79,28 @@ def build_removed_message(game):
     return f"🗑️ Eliminado: {game['name']}"
 
 
+def is_archived(game):
+    # Juego que ya ha salido en todas sus plataformas
+    return game.get("status") == RELEASED_STATUS
+
+
 def build_watchlist_message():
-    # Construye /watchlist
+    # Construye /watchlist con los juegos pendientes de salir
     watchlist, _ = get_watchlist()
 
-    if not watchlist:
+    active_games = [game for game in watchlist if not is_archived(game)]
+    archived_count = len(watchlist) - len(active_games)
+    archived_line = f"📦 Ya lanzados: {archived_count} (/released)"
+
+    if not active_games:
+        if archived_count:
+            return f"👀 No tienes juegos pendientes de salir.\n\n{archived_line}"
+
         return "👀 Tu lista está vacía."
 
     lines = [build_title("MI LISTADO DE JUEGOS", icon="👀", indent=12).rstrip(), ""]
 
-    for game in watchlist:
+    for game in active_games:
         lines.append(f"🎮 {game['name']}")
 
         platforms = game.get("platforms", [])
@@ -109,6 +123,32 @@ def build_watchlist_message():
 
             lines.append(f"      Plataformas por confirmar — {release_date}")
 
+        lines.append("")
+
+    if archived_count:
+        lines.append(archived_line)
+
+    return "\n".join(lines).rstrip()
+
+
+def build_released_message():
+    # Construye /released con los juegos archivados, más recientes primero
+    watchlist, _ = get_watchlist()
+
+    released_games = sorted(
+        (game for game in watchlist if is_archived(game)),
+        key=lambda game: game.get("released_on") or "",
+        reverse=True,
+    )
+
+    if not released_games:
+        return "📦 Todavía no ha salido ningún juego de tu lista."
+
+    lines = [build_title("YA LANZADOS", icon="📦", indent=18).rstrip(), ""]
+
+    for game in released_games:
+        lines.append(f"🎮 {game['name']}")
+        lines.append(f"      {display_release_date(game.get('released_on'))}")
         lines.append("")
 
     return "\n".join(lines).rstrip()
@@ -140,6 +180,9 @@ def get_upcoming_games():
     upcoming_games = []
 
     for game in watchlist:
+        if is_archived(game):
+            continue
+
         platforms = game.get("platforms", [])
 
         future_releases = []
@@ -399,6 +442,10 @@ def handle_huginn_message(message):
     # Mostrar lista
     elif text == "/watchlist":
         send_huginn_message(chat_id, build_watchlist_message())
+
+    # Juegos que ya han salido
+    elif text == "/released":
+        send_huginn_message(chat_id, build_released_message())
 
     # Eliminar juego
     elif text == "/unwatch":
