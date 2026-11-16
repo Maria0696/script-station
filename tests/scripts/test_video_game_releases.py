@@ -323,7 +323,11 @@ def test_main(monkeypatch):
     calls = []
 
     monkeypatch.setattr(
-        releases, "get_releases_today", lambda: calls.append("releases") or [{"id": 1}]
+        releases,
+        "get_releases_today",
+        lambda: (
+            calls.append("releases") or [{"id": 1, "name": "Star", "featured": True}]
+        ),
     )
 
     monkeypatch.setattr(
@@ -343,16 +347,36 @@ def test_main(monkeypatch):
     )
 
     monkeypatch.setattr(
-        releases, "send_notification", lambda message: calls.append(f"send:{message}")
+        releases,
+        "send_notification",
+        lambda message, reply_markup: calls.append(
+            (f"send:{message}", bool(reply_markup))
+        ),
     )
 
     releases.main()
 
+    # Los botones "👀 Seguir" solo van en el primer mensaje
     assert calls == [
         "releases",
         "popularity",
         "featured",
         "messages",
-        "send:Message 1",
-        "send:Message 2",
+        ("send:Message 1", True),
+        ("send:Message 2", False),
     ]
+
+
+def test_build_follow_keyboard_only_featured():
+    games = [
+        {"id": 1, "name": "Star", "featured": True},
+        {"id": 2, "name": "Other", "featured": False},
+    ]
+
+    assert releases.build_follow_keyboard(games) == {
+        "inline_keyboard": [[{"text": "👀 Seguir Star", "callback_data": "watch:1"}]]
+    }
+
+
+def test_build_follow_keyboard_without_featured():
+    assert releases.build_follow_keyboard([{"id": 2, "featured": False}]) is None

@@ -27,7 +27,10 @@ def test_build_help_message():
 
 
 def test_build_watch_search_message():
-    assert huginn.build_watch_search_message() == "¿Qué juego quieres añadir?"
+    message = huginn.build_watch_search_message()
+
+    assert message.startswith("¿Qué juego quieres añadir?")
+    assert "nombre completo" in message
 
 
 def test_build_watch_added_message():
@@ -236,14 +239,29 @@ def test_build_next_message(monkeypatch):
 
 
 def test_build_search_keyboard():
-    games = [{"id": 123, "name": "Game One"}, {"id": 456, "name": "Game Two"}]
+    # Año y plataformas distinguen juegos con el mismo nombre
+    games = [
+        {
+            "id": 123,
+            "name": "Tomb Raider",
+            "first_release_date": 1361836800,
+            "platforms": [6, 48, 49],
+        },
+        # Sin fecha y en plataformas no soportadas (PS1)
+        {"id": 456, "name": "Tomb Raider", "platforms": [7]},
+    ]
 
     result = huginn.build_search_keyboard(games)
 
     assert result == {
         "inline_keyboard": [
-            [{"text": "Game One", "callback_data": "watch:123"}],
-            [{"text": "Game Two", "callback_data": "watch:456"}],
+            [
+                {
+                    "text": "Tomb Raider (2013) · PC, PS4, Xbox One",
+                    "callback_data": "watch:123",
+                }
+            ],
+            [{"text": "Tomb Raider (TBA)", "callback_data": "watch:456"}],
         ]
     }
 
@@ -681,10 +699,10 @@ def test_handle_huginn_watch_results(monkeypatch):
     assert sent == [
         (
             huginn.HUGINN_CHAT_ID,
-            "¿Qué juego quieres añadir?",
+            huginn.build_watch_search_message(),
             {
                 "inline_keyboard": [
-                    [{"text": "Test Game", "callback_data": "watch:123"}]
+                    [{"text": "Test Game (TBA)", "callback_data": "watch:123"}]
                 ]
             },
         )

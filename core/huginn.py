@@ -16,6 +16,8 @@ from core.igdb import (
     display_release_date,
     format_release_date,
     get_igdb_game,
+    get_platform_names,
+    get_release_year,
     search_igdb_games,
 )
 from core.telegram import (
@@ -63,7 +65,11 @@ def build_help_message():
 
 
 def build_watch_search_message():
-    return "¿Qué juego quieres añadir?"
+    return (
+        "¿Qué juego quieres añadir?\n\n"
+        "Si no aparece, escribe el nombre completo: "
+        "/watch tomb raider legacy of atlantis"
+    )
 
 
 def build_watch_added_message(game):
@@ -271,9 +277,26 @@ def build_search_keyboard(games):
     buttons = []
 
     for game in games:
-        buttons.append([{"text": game["name"], "callback_data": f"watch:{game['id']}"}])
+        buttons.append(
+            [
+                {
+                    "text": build_search_button_text(game),
+                    "callback_data": f"watch:{game['id']}",
+                }
+            ]
+        )
 
     return {"inline_keyboard": buttons}
+
+
+def build_search_button_text(game):
+    # "Tomb Raider (1996)" y "Tomb Raider (2013) · PS4, PC" se distinguen;
+    # solo con el nombre no
+    text = f"{game['name']} ({get_release_year(game)})"
+
+    platforms = get_platform_names(game.get("platforms", []))
+
+    return f"{text} · {platforms}" if platforms else text
 
 
 def build_unwatch_keyboard(watchlist):

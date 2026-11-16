@@ -193,17 +193,27 @@ def test_is_valid_region(release, expected):
 
 
 def test_search_igdb_games(monkeypatch):
-    calls = mock_igdb_request(monkeypatch, [{"id": 123, "name": "Test Game"}])
+    calls = mock_igdb_request(
+        monkeypatch,
+        [
+            {"id": 1, "name": "Old", "first_release_date": 846115200},
+            {"id": 2, "name": "Upcoming"},
+            {"id": 3, "name": "New", "first_release_date": 1802390400},
+        ],
+    )
 
     result = igdb.search_igdb_games('Game "Test"')
 
-    assert result == [{"id": 123, "name": "Test Game"}]
+    # Sin fecha primero, después del más reciente al más antiguo
+    assert [game["id"] for game in result] == [2, 3, 1]
+
+    query = calls[0]["query"]
 
     assert calls[0]["endpoint"] == "games"
-
-    assert 'search "Game \\"Test\\"";' in calls[0]["query"]
-
-    assert "limit 5;" in calls[0]["query"]
+    assert 'search "Game \\"Test\\"";' in query
+    assert "where game_type = (0, 4, 8, 9, 10);" in query
+    assert "platforms" in query
+    assert "limit 10;" in query
 
 
 def test_search_igdb_games_escapes_backslashes(monkeypatch):
@@ -692,3 +702,60 @@ def test_build_platform_data_keeps_precision_when_grouping_quest():
             "date_precision": "year",
         }
     ]
+
+
+# ============================================================
+# TIENDAS, AÑO Y PLATAFORMAS
+# ============================================================
+
+
+def test_get_store_links():
+    # Datos reales de IGDB (The Witcher 3): orden fijo, solo tiendas
+    game = {
+        "websites": [
+            {"type": 4, "url": "https://www.facebook.com/CDPROJEKTRED"},
+            {"type": 13, "url": "https://store.steampowered.com/app/292030"},
+            {"type": 23, "url": "https://store.playstation.com/en-us/concept/204794"},
+            {
+                "type": 22,
+                "url": "https://www.xbox.com/en-us/games/store/the-witcher-3/BR765873CQJD",
+            },
+            {"type": 17, "url": "https://www.gog.com/game/the_witcher_3_wild_hunt"},
+            # Repetida: se queda la primera
+            {"type": 13, "url": "https://store.steampowered.com/app/999"},
+            {"type": 16},
+        ]
+    }
+
+    assert igdb.get_store_links(game) == [
+        ("PlayStation", "https://store.playstation.com/es-es/concept/204794"),
+        ("Xbox", "https://www.xbox.com/es-ES/games/store/the-witcher-3/BR765873CQJD"),
+        ("Steam", "https://store.steampowered.com/app/292030"),
+        ("GOG", "https://www.gog.com/game/the_witcher_3_wild_hunt"),
+    ]
+
+
+def test_get_store_links_without_websites():
+    assert igdb.get_store_links({}) == []
+
+
+@pytest.mark.parametrize(
+    ("game", "expected"), [({"first_release_date": 1361836800}, "2013"), ({}, "TBA")]
+)
+def test_get_release_year(game, expected):
+    assert igdb.get_release_year(game) == expected
+
+
+@pytest.mark.parametrize(
+    ("platform_ids", "expected"),
+    [
+        ([6, 167], "PS5, PC"),
+        # Quest 2 y 3 son la misma plataforma
+        ([471, 386], "Meta Quest"),
+        ([167, 508, 6, 169, 48], "PS5, Switch 2, PC +2"),
+        # PS1 no está soportada
+        ([7], ""),
+    ],
+)
+def test_get_platform_names(platform_ids, expected):
+    assert igdb.get_platform_names(platform_ids) == expected
