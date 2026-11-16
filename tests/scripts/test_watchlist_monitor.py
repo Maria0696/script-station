@@ -1,8 +1,9 @@
-import json
 from datetime import (
     UTC,
     datetime,
 )
+
+import pytest
 
 from scripts import (
     watchlist_monitor as monitor,
@@ -122,37 +123,58 @@ def test_get_igdb_headers():
 
 
 # ============================================================
-# WATCHLIST LOCAL
+# WATCHLIST EN GITHUB
 # ============================================================
 
-def test_load_watchlist_missing(
+def test_load_watchlist(
     monkeypatch,
-    tmp_path,
 ):
-    path = (
-        tmp_path
-        / "watchlist.json"
-    )
+    data = [
+        {
+            "id": 123,
+            "name":
+                "Test Game",
+        }
+    ]
 
     monkeypatch.setattr(
-        monitor,
-        "WATCHLIST_PATH",
-        path,
+        monitor.github,
+        "get_watchlist",
+        lambda: (
+            data,
+            "test-sha",
+        ),
     )
 
     assert (
         monitor.load_watchlist()
-        == []
+        == (
+            data,
+            "test-sha",
+        )
     )
 
 
-def test_load_watchlist(
+def test_save_watchlist(
     monkeypatch,
-    tmp_path,
 ):
-    path = (
-        tmp_path
-        / "watchlist.json"
+    captured = {}
+
+    def fake_save_watchlist(
+        watchlist,
+        sha,
+        message,
+    ):
+        captured.update(
+            watchlist=watchlist,
+            sha=sha,
+            message=message,
+        )
+
+    monkeypatch.setattr(
+        monitor.github,
+        "save_watchlist",
+        fake_save_watchlist,
     )
 
     data = [
@@ -163,69 +185,19 @@ def test_load_watchlist(
         }
     ]
 
-    path.write_text(
-        json.dumps(data),
-        encoding="utf-8",
-    )
-
-    monkeypatch.setattr(
-        monitor,
-        "WATCHLIST_PATH",
-        path,
-    )
-
-    assert (
-        monitor.load_watchlist()
-        == data
-    )
-
-
-def test_save_watchlist(
-    monkeypatch,
-    tmp_path,
-):
-    path = (
-        tmp_path
-        / "watchlist.json"
-    )
-
-    monkeypatch.setattr(
-        monitor,
-        "WATCHLIST_PATH",
-        path,
-    )
-
-    data = [
-        {
-            "id": 123,
-            "name":
-                "Pokémon Test",
-        }
-    ]
-
     monitor.save_watchlist(
-        data
+        data,
+        "test-sha",
     )
 
-    content = (
-        path.read_text(
-            encoding="utf-8"
-        )
-    )
-
-    assert (
-        json.loads(content)
-        == data
-    )
-
-    assert (
-        content.endswith("\n")
-    )
-
-    assert (
-        "Pokémon Test"
-        in content
-    )
+    assert captured == {
+        "watchlist": data,
+        "sha": "test-sha",
+        "message": (
+            "chore: update watchlist "
+            "release dates"
+        ),
+    }
 
 
 # ============================================================
@@ -815,7 +787,8 @@ def test_monitor_watchlist_empty(
     monkeypatch.setattr(
         monitor,
         "load_watchlist",
-        list,
+        lambda:
+            ([], None),
     )
 
     result = (
@@ -856,7 +829,7 @@ def test_monitor_watchlist_game_not_found(
         monitor,
         "load_watchlist",
         lambda:
-            watchlist,
+            (watchlist, "sha"),
     )
 
     monkeypatch.setattr(
@@ -883,7 +856,7 @@ def test_monitor_watchlist_game_not_found(
     monkeypatch.setattr(
         monitor,
         "save_watchlist",
-        lambda data:
+        lambda data, sha:
             saved.append(
                 data
             ),
@@ -936,7 +909,7 @@ def test_monitor_watchlist_migrates_old_format(
         monitor,
         "load_watchlist",
         lambda:
-            watchlist,
+            (watchlist, "sha"),
     )
 
     monkeypatch.setattr(
@@ -981,7 +954,7 @@ def test_monitor_watchlist_migrates_old_format(
     monkeypatch.setattr(
         monitor,
         "save_watchlist",
-        lambda data:
+        lambda data, sha:
             saved.append(
                 data.copy()
             ),
@@ -1069,7 +1042,7 @@ def test_monitor_watchlist_date_changed(
         monitor,
         "load_watchlist",
         lambda:
-            watchlist,
+            (watchlist, "sha"),
     )
 
     monkeypatch.setattr(
@@ -1123,7 +1096,7 @@ def test_monitor_watchlist_date_changed(
     monkeypatch.setattr(
         monitor,
         "save_watchlist",
-        lambda data:
+        lambda data, sha:
             saved.append(
                 data.copy()
             ),
@@ -1162,6 +1135,138 @@ def test_monitor_watchlist_date_changed(
     )
 
 
+def mock_delayed_game(
+    monkeypatch,
+    events,
+):
+    # Juego cuya fecha pasa del 20-09 al 01-10
+    watchlist = [
+        {
+            "id": 123,
+            "name":
+                "Test Game",
+            "release_date":
+                "2026-09-20",
+            "platforms": [
+                {
+                    "id":
+                        167,
+                    "label":
+                        "🔵 PS5",
+                    "release_date":
+                        "2026-09-20",
+                }
+            ],
+        }
+    ]
+
+    monkeypatch.setattr(
+        monitor,
+        "load_watchlist",
+        lambda:
+            (watchlist, "sha"),
+    )
+
+    monkeypatch.setattr(
+        monitor,
+        "get_access_token",
+        lambda:
+            "token",
+    )
+
+    monkeypatch.setattr(
+        monitor,
+        "get_games_from_igdb",
+        lambda token, ids: {
+            123: {
+                "id": 123,
+                "name":
+                    "Test Game",
+                "platforms": [
+                    167,
+                ],
+            }
+        },
+    )
+
+    monkeypatch.setattr(
+        monitor,
+        "get_release_dates_from_igdb",
+        lambda token, ids: {
+            123: {
+                167:
+                    "2026-10-01",
+            }
+        },
+    )
+
+    monkeypatch.setattr(
+        monitor,
+        "send_notification",
+        lambda message:
+            events.append(
+                "notify"
+            ),
+    )
+
+
+def test_monitor_watchlist_notifies_after_saving(
+    monkeypatch,
+):
+    events = []
+
+    mock_delayed_game(
+        monkeypatch,
+        events,
+    )
+
+    monkeypatch.setattr(
+        monitor,
+        "save_watchlist",
+        lambda data, sha:
+            events.append(
+                "save"
+            ),
+    )
+
+    monitor.monitor_watchlist()
+
+    assert events == [
+        "save",
+        "notify",
+    ]
+
+
+def test_monitor_watchlist_does_not_notify_if_save_fails(
+    monkeypatch,
+):
+    events = []
+
+    mock_delayed_game(
+        monkeypatch,
+        events,
+    )
+
+    def failing_save(
+        data,
+        sha,
+    ):
+        raise OSError(
+            "GitHub unavailable"
+        )
+
+    monkeypatch.setattr(
+        monitor,
+        "save_watchlist",
+        failing_save,
+    )
+
+    with pytest.raises(OSError):
+        monitor.monitor_watchlist()
+
+    assert events == []
+
+
 def test_monitor_watchlist_without_changes(
     monkeypatch,
 ):
@@ -1192,7 +1297,7 @@ def test_monitor_watchlist_without_changes(
         monitor,
         "load_watchlist",
         lambda:
-            watchlist,
+            (watchlist, "sha"),
     )
 
     monkeypatch.setattr(
@@ -1237,7 +1342,7 @@ def test_monitor_watchlist_without_changes(
     monkeypatch.setattr(
         monitor,
         "save_watchlist",
-        lambda data:
+        lambda data, sha:
             saved.append(
                 data
             ),
@@ -1296,7 +1401,7 @@ def test_monitor_watchlist_platform_change(
         monitor,
         "load_watchlist",
         lambda:
-            watchlist,
+            (watchlist, "sha"),
     )
 
     monkeypatch.setattr(
@@ -1332,7 +1437,7 @@ def test_monitor_watchlist_platform_change(
     monkeypatch.setattr(
         monitor,
         "save_watchlist",
-        lambda data:
+        lambda data, sha:
             saved.append(
                 data.copy()
             ),

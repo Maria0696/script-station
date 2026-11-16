@@ -15,6 +15,12 @@ TEST_ENV = {
         "test-client-secret",
     "GITHUB_TOKEN":
         "test-github-token",
+    "TELEGRAM_WEBHOOK_SECRET":
+        "test-huginn-secret",
+    "TELEGRAM_HEIMDALL_WEBHOOK_SECRET":
+        "test-heimdall-secret",
+    "CRON_SECRET":
+        "test-cron-secret",
 }
 
 

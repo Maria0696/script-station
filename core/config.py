@@ -24,6 +24,16 @@ HEIMDALL_CHAT_ID = os.getenv(
 )
 
 
+# Secretos que Telegram envía en cada webhook
+HUGINN_WEBHOOK_SECRET = os.getenv(
+    "TELEGRAM_WEBHOOK_SECRET"
+)
+
+HEIMDALL_WEBHOOK_SECRET = os.getenv(
+    "TELEGRAM_HEIMDALL_WEBHOOK_SECRET"
+)
+
+
 # ============================================================
 # IGDB
 # ============================================================
@@ -53,6 +63,22 @@ GITHUB_BRANCH = "master"
 
 WATCHLIST_PATH = (
     "data/watchlist.json"
+)
+
+
+# ============================================================
+# CRON
+# ============================================================
+
+# Vercel lo envía como "Authorization: Bearer ..."
+CRON_SECRET = os.getenv(
+    "CRON_SECRET"
+)
+
+# Workflows lanzados por el cron diario de Vercel
+DAILY_WORKFLOWS = (
+    "videogames.yml",
+    "watchlist.yml",
 )
 
 

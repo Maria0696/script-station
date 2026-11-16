@@ -1,10 +1,8 @@
 name: Daily Video Game Releases
 
 on:
-  schedule:
-    # 08:00 en invierno, 09:00 en verano
-    - cron: '0 7 * * *'
-
+  # Lo lanza a diario el cron de Vercel (/api/cron) a las 07:00 UTC.
+  # El "schedule" de GitHub llegaba con horas de retraso.
   workflow_dispatch:
     inputs:
       debug:

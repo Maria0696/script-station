@@ -1,10 +1,9 @@
-import json
 import os
 from datetime import UTC, date, datetime
-from pathlib import Path
 
 import requests
 
+from core import github
 from core.config import (
     PLATFORM_LABELS,
     PLATFORM_ORDER,
@@ -17,14 +16,6 @@ from core.notifications import (
 # Credenciales de IGDB
 CLIENT_ID = os.environ["IGDB_CLIENT_ID"]
 CLIENT_SECRET = os.environ["IGDB_CLIENT_SECRET"]
-
-
-# Archivo donde guardamos la watchlist
-WATCHLIST_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "data"
-    / "watchlist.json"
-)
 
 
 def get_access_token():
@@ -54,33 +45,23 @@ def get_igdb_headers(token):
 
 
 def load_watchlist():
-    # Lee la watchlist del repositorio
-    if not WATCHLIST_PATH.exists():
-        return []
-
-    with open(
-        WATCHLIST_PATH,
-        "r",
-        encoding="utf-8",
-    ) as file:
-        return json.load(file)
+    # Lee la watchlist y su sha desde GitHub
+    return github.get_watchlist()
 
 
-def save_watchlist(watchlist):
-    # Guarda la watchlist actualizada
-    with open(
-        WATCHLIST_PATH,
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            watchlist,
-            file,
-            ensure_ascii=False,
-            indent=2,
-        )
-
-        file.write("\n")
+def save_watchlist(
+    watchlist,
+    sha,
+):
+    # Guarda la watchlist en GitHub con un commit
+    github.save_watchlist(
+        watchlist,
+        sha,
+        message=(
+            "chore: update watchlist "
+            "release dates"
+        ),
+    )
 
 
 def get_games_from_igdb(
@@ -425,7 +406,7 @@ def build_change_message(
 
 def monitor_watchlist():
     # Carga los juegos que seguimos
-    watchlist = (
+    watchlist, sha = (
         load_watchlist()
     )
 
@@ -459,6 +440,7 @@ def monitor_watchlist():
     )
 
     changes_found = False
+    pending_messages = []
 
     for item in watchlist:
         game_id = item[
@@ -595,7 +577,7 @@ def monitor_watchlist():
             )
 
             if message:
-                send_notification(
+                pending_messages.append(
                     message
                 )
 
@@ -623,7 +605,15 @@ def monitor_watchlist():
     # Solo guarda el JSON si hubo cambios
     if changes_found:
         save_watchlist(
-            watchlist
+            watchlist,
+            sha,
+        )
+
+    # Avisa solo cuando el cambio ya está guardado:
+    # si el guardado falla, el aviso no se repite cada día
+    for message in pending_messages:
+        send_notification(
+            message
         )
 
     return changes_found

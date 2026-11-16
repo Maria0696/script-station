@@ -421,10 +421,87 @@ def test_save_watchlist(
         in decoded_content
     )
 
+    assert (
+        decoded_content.endswith("\n")
+    )
+
+
+def test_save_watchlist_with_custom_message(
+    monkeypatch,
+):
+    captured = {}
+
+    monkeypatch.setattr(
+        github,
+        "github_request",
+        lambda method, path, data:
+            captured.update(data),
+    )
+
+    github.save_watchlist(
+        [],
+        "test-sha",
+        message="chore: custom",
+    )
+
+    assert (
+        captured["message"]
+        == "chore: custom"
+    )
+
 
 # ============================================================
 # WORKFLOWS
 # ============================================================
+
+def test_dispatch_workflow(
+    monkeypatch,
+):
+    captured = {}
+
+    def fake_request(
+        method,
+        path,
+        data=None,
+    ):
+        captured[
+            "method"
+        ] = method
+
+        captured[
+            "path"
+        ] = path
+
+        captured[
+            "data"
+        ] = data
+
+        return {}
+
+    monkeypatch.setattr(
+        github,
+        "github_request",
+        fake_request,
+    )
+
+    result = (
+        github.dispatch_workflow(
+            "watchlist.yml"
+        )
+    )
+
+    assert result == {}
+
+    assert captured == {
+        "method": "POST",
+        "path": (
+            "actions/workflows/"
+            "watchlist.yml/dispatches"
+        ),
+        "data": {
+            "ref": "master",
+        },
+    }
 
 def test_get_workflow_runs(
     monkeypatch,

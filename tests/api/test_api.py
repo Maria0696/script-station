@@ -6,6 +6,16 @@ client = TestClient(
     api_index.app
 )
 
+HUGINN_HEADERS = {
+    "X-Telegram-Bot-Api-Secret-Token":
+        "test-huginn-secret",
+}
+
+HEIMDALL_HEADERS = {
+    "X-Telegram-Bot-Api-Secret-Token":
+        "test-heimdall-secret",
+}
+
 
 # ============================================================
 # INDEX
@@ -61,6 +71,7 @@ def test_index_webhook_routes_to_huginn(
     response = client.post(
         "/api/index",
         json=update,
+        headers=HUGINN_HEADERS,
     )
 
     assert response.status_code == 200
@@ -93,6 +104,7 @@ def test_index_webhook_routes_to_heimdall(
     response = client.post(
         "/api/index?bot=heimdall",
         json=update,
+        headers=HEIMDALL_HEADERS,
     )
 
     assert response.status_code == 200
@@ -143,6 +155,7 @@ def test_huginn_webhook(
     response = client.post(
         "/api/telegram",
         json=update,
+        headers=HUGINN_HEADERS,
     )
 
     assert response.status_code == 200
@@ -193,6 +206,7 @@ def test_heimdall_webhook(
     response = client.post(
         "/api/heimdall",
         json=update,
+        headers=HEIMDALL_HEADERS,
     )
 
     assert response.status_code == 200
@@ -230,6 +244,7 @@ def test_webhook_error_returns_ok(
                 "text": "/watchlist",
             }
         },
+        headers=HUGINN_HEADERS,
     )
 
     assert response.status_code == 200
@@ -250,6 +265,7 @@ def test_webhook_invalid_json_returns_ok():
         "/api/heimdall",
         content=b"not json",
         headers={
+            **HEIMDALL_HEADERS,
             "Content-Type":
                 "application/json",
         },
@@ -260,3 +276,200 @@ def test_webhook_invalid_json_returns_ok():
     assert response.json() == {
         "ok": True,
     }
+
+
+# ============================================================
+# AUTENTICACIÓN DE WEBHOOKS
+# ============================================================
+
+def test_webhook_rejects_missing_secret(
+    monkeypatch,
+):
+    # Sin la cabecera de Telegram no se procesa nada
+    called = []
+
+    monkeypatch.setattr(
+        api_index,
+        "handle_huginn_update",
+        called.append,
+    )
+
+    response = client.post(
+        "/api/telegram",
+        json={
+            "message": {
+                "text": "/unwatch",
+            }
+        },
+    )
+
+    assert response.status_code == 401
+
+    assert response.json() == {
+        "ok": False,
+    }
+
+    assert called == []
+
+
+def test_webhook_rejects_other_bot_secret(
+    monkeypatch,
+):
+    # El secreto de Huginn no sirve para Heimdall
+    called = []
+
+    monkeypatch.setattr(
+        api_index,
+        "handle_heimdall_update",
+        called.append,
+    )
+
+    response = client.post(
+        "/api/index?bot=heimdall",
+        json={
+            "message": {
+                "text": "/status",
+            }
+        },
+        headers=HUGINN_HEADERS,
+    )
+
+    assert response.status_code == 401
+
+    assert called == []
+
+
+def test_webhook_rejects_when_secret_not_configured(
+    monkeypatch,
+):
+    # Si falta la variable de entorno se rechaza todo
+    monkeypatch.setattr(
+        api_index,
+        "HUGINN_WEBHOOK_SECRET",
+        None,
+    )
+
+    response = client.post(
+        "/api/telegram",
+        json={},
+        headers=HUGINN_HEADERS,
+    )
+
+    assert response.status_code == 401
+
+
+# ============================================================
+# CRON
+# ============================================================
+
+CRON_HEADERS = {
+    "Authorization":
+        "Bearer test-cron-secret",
+}
+
+
+def test_cron_dispatches_daily_workflows(
+    monkeypatch,
+):
+    dispatched = []
+
+    monkeypatch.setattr(
+        api_index,
+        "dispatch_workflow",
+        dispatched.append,
+    )
+
+    response = client.get(
+        "/api/cron",
+        headers=CRON_HEADERS,
+    )
+
+    assert response.status_code == 200
+
+    assert response.json() == {
+        "ok": True,
+        "dispatched": [
+            "videogames.yml",
+            "watchlist.yml",
+        ],
+    }
+
+    assert dispatched == [
+        "videogames.yml",
+        "watchlist.yml",
+    ]
+
+
+def test_cron_through_index_rewrite(
+    monkeypatch,
+):
+    # Vercel reescribe /api/cron a /api/index?cron=daily
+    dispatched = []
+
+    monkeypatch.setattr(
+        api_index,
+        "dispatch_workflow",
+        dispatched.append,
+    )
+
+    response = client.get(
+        "/api/index?cron=daily",
+        headers=CRON_HEADERS,
+    )
+
+    assert response.status_code == 200
+
+    assert len(dispatched) == 2
+
+
+def test_cron_rejects_invalid_secret(
+    monkeypatch,
+):
+    dispatched = []
+
+    monkeypatch.setattr(
+        api_index,
+        "dispatch_workflow",
+        dispatched.append,
+    )
+
+    for headers in (
+        {},
+        {
+            "Authorization":
+                "Bearer wrong",
+        },
+        {
+            # Sin el prefijo "Bearer "
+            "Authorization":
+                "test-cron-secret",
+        },
+    ):
+        response = client.get(
+            "/api/cron",
+            headers=headers,
+        )
+
+        assert response.status_code == 401
+
+    assert dispatched == []
+
+
+def test_cron_rejects_when_secret_not_configured(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        api_index,
+        "CRON_SECRET",
+        None,
+    )
+
+    response = client.get(
+        "/api/cron",
+        headers={
+            "Authorization":
+                "Bearer None",
+        },
+    )
+
+    assert response.status_code == 401
