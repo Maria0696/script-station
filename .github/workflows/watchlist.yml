@@ -8,15 +8,19 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   monitor-watchlist:
     runs-on: ubuntu-latest
 
     steps:
+      # master exige PR; el push usa un token de admin
+      # que puede saltarse la regla "Protect master"
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.WATCHLIST_PUSH_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
