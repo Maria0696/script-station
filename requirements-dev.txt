@@ -88,7 +88,7 @@ requests==2.34.2
     # via
     #   -c requirements.txt
     #   script-station (pyproject.toml)
-ruff==0.16.10
+ruff==0.17.5
     # via script-station (pyproject.toml)
 starlette==1.10.0
     # via
