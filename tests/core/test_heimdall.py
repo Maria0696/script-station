@@ -158,6 +158,7 @@ def test_build_heimdall_status(monkeypatch):
         },
         "Quality Checks": None,
         "Daily Watchdog": None,
+        "Post-deploy Smoke Test": None,
     }
 
     monkeypatch.setattr(heimdall, "get_latest_workflows", lambda: latest_runs)
@@ -175,6 +176,8 @@ def test_build_heimdall_status(monkeypatch):
     assert "🧪 Quality Checks — ⚪ Sin datos" in result
 
     assert "⏰ Daily Watchdog — ⚪ Sin datos" in result
+
+    assert "🚦 Smoke Test — ⚪ Sin datos" in result
 
     assert "⚠️ Incidencias activas: 1" in result
 
