@@ -682,6 +682,7 @@ core/
 ├── heimdall.py
 ├── huginn.py
 ├── igdb.py
+├── logs.py
 ├── notifications.py
 └── telegram.py
 ```
@@ -706,7 +707,11 @@ Gaming assistant and watchlist Telegram behavior.
 
 The only IGDB client. Huginn, the daily releases report and the watchlist monitor all go through it.
 
-It reuses the Twitch token until it expires, sends queries as UTF-8, filters regions and platforms, and includes the IGDB response body in HTTP errors.
+It reuses the Twitch token until it expires, retries rate limits (429) and temporary server errors (5xx) with backoff, sends queries as UTF-8, filters regions and platforms, and includes the IGDB response body in HTTP errors.
+
+## `logs.py`
+
+Shared logging setup for the GitHub Actions scripts. `DEBUG=true` enables debug messages, such as the per-game popularity scores of the daily report.
 
 ## `notifications.py`
 
@@ -953,6 +958,7 @@ script-station/
 │   ├── heimdall.py
 │   ├── huginn.py
 │   ├── igdb.py
+│   ├── logs.py
 │   ├── notifications.py
 │   └── telegram.py
 │
