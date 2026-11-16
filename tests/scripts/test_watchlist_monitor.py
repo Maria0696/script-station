@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 
 import pytest
@@ -132,19 +133,23 @@ def test_build_change_message_same_date():
 # ============================================================
 
 
-def test_monitor_watchlist_empty(monkeypatch, capsys):
+def test_monitor_watchlist_empty(monkeypatch, caplog):
+    caplog.set_level(logging.INFO, logger=monitor.__name__)
+
     monkeypatch.setattr(monitor, "load_watchlist", lambda: ([], None))
 
     result = monitor.monitor_watchlist()
 
-    output = capsys.readouterr().out
+    output = caplog.text
 
     assert result is False
 
     assert "Watchlist is empty." in output
 
 
-def test_monitor_watchlist_game_not_found(monkeypatch, capsys):
+def test_monitor_watchlist_game_not_found(monkeypatch, caplog):
+    caplog.set_level(logging.INFO, logger=monitor.__name__)
+
     watchlist = [{"id": 123, "name": "Missing Game"}]
 
     saved = []
@@ -159,7 +164,7 @@ def test_monitor_watchlist_game_not_found(monkeypatch, capsys):
 
     result = monitor.monitor_watchlist()
 
-    output = capsys.readouterr().out
+    output = caplog.text
 
     assert result is False
 
@@ -168,7 +173,9 @@ def test_monitor_watchlist_game_not_found(monkeypatch, capsys):
     assert "Game not found: Missing Game (123)" in output
 
 
-def test_monitor_watchlist_migrates_old_format(monkeypatch, capsys):
+def test_monitor_watchlist_migrates_old_format(monkeypatch, caplog):
+    caplog.set_level(logging.INFO, logger=monitor.__name__)
+
     watchlist = [{"id": 123, "name": "Old Game", "platforms": ["PS5", "PC"]}]
 
     saved = []
@@ -198,7 +205,7 @@ def test_monitor_watchlist_migrates_old_format(monkeypatch, capsys):
 
     result = monitor.monitor_watchlist()
 
-    output = capsys.readouterr().out
+    output = caplog.text
 
     assert result is True
 

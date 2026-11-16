@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC
 from datetime import datetime as real_datetime
 
@@ -199,14 +200,15 @@ def test_mark_featured_games(monkeypatch):
     assert len(featured) == releases.MAX_FEATURED_GAMES
 
 
-def test_mark_featured_games_debug(monkeypatch, capsys):
-    monkeypatch.setattr(releases, "DEBUG", True)
+def test_mark_featured_games_debug(caplog):
+    # Con DEBUG se registra el detalle de popularidad
+    caplog.set_level(logging.DEBUG, logger=releases.__name__)
 
     games = [{"name": "Test Game", "popularity_score": 0.001, "featured": False}]
 
     releases.mark_featured_games(games)
 
-    output = capsys.readouterr().out
+    output = caplog.text
 
     assert "PopScore data:" in output
 
@@ -217,6 +219,19 @@ def test_mark_featured_games_debug(monkeypatch, capsys):
     assert "Featured threshold:" in output
 
     assert "Featured games:" in output
+
+
+def test_mark_featured_games_without_debug(caplog):
+    # Sin DEBUG no se registra el detalle de cada juego
+    caplog.set_level(logging.INFO, logger=releases.__name__)
+
+    games = [{"name": "Test Game", "popularity_score": 0.001, "featured": False}]
+
+    releases.mark_featured_games(games)
+
+    assert "Featured games:" in caplog.text
+
+    assert "PopScore data:" not in caplog.text
 
 
 # ============================================================

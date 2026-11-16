@@ -2,6 +2,8 @@ import time
 from datetime import UTC, date, datetime
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 from core.config import (
     IGDB_CLIENT_ID,
@@ -19,6 +21,29 @@ TOKEN_EXPIRY_MARGIN = 60
 
 # Token de Twitch compartido mientras siga vigente
 _token_cache = {"access_token": None, "expires_at": 0.0}
+
+
+def create_session():
+    # Reintenta límites de uso (429) y errores temporales (5xx).
+    # Las consultas a IGDB son de solo lectura, así que repetir
+    # un POST es seguro. Esperas: 0.5 s, 1 s, 2 s o Retry-After
+    retry = Retry(
+        total=3,
+        backoff_factor=0.5,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=frozenset({"POST"}),
+        respect_retry_after_header=True,
+        # Devuelve la última respuesta para incluirla en el error
+        raise_on_status=False,
+    )
+
+    session = requests.Session()
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+
+    return session
+
+
+session = create_session()
 
 
 # ============================================================
@@ -39,7 +64,7 @@ def get_igdb_token():
     if _token_cache["access_token"] and now < _token_cache["expires_at"]:
         return _token_cache["access_token"]
 
-    response = requests.post(
+    response = session.post(
         TWITCH_TOKEN_URL,
         params={
             "client_id": IGDB_CLIENT_ID,
@@ -61,7 +86,7 @@ def get_igdb_token():
 
 def igdb_request(endpoint, query):
     # Ejecuta una consulta a IGDB
-    response = requests.post(
+    response = session.post(
         f"{IGDB_API_URL}/{endpoint}",
         headers={
             "Client-ID": IGDB_CLIENT_ID,

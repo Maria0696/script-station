@@ -1,7 +1,11 @@
+import threading
 from datetime import UTC, datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import ClassVar
 
 import pytest
 import requests
+from requests.adapters import HTTPAdapter
 
 from core import igdb
 
@@ -85,7 +89,7 @@ def test_get_igdb_token(monkeypatch):
 
         return FakeResponse({"access_token": "test-token", "expires_in": 3600})
 
-    monkeypatch.setattr(igdb.requests, "post", fake_post)
+    monkeypatch.setattr(igdb.session, "post", fake_post)
 
     assert igdb.get_igdb_token() == "test-token"
 
@@ -110,7 +114,7 @@ def test_get_igdb_token_is_reused_until_expiry(monkeypatch):
 
         return FakeResponse({"access_token": f"token-{len(calls)}", "expires_in": 3600})
 
-    monkeypatch.setattr(igdb.requests, "post", fake_post)
+    monkeypatch.setattr(igdb.session, "post", fake_post)
 
     monkeypatch.setattr(igdb.time, "monotonic", lambda: now[0])
 
@@ -130,7 +134,7 @@ def test_get_igdb_token_is_reused_until_expiry(monkeypatch):
 def test_get_igdb_token_error(monkeypatch):
     # Un error de Twitch no deja token en caché
     monkeypatch.setattr(
-        igdb.requests,
+        igdb.session,
         "post",
         lambda url, params, timeout: FakeResponse({}, status_code=401),
     )
@@ -157,7 +161,7 @@ def test_igdb_request(monkeypatch):
 
         return FakeResponse([{"id": 123, "name": "Test Game"}])
 
-    monkeypatch.setattr(igdb.requests, "post", fake_post)
+    monkeypatch.setattr(igdb.session, "post", fake_post)
 
     result = igdb.igdb_request("games", 'search "Pokémon";')
 
@@ -181,7 +185,7 @@ def test_igdb_request_error_includes_response(monkeypatch):
     monkeypatch.setattr(igdb, "get_igdb_token", lambda: "test-token")
 
     monkeypatch.setattr(
-        igdb.requests,
+        igdb.session,
         "post",
         lambda url, headers, data, timeout: FakeResponse(
             {}, status_code=400, text="Syntax error"
@@ -513,3 +517,97 @@ def test_build_platform_data_without_platforms(monkeypatch):
     result = igdb.build_platform_data(game)
 
     assert result == []
+
+
+# ============================================================
+# REINTENTOS
+# ============================================================
+
+
+def test_session_retries_temporary_errors():
+    # Reintenta 429 y 5xx, también en POST, respetando Retry-After
+    retry = igdb.session.get_adapter(igdb.IGDB_API_URL).max_retries
+
+    assert retry.total == 3
+    assert set(retry.status_forcelist) == {429, 500, 502, 503, 504}
+    assert "POST" in retry.allowed_methods
+    assert retry.respect_retry_after_header is True
+
+    # La última respuesta llega a igdb_request para incluirla en el error
+    assert retry.raise_on_status is False
+
+
+def test_session_retries_twitch_token_requests():
+    # El token de Twitch usa la misma política
+    retry = igdb.session.get_adapter(igdb.TWITCH_TOKEN_URL).max_retries
+
+    assert retry.total == 3
+
+
+class FlakyHandler(BaseHTTPRequestHandler):
+    # Responde con los códigos de "statuses" en orden
+    statuses: ClassVar[list[int]] = []
+    calls = 0
+
+    def do_POST(self):
+        # Lee el cuerpo antes de responder para no cortar la conexión
+        self.rfile.read(int(self.headers["Content-Length"]))
+        type(self).calls += 1
+        status = type(self).statuses.pop(0)
+        body = b"[]" if status == 200 else b"Service Unavailable"
+
+        self.send_response(status)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *args):
+        pass
+
+
+@pytest.fixture
+def flaky_server():
+    # Servidor HTTP local para probar los reintentos reales
+    FlakyHandler.calls = 0
+    server = HTTPServer(("127.0.0.1", 0), FlakyHandler)
+    thread = threading.Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
+    )
+    thread.start()
+
+    yield f"http://127.0.0.1:{server.server_port}"
+
+    server.shutdown()
+    server.server_close()
+
+
+def local_session():
+    # Misma política de reintentos, sin esperas y para http://
+    retry = igdb.create_session().get_adapter("https://").max_retries
+    session = requests.Session()
+    session.mount("http://", HTTPAdapter(max_retries=retry.new(backoff_factor=0)))
+
+    return session
+
+
+def test_session_recovers_from_temporary_error(flaky_server):
+    FlakyHandler.statuses = [503, 200]
+
+    response = local_session().post(flaky_server, data=b"fields id;", timeout=5)
+
+    assert response.status_code == 200
+    assert FlakyHandler.calls == 2
+
+
+def test_igdb_request_reports_last_response_after_retries(monkeypatch, flaky_server):
+    # Agotados los reintentos, el error incluye la respuesta de IGDB
+    FlakyHandler.statuses = [503] * 4
+
+    monkeypatch.setattr(igdb, "session", local_session())
+    monkeypatch.setattr(igdb, "IGDB_API_URL", flaky_server)
+    monkeypatch.setattr(igdb, "get_igdb_token", lambda: "test-token")
+
+    with pytest.raises(requests.HTTPError, match="HTTP 503: Service Unavailable"):
+        igdb.igdb_request("games", "fields id;")
+
+    assert FlakyHandler.calls == 4

@@ -1,7 +1,11 @@
+import logging
 from datetime import date
 
 from core import github, igdb
+from core.logs import configure_logging
 from core.notifications import notifications
+
+logger = logging.getLogger(__name__)
 
 
 def load_watchlist():
@@ -70,7 +74,7 @@ def monitor_watchlist():
     watchlist, sha = load_watchlist()
 
     if not watchlist:
-        print("Watchlist is empty.")
+        logger.info("Watchlist is empty.")
 
         return False
 
@@ -90,7 +94,7 @@ def monitor_watchlist():
         igdb_game = igdb_games.get(game_id)
 
         if not igdb_game:
-            print(f"Game not found: {item['name']} ({game_id})")
+            logger.warning("Game not found: %s (%s)", item["name"], game_id)
 
             continue
 
@@ -113,7 +117,7 @@ def monitor_watchlist():
 
             changes_found = True
 
-            print(f"Migrated platforms: {item['name']}")
+            logger.info("Migrated platforms: %s", item["name"])
 
             continue
 
@@ -141,12 +145,12 @@ def monitor_watchlist():
             if message:
                 pending_messages.append(message)
 
-            print(
-                "Date changed: "
-                f"{item['name']} | "
-                f"{new_platform['label']} | "
-                f"{old_date} -> "
-                f"{new_date}"
+            logger.info(
+                "Date changed: %s | %s | %s -> %s",
+                item["name"],
+                new_platform["label"],
+                old_date,
+                new_date,
             )
 
             changes_found = True
@@ -170,6 +174,8 @@ def monitor_watchlist():
 
 
 def main():
+    configure_logging()
+
     # Comprueba cambios en toda la watchlist
     monitor_watchlist()
 

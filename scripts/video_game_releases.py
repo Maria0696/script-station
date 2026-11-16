@@ -1,18 +1,17 @@
-import os
+import logging
 from datetime import datetime, timedelta
 from html import escape
 from zoneinfo import ZoneInfo
 
 from core import igdb
 from core.config import PLATFORM_LABELS, PLATFORM_ORDER
+from core.logs import configure_logging
 from core.notifications import notifications
+
+logger = logging.getLogger(__name__)
 
 # Zona horaria usada para definir "hoy"
 MADRID_TZ = ZoneInfo("Europe/Madrid")
-
-
-# Muestra logs detallados de popularidad
-DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
 
 # Tipos de popularidad de IGDB
@@ -55,7 +54,7 @@ def get_releases_today():
 
     releases = igdb.get_releases_between(start_ts, end_ts)
 
-    print(f"IGDB releases received: {len(releases)}")
+    logger.info("IGDB releases received: %d", len(releases))
 
     return filter_and_group_releases(releases)
 
@@ -94,7 +93,7 @@ def filter_and_group_releases(releases):
 
         games[game_id]["platforms"].add(platform_id)
 
-    print(f"Games to send: {len(games)}")
+    logger.info("Games to send: %d", len(games))
 
     return list(games.values())
 
@@ -108,7 +107,7 @@ def add_popularity_data(games):
         [game["id"] for game in games], [POPULARITY_VISITS, POPULARITY_WANT_TO_PLAY]
     )
 
-    print(f"Popularity records received: {len(popularity_data)}")
+    logger.info("Popularity records received: %d", len(popularity_data))
 
     games_by_id = {game["id"]: game for game in games}
 
@@ -142,15 +141,16 @@ def mark_featured_games(games):
     if not games:
         return games
 
-    if DEBUG:
-        print("PopScore data:")
+    # Detalle de popularidad con DEBUG=true
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("PopScore data:")
 
         for game in sorted(
             games, key=lambda game: game["popularity_score"], reverse=True
         ):
             display_score = game["popularity_score"] * LOG_SCORE_MULTIPLIER
 
-            print(f"- {game['name']} | Score: {display_score:.2f}")
+            logger.debug("- %s | Score: %.2f", game["name"], display_score)
 
     best_score = max(game["popularity_score"] for game in games)
 
@@ -158,7 +158,7 @@ def mark_featured_games(games):
 
     featured_threshold = max(FEATURED_SCORE_MIN, relative_min)
 
-    print(f"Featured threshold: {featured_threshold * LOG_SCORE_MULTIPLIER:.2f}")
+    logger.info("Featured threshold: %.2f", featured_threshold * LOG_SCORE_MULTIPLIER)
 
     candidates = [
         game for game in games if (game["popularity_score"] >= featured_threshold)
@@ -169,7 +169,7 @@ def mark_featured_games(games):
     for game in candidates[:MAX_FEATURED_GAMES]:
         game["featured"] = True
 
-    print(f"Featured games: {sum(game['featured'] for game in games)}")
+    logger.info("Featured games: %d", sum(game["featured"] for game in games))
 
     return sorted(
         games,
@@ -241,6 +241,8 @@ def send_notification(text):
 
 
 def main():
+    configure_logging()
+
     # 1. Obtener lanzamientos
     games = get_releases_today()
 
