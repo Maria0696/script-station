@@ -157,6 +157,8 @@ def test_build_heimdall_status(monkeypatch):
             "updated_at": "2026-09-14T11:00:00Z",
         },
         "Quality Checks": None,
+        "Daily Watchdog": None,
+        "Post-deploy Smoke Test": None,
     }
 
     monkeypatch.setattr(heimdall, "get_latest_workflows", lambda: latest_runs)
@@ -172,6 +174,10 @@ def test_build_heimdall_status(monkeypatch):
     assert "👀 Watchlist Monitor — 🔴 FAILED" in result
 
     assert "🧪 Quality Checks — ⚪ Sin datos" in result
+
+    assert "⏰ Daily Watchdog — ⚪ Sin datos" in result
+
+    assert "🚦 Smoke Test — ⚪ Sin datos" in result
 
     assert "⚠️ Incidencias activas: 1" in result
 
@@ -681,3 +687,93 @@ def test_update_error_survives_failed_error_message(monkeypatch, caplog):
 
     assert result == {"ok": True}
     assert "Could not send the Heimdall error message" in caplog.text
+
+
+# ============================================================
+# LANZAR WORKFLOWS DIARIOS
+# ============================================================
+
+
+def dispatch_callback(data):
+    return {
+        "id": "callback-1",
+        "data": data,
+        "message": {"chat": {"id": int(heimdall.HEIMDALL_CHAT_ID)}},
+    }
+
+
+def mock_dispatch_io(monkeypatch, dispatch=None):
+    calls = {"dispatched": [], "answers": [], "messages": []}
+
+    monkeypatch.setattr(
+        heimdall, "dispatch_workflow", dispatch or calls["dispatched"].append
+    )
+    monkeypatch.setattr(
+        heimdall,
+        "answer_heimdall_callback",
+        lambda callback_id, text: calls["answers"].append(text),
+    )
+    monkeypatch.setattr(
+        heimdall,
+        "send_heimdall_message",
+        lambda chat_id, text: calls["messages"].append(text),
+    )
+
+    return calls
+
+
+def test_dispatch_callback_launches_daily_workflow(monkeypatch):
+    calls = mock_dispatch_io(monkeypatch)
+
+    heimdall.handle_heimdall_callback(dispatch_callback("dispatch:watchlist.yml"))
+
+    assert calls["dispatched"] == ["watchlist.yml"]
+    assert calls["answers"] == ["▶️ Lanzado"]
+    assert calls["messages"] == ["▶️ Lanzado: 👀 Watchlist Monitor"]
+
+
+def test_dispatch_callback_rejects_unknown_workflow(monkeypatch):
+    # Un botón manipulado no puede lanzar cualquier workflow
+    calls = mock_dispatch_io(monkeypatch)
+
+    heimdall.handle_heimdall_callback(dispatch_callback("dispatch:quality-checks.yml"))
+
+    assert calls["dispatched"] == []
+    assert calls["answers"] == ["❌ Workflow desconocido"]
+
+
+def test_dispatch_callback_reports_github_error(monkeypatch):
+    def failing_dispatch(workflow_file):
+        raise OSError("GitHub unavailable")
+
+    calls = mock_dispatch_io(monkeypatch, dispatch=failing_dispatch)
+
+    heimdall.handle_heimdall_callback(dispatch_callback("dispatch:videogames.yml"))
+
+    assert calls["answers"] == ["❌ No se pudo lanzar"]
+    assert calls["messages"] == []
+
+
+def callback_without_id(data):
+    callback = dispatch_callback(data)
+    del callback["id"]
+
+    return callback
+
+
+def test_dispatch_callback_without_callback_id(monkeypatch):
+    # Sin id no hay animación que cerrar, pero se lanza igual
+    calls = mock_dispatch_io(monkeypatch)
+
+    heimdall.handle_heimdall_callback(callback_without_id("dispatch:videogames.yml"))
+    heimdall.handle_heimdall_callback(callback_without_id("dispatch:unknown.yml"))
+
+    def failing_dispatch(workflow_file):
+        raise OSError("GitHub unavailable")
+
+    monkeypatch.setattr(heimdall, "dispatch_workflow", failing_dispatch)
+
+    heimdall.handle_heimdall_callback(callback_without_id("dispatch:videogames.yml"))
+
+    assert calls["dispatched"] == ["videogames.yml"]
+    assert calls["answers"] == []

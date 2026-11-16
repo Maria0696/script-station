@@ -11,7 +11,11 @@ CHANNELS = {
 }
 
 
-EVENT_ROUTES = {"workflow.failed": "heimdall", "game.release_changed": "huginn"}
+EVENT_ROUTES = {
+    "workflow.failed": "heimdall",
+    "workflow.missed": "heimdall",
+    "game.release_changed": "huginn",
+}
 
 
 class NotificationService:

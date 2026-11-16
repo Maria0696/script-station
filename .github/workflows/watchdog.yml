@@ -1,0 +1,44 @@
+name: Daily Watchdog
+
+on:
+  schedule:
+    # Comprueba que el cron de Vercel (07:00 UTC) lanzó los workflows
+    # diarios. Usa el schedule de GitHub a propósito: no depende de
+    # Vercel y, aunque llegue con horas de retraso, sigue sirviendo.
+    - cron: '37 9 * * *'
+
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  check-daily-runs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Check daily workflows ran today
+        run: python -m scripts.watchdog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_HEIMDALL_BOT_TOKEN: ${{ secrets.TELEGRAM_HEIMDALL_BOT_TOKEN }}
+          TELEGRAM_HEIMDALL_CHAT_ID: ${{ secrets.TELEGRAM_HEIMDALL_CHAT_ID }}
+
+      - name: Notify Heimdall on failure
+        if: ${{ always() && failure() }}
+        run: python -m scripts.notify workflow-failed
+        env:
+          TELEGRAM_HEIMDALL_BOT_TOKEN: ${{ secrets.TELEGRAM_HEIMDALL_BOT_TOKEN }}
+          TELEGRAM_HEIMDALL_CHAT_ID: ${{ secrets.TELEGRAM_HEIMDALL_CHAT_ID }}

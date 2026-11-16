@@ -55,7 +55,11 @@ RELEASED_STATUS = "released"
 CRON_SECRET = os.getenv("CRON_SECRET")
 
 # Workflows lanzados por el cron diario de Vercel
-DAILY_WORKFLOWS = ("videogames.yml", "watchlist.yml")
+# y vigilados por el watchdog diario: archivo -> etiqueta
+DAILY_WORKFLOWS = {
+    "videogames.yml": "🎮 Daily Releases",
+    "watchlist.yml": "👀 Watchlist Monitor",
+}
 
 
 # ============================================================
@@ -103,4 +107,6 @@ WORKFLOWS = {
     "Daily Video Game Releases": "🎮 Daily Releases",
     "Watchlist Release Monitor": "👀 Watchlist Monitor",
     "Quality Checks": "🧪 Quality Checks",
+    "Daily Watchdog": "⏰ Daily Watchdog",
+    "Post-deploy Smoke Test": "🚦 Smoke Test",
 }
