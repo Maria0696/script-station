@@ -6,466 +6,207 @@ from core import notifications
 # EVENTOS
 # ============================================================
 
-def test_workflow_failed_event_routes_to_heimdall(
-    monkeypatch,
-):
+
+def test_workflow_failed_event_routes_to_heimdall(monkeypatch):
     captured = {}
 
     keyboard = {
-        "inline_keyboard": [
-            [
-                {
-                    "text":
-                        "🔄 Re-run",
-                    "callback_data":
-                        "rerun:123",
-                }
-            ]
-        ]
+        "inline_keyboard": [[{"text": "🔄 Re-run", "callback_data": "rerun:123"}]]
     }
 
-    service = (
-        notifications
-        .NotificationService()
-    )
+    service = notifications.NotificationService()
 
-    def fake_heimdall(
-        text,
-        reply_markup=None,
-        parse_mode=None,
-        chat_id=None,
-    ):
-        captured[
-            "text"
-        ] = text
+    def fake_heimdall(text, reply_markup=None, parse_mode=None, chat_id=None):
+        captured["text"] = text
 
-        captured[
-            "reply_markup"
-        ] = reply_markup
+        captured["reply_markup"] = reply_markup
 
-        captured[
-            "parse_mode"
-        ] = parse_mode
+        captured["parse_mode"] = parse_mode
 
-        captured[
-            "chat_id"
-        ] = chat_id
+        captured["chat_id"] = chat_id
 
-        return {
-            "ok": True,
-        }
+        return {"ok": True}
 
-    monkeypatch.setattr(
-        service,
-        "heimdall",
-        fake_heimdall,
-    )
+    monkeypatch.setattr(service, "heimdall", fake_heimdall)
 
-    result = service.emit(
-        "workflow.failed",
-        "Workflow failed",
-        reply_markup=keyboard,
-    )
+    result = service.emit("workflow.failed", "Workflow failed", reply_markup=keyboard)
 
-    assert result == {
-        "ok": True,
-    }
+    assert result == {"ok": True}
 
-    assert (
-        captured["text"]
-        == "Workflow failed"
-    )
+    assert captured["text"] == "Workflow failed"
 
-    assert (
-        captured["reply_markup"]
-        == keyboard
-    )
+    assert captured["reply_markup"] == keyboard
 
-    assert (
-        captured["parse_mode"]
-        is None
-    )
+    assert captured["parse_mode"] is None
 
-    assert (
-        captured["chat_id"]
-        is None
-    )
+    assert captured["chat_id"] is None
 
 
-def test_game_release_changed_event_routes_to_huginn(
-    monkeypatch,
-):
+def test_game_release_changed_event_routes_to_huginn(monkeypatch):
     captured = {}
 
-    service = (
-        notifications
-        .NotificationService()
-    )
+    service = notifications.NotificationService()
 
-    def fake_huginn(
-        text,
-        reply_markup=None,
-        parse_mode=None,
-        chat_id=None,
-    ):
-        captured[
-            "text"
-        ] = text
+    def fake_huginn(text, reply_markup=None, parse_mode=None, chat_id=None):
+        captured["text"] = text
 
-        captured[
-            "reply_markup"
-        ] = reply_markup
+        captured["reply_markup"] = reply_markup
 
-        captured[
-            "parse_mode"
-        ] = parse_mode
+        captured["parse_mode"] = parse_mode
 
-        captured[
-            "chat_id"
-        ] = chat_id
+        captured["chat_id"] = chat_id
 
-        return {
-            "ok": True,
-        }
+        return {"ok": True}
 
-    monkeypatch.setattr(
-        service,
-        "huginn",
-        fake_huginn,
-    )
+    monkeypatch.setattr(service, "huginn", fake_huginn)
 
-    result = service.emit(
-        "game.release_changed",
-        "Game release changed",
-    )
+    result = service.emit("game.release_changed", "Game release changed")
 
-    assert result == {
-        "ok": True,
-    }
+    assert result == {"ok": True}
 
-    assert (
-        captured["text"]
-        == "Game release changed"
-    )
+    assert captured["text"] == "Game release changed"
 
-    assert (
-        captured["reply_markup"]
-        is None
-    )
+    assert captured["reply_markup"] is None
 
-    assert (
-        captured["parse_mode"]
-        is None
-    )
+    assert captured["parse_mode"] is None
 
-    assert (
-        captured["chat_id"]
-        is None
-    )
+    assert captured["chat_id"] is None
 
 
 # ============================================================
 # HUGINN
 # ============================================================
 
-def test_huginn_notification(
-    monkeypatch,
-):
+
+def test_huginn_notification(monkeypatch):
     # Envía una notificación por Huginn
     captured = {}
 
-    def fake_send_message(
-        bot_token,
-        chat_id,
-        text,
-        reply_markup=None,
-        parse_mode=None,
-    ):
-        captured[
-            "bot_token"
-        ] = bot_token
+    def fake_send_message(bot_token, chat_id, text, reply_markup=None, parse_mode=None):
+        captured["bot_token"] = bot_token
 
-        captured[
-            "chat_id"
-        ] = chat_id
+        captured["chat_id"] = chat_id
 
-        captured[
-            "text"
-        ] = text
+        captured["text"] = text
 
-        captured[
-            "reply_markup"
-        ] = reply_markup
+        captured["reply_markup"] = reply_markup
 
-        captured[
-            "parse_mode"
-        ] = parse_mode
+        captured["parse_mode"] = parse_mode
 
-        return {
-            "ok": True,
-        }
+        return {"ok": True}
 
-    monkeypatch.setattr(
-        notifications,
-        "send_message",
-        fake_send_message,
-    )
+    monkeypatch.setattr(notifications, "send_message", fake_send_message)
 
-    service = (
-        notifications
-        .NotificationService()
-    )
+    service = notifications.NotificationService()
 
-    result = service.huginn(
-        "Hello Huginn",
-    )
+    result = service.huginn("Hello Huginn")
 
-    assert result == {
-        "ok": True,
-    }
+    assert result == {"ok": True}
 
-    assert (
-        captured["bot_token"]
-        == "test-huginn-token"
-    )
+    assert captured["bot_token"] == "test-huginn-token"
 
-    assert (
-        captured["chat_id"]
-        == "123456"
-    )
+    assert captured["chat_id"] == "123456"
 
-    assert (
-        captured["text"]
-        == "Hello Huginn"
-    )
+    assert captured["text"] == "Hello Huginn"
 
-    assert (
-        captured["reply_markup"]
-        is None
-    )
+    assert captured["reply_markup"] is None
 
-    assert (
-        captured["parse_mode"]
-        is None
-    )
+    assert captured["parse_mode"] is None
 
 
-def test_huginn_notification_with_parse_mode(
-    monkeypatch,
-):
+def test_huginn_notification_with_parse_mode(monkeypatch):
     # Envía HTML mediante Huginn
     captured = {}
 
-    def fake_send_message(
-        bot_token,
-        chat_id,
-        text,
-        reply_markup=None,
-        parse_mode=None,
-    ):
-        captured[
-            "parse_mode"
-        ] = parse_mode
+    def fake_send_message(bot_token, chat_id, text, reply_markup=None, parse_mode=None):
+        captured["parse_mode"] = parse_mode
 
-        return {
-            "ok": True,
-        }
+        return {"ok": True}
 
-    monkeypatch.setattr(
-        notifications,
-        "send_message",
-        fake_send_message,
-    )
+    monkeypatch.setattr(notifications, "send_message", fake_send_message)
 
-    service = (
-        notifications
-        .NotificationService()
-    )
+    service = notifications.NotificationService()
 
-    service.huginn(
-        "<b>Test</b>",
-        parse_mode="HTML",
-    )
+    service.huginn("<b>Test</b>", parse_mode="HTML")
 
-    assert (
-        captured["parse_mode"]
-        == "HTML"
-    )
+    assert captured["parse_mode"] == "HTML"
 
 
 # ============================================================
 # HEIMDALL
 # ============================================================
 
-def test_heimdall_notification(
-    monkeypatch,
-):
+
+def test_heimdall_notification(monkeypatch):
     # Envía una notificación por Heimdall
     captured = {}
 
     keyboard = {
-        "inline_keyboard": [
-            [
-                {
-                    "text":
-                        "🔄 Re-run",
-                    "callback_data":
-                        "rerun:123",
-                }
-            ]
-        ]
+        "inline_keyboard": [[{"text": "🔄 Re-run", "callback_data": "rerun:123"}]]
     }
 
-    def fake_send_message(
-        bot_token,
-        chat_id,
-        text,
-        reply_markup=None,
-        parse_mode=None,
-    ):
-        captured[
-            "bot_token"
-        ] = bot_token
+    def fake_send_message(bot_token, chat_id, text, reply_markup=None, parse_mode=None):
+        captured["bot_token"] = bot_token
 
-        captured[
-            "chat_id"
-        ] = chat_id
+        captured["chat_id"] = chat_id
 
-        captured[
-            "text"
-        ] = text
+        captured["text"] = text
 
-        captured[
-            "reply_markup"
-        ] = reply_markup
+        captured["reply_markup"] = reply_markup
 
-        return {
-            "ok": True,
-        }
+        return {"ok": True}
 
-    monkeypatch.setattr(
-        notifications,
-        "send_message",
-        fake_send_message,
-    )
+    monkeypatch.setattr(notifications, "send_message", fake_send_message)
 
-    service = (
-        notifications
-        .NotificationService()
-    )
+    service = notifications.NotificationService()
 
-    result = service.heimdall(
-        "Workflow failed",
-        reply_markup=keyboard,
-    )
+    result = service.heimdall("Workflow failed", reply_markup=keyboard)
 
-    assert result == {
-        "ok": True,
-    }
+    assert result == {"ok": True}
 
-    assert (
-        captured["bot_token"]
-        == "test-heimdall-token"
-    )
+    assert captured["bot_token"] == "test-heimdall-token"
 
-    assert (
-        captured["chat_id"]
-        == "654321"
-    )
+    assert captured["chat_id"] == "654321"
 
-    assert (
-        captured["text"]
-        == "Workflow failed"
-    )
+    assert captured["text"] == "Workflow failed"
 
-    assert (
-        captured["reply_markup"]
-        == keyboard
-    )
+    assert captured["reply_markup"] == keyboard
 
 
-def test_notification_custom_chat_id(
-    monkeypatch,
-):
+def test_notification_custom_chat_id(monkeypatch):
     # Permite sobrescribir el chat destino
     captured = {}
 
-    def fake_send_message(
-        bot_token,
-        chat_id,
-        text,
-        reply_markup=None,
-        parse_mode=None,
-    ):
-        captured[
-            "chat_id"
-        ] = chat_id
+    def fake_send_message(bot_token, chat_id, text, reply_markup=None, parse_mode=None):
+        captured["chat_id"] = chat_id
 
-        return {
-            "ok": True,
-        }
+        return {"ok": True}
 
-    monkeypatch.setattr(
-        notifications,
-        "send_message",
-        fake_send_message,
-    )
+    monkeypatch.setattr(notifications, "send_message", fake_send_message)
 
-    service = (
-        notifications
-        .NotificationService()
-    )
+    service = notifications.NotificationService()
 
-    service.heimdall(
-        "Test",
-        chat_id="999999",
-    )
+    service.heimdall("Test", chat_id="999999")
 
-    assert (
-        captured["chat_id"]
-        == "999999"
-    )
+    assert captured["chat_id"] == "999999"
 
 
 # ============================================================
 # ERRORES
 # ============================================================
 
+
 def test_unknown_notification_event():
     # Rechaza eventos desconocidos
-    service = (
-        notifications
-        .NotificationService()
-    )
+    service = notifications.NotificationService()
 
-    with pytest.raises(
-        ValueError,
-        match=(
-            "Unknown notification "
-            "event"
-        ),
-    ):
-        service.emit(
-            "odin.arrived",
-            "Test",
-        )
+    with pytest.raises(ValueError, match=("Unknown notification event")):
+        service.emit("odin.arrived", "Test")
 
 
 def test_unknown_notification_channel():
     # Rechaza canales desconocidos
-    service = (
-        notifications
-        .NotificationService()
-    )
+    service = notifications.NotificationService()
 
-    with pytest.raises(
-        ValueError,
-        match=(
-            "Unknown notification "
-            "channel"
-        ),
-    ):
-        service.send(
-            "odin",
-            "Test",
-        )
+    with pytest.raises(ValueError, match=("Unknown notification channel")):
+        service.send("odin", "Test")

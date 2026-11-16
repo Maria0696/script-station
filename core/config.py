@@ -5,65 +5,43 @@ import os
 # ============================================================
 
 # Huginn - Videojuegos
-HUGINN_BOT_TOKEN = os.getenv(
-    "TELEGRAM_BOT_TOKEN"
-)
+HUGINN_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-HUGINN_CHAT_ID = os.getenv(
-    "TELEGRAM_CHAT_ID"
-)
+HUGINN_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 
 # Heimdall - Monitorización
-HEIMDALL_BOT_TOKEN = os.getenv(
-    "TELEGRAM_HEIMDALL_BOT_TOKEN"
-)
+HEIMDALL_BOT_TOKEN = os.getenv("TELEGRAM_HEIMDALL_BOT_TOKEN")
 
-HEIMDALL_CHAT_ID = os.getenv(
-    "TELEGRAM_HEIMDALL_CHAT_ID"
-)
+HEIMDALL_CHAT_ID = os.getenv("TELEGRAM_HEIMDALL_CHAT_ID")
 
 
 # Secretos que Telegram envía en cada webhook
-HUGINN_WEBHOOK_SECRET = os.getenv(
-    "TELEGRAM_WEBHOOK_SECRET"
-)
+HUGINN_WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET")
 
-HEIMDALL_WEBHOOK_SECRET = os.getenv(
-    "TELEGRAM_HEIMDALL_WEBHOOK_SECRET"
-)
+HEIMDALL_WEBHOOK_SECRET = os.getenv("TELEGRAM_HEIMDALL_WEBHOOK_SECRET")
 
 
 # ============================================================
 # IGDB
 # ============================================================
 
-IGDB_CLIENT_ID = os.getenv(
-    "IGDB_CLIENT_ID"
-)
+IGDB_CLIENT_ID = os.getenv("IGDB_CLIENT_ID")
 
-IGDB_CLIENT_SECRET = os.getenv(
-    "IGDB_CLIENT_SECRET"
-)
+IGDB_CLIENT_SECRET = os.getenv("IGDB_CLIENT_SECRET")
 
 
 # ============================================================
 # GITHUB
 # ============================================================
 
-GITHUB_TOKEN = os.getenv(
-    "GITHUB_TOKEN"
-)
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
-GITHUB_REPO = (
-    "Maria0696/script-station"
-)
+GITHUB_REPO = "Maria0696/script-station"
 
 GITHUB_BRANCH = "master"
 
-WATCHLIST_PATH = (
-    "data/watchlist.json"
-)
+WATCHLIST_PATH = "data/watchlist.json"
 
 
 # ============================================================
@@ -71,15 +49,10 @@ WATCHLIST_PATH = (
 # ============================================================
 
 # Vercel lo envía como "Authorization: Bearer ..."
-CRON_SECRET = os.getenv(
-    "CRON_SECRET"
-)
+CRON_SECRET = os.getenv("CRON_SECRET")
 
 # Workflows lanzados por el cron diario de Vercel
-DAILY_WORKFLOWS = (
-    "videogames.yml",
-    "watchlist.yml",
-)
+DAILY_WORKFLOWS = ("videogames.yml", "watchlist.yml")
 
 
 # ============================================================
@@ -104,10 +77,10 @@ PLATFORM_LABELS = {
 PLATFORM_ORDER = [
     167,  # PS5
     508,  # Switch 2
-    6,    # PC
+    6,  # PC
     169,  # Xbox Series
-    48,   # PS4
-    49,   # Xbox One
+    48,  # PS4
+    49,  # Xbox One
     130,  # Switch
     390,  # PS VR2
     471,  # Meta Quest 3
@@ -116,10 +89,7 @@ PLATFORM_ORDER = [
 ]
 
 
-VALID_REGIONS = {
-    "europe",
-    "worldwide",
-}
+VALID_REGIONS = {"europe", "worldwide"}
 
 
 # ============================================================
@@ -127,10 +97,7 @@ VALID_REGIONS = {
 # ============================================================
 
 WORKFLOWS = {
-    "Daily Video Game Releases":
-        "🎮 Daily Releases",
-    "Watchlist Release Monitor":
-        "👀 Watchlist Monitor",
-    "Quality Checks":
-        "🧪 Quality Checks",
+    "Daily Video Game Releases": "🎮 Daily Releases",
+    "Watchlist Release Monitor": "👀 Watchlist Monitor",
+    "Quality Checks": "🧪 Quality Checks",
 }

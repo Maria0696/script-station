@@ -4,28 +4,15 @@ from html import escape
 from zoneinfo import ZoneInfo
 
 from core import igdb
-from core.config import (
-    PLATFORM_LABELS,
-    PLATFORM_ORDER,
-)
-from core.notifications import (
-    notifications,
-)
+from core.config import PLATFORM_LABELS, PLATFORM_ORDER
+from core.notifications import notifications
 
 # Zona horaria usada para definir "hoy"
-MADRID_TZ = ZoneInfo(
-    "Europe/Madrid"
-)
+MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 
 # Muestra logs detallados de popularidad
-DEBUG = (
-    os.getenv(
-        "DEBUG",
-        "false",
-    ).lower()
-    == "true"
-)
+DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
 
 # Tipos de popularidad de IGDB
@@ -45,9 +32,7 @@ MAX_FEATURED_GAMES = 3
 
 
 # Solo para mostrar scores legibles en logs
-LOG_SCORE_MULTIPLIER = (
-    1_000_000
-)
+LOG_SCORE_MULTIPLIER = 1_000_000
 
 
 # Margen respecto al límite de Telegram
@@ -56,362 +41,163 @@ MAX_TELEGRAM_LENGTH = 3900
 
 def get_releases_today():
     # Fecha actual según Madrid
-    today = datetime.now(
-        MADRID_TZ
-    ).date()
+    today = datetime.now(MADRID_TZ).date()
 
     start_datetime = datetime(
-        today.year,
-        today.month,
-        today.day,
-        0,
-        0,
-        0,
-        tzinfo=MADRID_TZ,
+        today.year, today.month, today.day, 0, 0, 0, tzinfo=MADRID_TZ
     )
 
-    end_datetime = (
-        start_datetime
-        + timedelta(days=1)
-    )
+    end_datetime = start_datetime + timedelta(days=1)
 
-    start_ts = int(
-        start_datetime.timestamp()
-    )
+    start_ts = int(start_datetime.timestamp())
 
-    end_ts = int(
-        end_datetime.timestamp()
-    )
+    end_ts = int(end_datetime.timestamp())
 
-    releases = igdb.get_releases_between(
-        start_ts,
-        end_ts,
-    )
+    releases = igdb.get_releases_between(start_ts, end_ts)
 
-    print(
-        "IGDB releases received: "
-        f"{len(releases)}"
-    )
+    print(f"IGDB releases received: {len(releases)}")
 
-    return filter_and_group_releases(
-        releases
-    )
+    return filter_and_group_releases(releases)
 
 
-def filter_and_group_releases(
-    releases,
-):
+def filter_and_group_releases(releases):
     games = {}
 
     for release in releases:
-        if not igdb.is_valid_region(
-            release
-        ):
+        if not igdb.is_valid_region(release):
             continue
 
-        game = release.get(
-            "game"
-        )
+        game = release.get("game")
 
-        if not isinstance(
-            game,
-            dict,
-        ):
+        if not isinstance(game, dict):
             continue
 
-        game_id = game.get(
-            "id"
-        )
+        game_id = game.get("id")
 
-        game_name = game.get(
-            "name"
-        )
+        game_name = game.get("name")
 
-        platform_id = (
-            release.get(
-                "platform"
-            )
-        )
+        platform_id = release.get("platform")
 
-        if (
-            not game_id
-            or not game_name
-            or platform_id
-            not in PLATFORM_LABELS
-        ):
+        if not game_id or not game_name or platform_id not in PLATFORM_LABELS:
             continue
 
         if game_id not in games:
-            games[
-                game_id
-            ] = {
-                "id":
-                    game_id,
-                "name":
-                    game_name,
-                "platforms":
-                    set(),
-                "visits":
-                    0.0,
-                "want_to_play":
-                    0.0,
-                "popularity_score":
-                    0.0,
-                "featured":
-                    False,
+            games[game_id] = {
+                "id": game_id,
+                "name": game_name,
+                "platforms": set(),
+                "visits": 0.0,
+                "want_to_play": 0.0,
+                "popularity_score": 0.0,
+                "featured": False,
             }
 
-        games[
-            game_id
-        ][
-            "platforms"
-        ].add(
-            platform_id
-        )
+        games[game_id]["platforms"].add(platform_id)
 
-    print(
-        "Games to send: "
-        f"{len(games)}"
-    )
+    print(f"Games to send: {len(games)}")
 
-    return list(
-        games.values()
-    )
+    return list(games.values())
 
 
-def add_popularity_data(
-    games,
-):
+def add_popularity_data(games):
     # No consulta popularidad si no hay juegos
     if not games:
         return games
 
-    popularity_data = (
-        igdb.get_popularity_primitives(
-            [
-                game["id"]
-                for game in games
-            ],
-            [
-                POPULARITY_VISITS,
-                POPULARITY_WANT_TO_PLAY,
-            ],
-        )
+    popularity_data = igdb.get_popularity_primitives(
+        [game["id"] for game in games], [POPULARITY_VISITS, POPULARITY_WANT_TO_PLAY]
     )
 
-    print(
-        "Popularity records received: "
-        f"{len(popularity_data)}"
-    )
+    print(f"Popularity records received: {len(popularity_data)}")
 
-    games_by_id = {
-        game["id"]: game
-        for game in games
-    }
+    games_by_id = {game["id"]: game for game in games}
 
     for item in popularity_data:
-        game_id = item.get(
-            "game_id"
-        )
+        game_id = item.get("game_id")
 
-        popularity_type = (
-            item.get(
-                "popularity_type"
-            )
-        )
+        popularity_type = item.get("popularity_type")
 
-        value = float(
-            item.get(
-                "value",
-                0,
-            )
-            or 0
-        )
+        value = float(item.get("value", 0) or 0)
 
-        if (
-            game_id
-            not in games_by_id
-        ):
+        if game_id not in games_by_id:
             continue
 
-        game = games_by_id[
-            game_id
-        ]
+        game = games_by_id[game_id]
 
-        if (
-            popularity_type
-            == POPULARITY_VISITS
-        ):
-            game[
-                "visits"
-            ] = value
+        if popularity_type == POPULARITY_VISITS:
+            game["visits"] = value
 
-        elif (
-            popularity_type
-            == POPULARITY_WANT_TO_PLAY
-        ):
-            game[
-                "want_to_play"
-            ] = value
+        elif popularity_type == POPULARITY_WANT_TO_PLAY:
+            game["want_to_play"] = value
 
     for game in games:
-        game[
-            "popularity_score"
-        ] = (
-            game["visits"]
-            * VISITS_WEIGHT
-            + game[
-                "want_to_play"
-            ]
-            * WANT_TO_PLAY_WEIGHT
+        game["popularity_score"] = (
+            game["visits"] * VISITS_WEIGHT + game["want_to_play"] * WANT_TO_PLAY_WEIGHT
         )
 
     return games
 
 
-def mark_featured_games(
-    games,
-):
+def mark_featured_games(games):
     if not games:
         return games
 
     if DEBUG:
-        print(
-            "PopScore data:"
-        )
+        print("PopScore data:")
 
         for game in sorted(
-            games,
-            key=lambda game:
-                game[
-                    "popularity_score"
-                ],
-            reverse=True,
+            games, key=lambda game: game["popularity_score"], reverse=True
         ):
-            display_score = (
-                game[
-                    "popularity_score"
-                ]
-                * LOG_SCORE_MULTIPLIER
-            )
+            display_score = game["popularity_score"] * LOG_SCORE_MULTIPLIER
 
-            print(
-                f"- {game['name']} | "
-                f"Score: "
-                f"{display_score:.2f}"
-            )
+            print(f"- {game['name']} | Score: {display_score:.2f}")
 
-    best_score = max(
-        game[
-            "popularity_score"
-        ]
-        for game in games
-    )
+    best_score = max(game["popularity_score"] for game in games)
 
-    relative_min = (
-        best_score
-        * FEATURED_RELATIVE_THRESHOLD
-    )
+    relative_min = best_score * FEATURED_RELATIVE_THRESHOLD
 
-    featured_threshold = max(
-        FEATURED_SCORE_MIN,
-        relative_min,
-    )
+    featured_threshold = max(FEATURED_SCORE_MIN, relative_min)
 
-    print(
-        "Featured threshold: "
-        f"{featured_threshold * LOG_SCORE_MULTIPLIER:.2f}"
-    )
+    print(f"Featured threshold: {featured_threshold * LOG_SCORE_MULTIPLIER:.2f}")
 
     candidates = [
-        game
-        for game in games
-        if (
-            game[
-                "popularity_score"
-            ]
-            >= featured_threshold
-        )
+        game for game in games if (game["popularity_score"] >= featured_threshold)
     ]
 
-    candidates.sort(
-        key=lambda game:
-            game[
-                "popularity_score"
-            ],
-        reverse=True,
-    )
+    candidates.sort(key=lambda game: game["popularity_score"], reverse=True)
 
-    for game in candidates[
-        :MAX_FEATURED_GAMES
-    ]:
-        game[
-            "featured"
-        ] = True
+    for game in candidates[:MAX_FEATURED_GAMES]:
+        game["featured"] = True
 
-    print(
-        "Featured games: "
-        f"{sum(game['featured'] for game in games)}"
-    )
+    print(f"Featured games: {sum(game['featured'] for game in games)}")
 
     return sorted(
         games,
         key=lambda game: (
-            not game[
-                "featured"
-            ],
-            (
-                -game[
-                    "popularity_score"
-                ]
-                if game[
-                    "featured"
-                ]
-                else 0
-            ),
-            game[
-                "name"
-            ].lower(),
+            not game["featured"],
+            (-game["popularity_score"] if game["featured"] else 0),
+            game["name"].lower(),
         ),
     )
 
 
-def get_platform_labels(
-    platform_ids,
-):
+def get_platform_labels(platform_ids):
     platforms = []
 
-    for platform_id in (
-        PLATFORM_ORDER
-    ):
-        if (
-            platform_id
-            not in platform_ids
-        ):
+    for platform_id in PLATFORM_ORDER:
+        if platform_id not in platform_ids:
             continue
 
-        label = (
-            PLATFORM_LABELS[
-                platform_id
-            ]
-        )
+        label = PLATFORM_LABELS[platform_id]
 
         if label not in platforms:
-            platforms.append(
-                label
-            )
+            platforms.append(label)
 
     return platforms
 
 
-def build_messages(
-    games,
-):
-    today = datetime.now(
-        MADRID_TZ
-    ).strftime(
-        "%d-%m-%Y"
-    )
+def build_messages(games):
+    today = datetime.now(MADRID_TZ).strftime("%d-%m-%Y")
 
     header = (
         "━━━━━━━━━━━━━━━━━━━\n"
@@ -421,79 +207,37 @@ def build_messages(
     )
 
     if not games:
-        return [
-            (
-                header
-                + "No releases found today."
-            )
-        ]
+        return [(header + "No releases found today.")]
 
     messages = []
-    current_message = (
-        header
-    )
+    current_message = header
 
     for game in games:
-        game_name = escape(
-            game["name"]
-        )
+        game_name = escape(game["name"])
 
-        platforms = (
-            get_platform_labels(
-                game[
-                    "platforms"
-                ]
-            )
-        )
+        platforms = get_platform_labels(game["platforms"])
 
-        star = (
-            "⭐ "
-            if game[
-                "featured"
-            ]
-            else ""
-        )
+        star = "⭐ " if game["featured"] else ""
 
-        game_block = (
-            f"{star}<b>{game_name}</b>\n"
-            f"   {' | '.join(platforms)}\n\n"
-        )
+        game_block = f"{star}<b>{game_name}</b>\n   {' | '.join(platforms)}\n\n"
 
-        if (
-            len(current_message)
-            + len(game_block)
-            > MAX_TELEGRAM_LENGTH
-        ):
-            messages.append(
-                current_message.rstrip()
-            )
+        if len(current_message) + len(game_block) > MAX_TELEGRAM_LENGTH:
+            messages.append(current_message.rstrip())
 
-            current_message = (
-                header
-                + game_block
-            )
+            current_message = header + game_block
 
         else:
-            current_message += (
-                game_block
-            )
+            current_message += game_block
 
     if current_message.strip():
-        messages.append(
-            current_message.rstrip()
-        )
+        messages.append(current_message.rstrip())
 
     return messages
 
 
-def send_notification(
-    text,
-):
+def send_notification(text):
     # Envía mediante el servicio centralizado
-    return notifications.huginn(
-        text,
-        parse_mode="HTML",
-    )
+    return notifications.huginn(text, parse_mode="HTML")
 
 
 def main():
@@ -501,31 +245,17 @@ def main():
     games = get_releases_today()
 
     # 2. Obtener popularidad
-    games = (
-        add_popularity_data(
-            games
-        )
-    )
+    games = add_popularity_data(games)
 
     # 3. Marcar destacados
-    games = (
-        mark_featured_games(
-            games
-        )
-    )
+    games = mark_featured_games(games)
 
     # 4. Construir mensajes
-    messages = (
-        build_messages(
-            games
-        )
-    )
+    messages = build_messages(games)
 
     # 5. Enviar mediante Huginn
     for message in messages:
-        send_notification(
-            message
-        )
+        send_notification(message)
 
 
 if __name__ == "__main__":  # pragma: no cover

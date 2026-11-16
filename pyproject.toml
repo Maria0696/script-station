@@ -42,3 +42,13 @@ include = [
     "scripts*",
 ]
 namespaces = true
+
+
+[tool.ruff.format]
+# Agrupa en una línea todo lo que cabe, aunque lleve coma final
+skip-magic-trailing-comma = true
+
+
+[tool.ruff.lint.isort]
+# Coherente con skip-magic-trailing-comma
+split-on-trailing-comma = false
