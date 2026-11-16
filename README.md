@@ -482,6 +482,8 @@ Heimdall can:
 - Display workflow branches and execution times.
 - Link directly to GitHub Actions runs.
 - Re-run failed workflow jobs through Telegram buttons.
+- Warn when a daily workflow never ran, with a button to launch it (see [Daily Watchdog](#daily-watchdog)).
+- Reply with an error message when GitHub cannot be reached, instead of staying silent.
 
 ---
 
@@ -500,7 +502,7 @@ Instead, they emit notification events.
 Current routing:
 
 ```text
-workflow.failed
+workflow.failed / workflow.missed
       ↓
 NotificationService
       ↓
@@ -694,6 +696,7 @@ core/
 ├── github.py
 ├── heimdall.py
 ├── huginn.py
+├── http.py
 ├── igdb.py
 ├── logs.py
 ├── notifications.py
@@ -706,7 +709,21 @@ Shared application configuration.
 
 ## `github.py`
 
-GitHub API operations used by the bots and monitoring tools.
+GitHub API operations used by the bots and monitoring tools. `update_watchlist` re-reads and retries once when GitHub rejects a save with `409` because another process saved first.
+
+## `http.py`
+
+Shared HTTP session for IGDB, GitHub and Telegram. It retries rate limits and temporary errors, but only for requests that are safe to repeat:
+
+| Service | Retried methods | Statuses |
+| --- | --- | --- |
+| IGDB | `POST` (read-only queries) | 429, 5xx |
+| GitHub | `GET`, `PUT` (the watchlist `PUT` carries a `sha`) | 429, 5xx |
+| Telegram | `POST` | 429, 502, 503, 504 |
+
+GitHub workflow dispatches and re-runs are never retried, so a workflow cannot start twice. A Telegram `500` is not retried either, because the message may already have been delivered.
+
+Error messages include the service response but never the URL: the Telegram URL holds the bot token, the Twitch token URL holds the client secret, and Actions logs of this public repository are public.
 
 ## `heimdall.py`
 
@@ -751,7 +768,9 @@ scripts/
 ├── add_workflow.py
 ├── notify.py
 ├── package_manager.py
+├── smoke_test.py
 ├── video_game_releases.py
+├── watchdog.py
 └── watchlist_monitor.py
 ```
 
@@ -904,7 +923,9 @@ Script Station currently contains:
 ```text
 .github/workflows/
 ├── quality-checks.yml
+├── smoke-test.yml
 ├── videogames.yml
+├── watchdog.yml
 └── watchlist.yml
 ```
 
@@ -919,6 +940,28 @@ Sends the daily release report. Started every day by the [daily cron](#daily-cro
 ## Watchlist Release Monitor
 
 Checks the watchlist for release changes. Started every day by the [daily cron](#daily-cron).
+
+## Daily Watchdog
+
+Heimdall reports workflows that fail, but a workflow that never starts produces no failure. The watchdog covers that case: if the Vercel cron stops firing, reports would otherwise just stop arriving.
+
+Every day the watchdog checks that both daily workflows have a run created that day (UTC). If one is missing, Heimdall receives `workflow.missed` with a "▶️ Lanzar" button per workflow. Heimdall only dispatches the known daily workflows.
+
+It runs on the GitHub `schedule` on purpose. It does not depend on Vercel, the system it watches, and a delay of a few hours does not matter for a watchdog. It uses the Actions `GITHUB_TOKEN` with read-only `actions` permission.
+
+## Post-deploy Smoke Test
+
+Vercel publishes deployment statuses to GitHub. After every successful Production deployment, this workflow checks the production domain:
+
+```text
+GET  /api/telegram  -> 200
+GET  /api/heimdall  -> 200
+POST /api/telegram  -> 401 without the secret
+POST /api/heimdall  -> 401 without the secret
+GET  /api/cron      -> 401 without the secret
+```
+
+A webhook that answers without its secret counts as a failure, just like an endpoint that is down. The workflow retries twice while the domain switches to the new deployment. On failure, Heimdall receives the usual `workflow.failed` alert. Deployment runs carry a commit SHA instead of a branch, so they do not appear in Heimdall `/status`.
 
 Workflow failures can emit:
 
@@ -968,7 +1011,9 @@ script-station/
 │   ├── dependabot.yml
 │   └── workflows/
 │       ├── quality-checks.yml
+│       ├── smoke-test.yml
 │       ├── videogames.yml
+│       ├── watchdog.yml
 │       └── watchlist.yml
 │
 ├── api/
@@ -980,6 +1025,7 @@ script-station/
 │   ├── github.py
 │   ├── heimdall.py
 │   ├── huginn.py
+│   ├── http.py
 │   ├── igdb.py
 │   ├── logs.py
 │   ├── notifications.py
@@ -993,7 +1039,9 @@ script-station/
 │   ├── add_workflow.py
 │   ├── notify.py
 │   ├── package_manager.py
+│   ├── smoke_test.py
 │   ├── video_game_releases.py
+│   ├── watchdog.py
 │   └── watchlist_monitor.py
 │
 ├── templates/
