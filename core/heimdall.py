@@ -2,8 +2,8 @@ import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from core.config import HEIMDALL_CHAT_ID, WORKFLOWS
-from core.github import get_workflow_runs, rerun_failed_workflow_run
+from core.config import DAILY_WORKFLOWS, HEIMDALL_CHAT_ID, WORKFLOWS
+from core.github import dispatch_workflow, get_workflow_runs, rerun_failed_workflow_run
 from core.telegram import (
     answer_heimdall_callback,
     get_update_chat_id,
@@ -266,7 +266,38 @@ def handle_heimdall_callback(callback):
 
         send_heimdall_message(chat_id, (f"🔄 Re-run solicitado.\n\n🆔 Run #{run_id}"))
 
+    # Lanzar un workflow diario que no se ejecutó (aviso del watchdog)
+    elif callback_data.startswith("dispatch:"):
+        handle_dispatch_callback(chat_id, callback_id, callback_data)
+
     return {"ok": True}
+
+
+def handle_dispatch_callback(chat_id, callback_id, callback_data):
+    # Solo se pueden lanzar los workflows diarios conocidos
+    workflow_file = callback_data.split(":", 1)[1]
+
+    label = DAILY_WORKFLOWS.get(workflow_file)
+
+    if not label:
+        if callback_id:
+            answer_heimdall_callback(callback_id, "❌ Workflow desconocido")
+
+        return
+
+    try:
+        dispatch_workflow(workflow_file)
+
+    except OSError:
+        if callback_id:
+            answer_heimdall_callback(callback_id, "❌ No se pudo lanzar")
+
+        return
+
+    if callback_id:
+        answer_heimdall_callback(callback_id, "▶️ Lanzado")
+
+    send_heimdall_message(chat_id, f"▶️ Lanzado: {label}")
 
 
 # ============================================================

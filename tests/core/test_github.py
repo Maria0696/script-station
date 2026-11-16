@@ -1,106 +1,99 @@
 import base64
 import json
-from urllib.error import HTTPError
 
 import pytest
+import requests
 
 from core import github
+
+
+class FakeResponse:
+    # Respuesta mínima de requests
+
+    def __init__(self, data=None, status_code=200, content=None):
+        self.status_code = status_code
+        self.ok = status_code < 400
+        self.content = json.dumps(data).encode() if content is None else content
+        self.text = self.content.decode()
+
+    def json(self):
+        return json.loads(self.content)
+
 
 # ============================================================
 # PETICIONES HTTP
 # ============================================================
 
 
-def test_github_request_with_json_response(monkeypatch):
+def mock_session(monkeypatch, response):
+    # Sustituye la sesión HTTP y guarda la llamada
     captured = {}
 
-    class FakeResponse:
-        def __enter__(self):
-            return self
+    def fake_request(method, url, json, headers, timeout):
+        captured.update(
+            method=method, url=url, json=json, headers=headers, timeout=timeout
+        )
 
-        def __exit__(self, exc_type, exc_value, traceback):
-            pass
+        return response
 
-        def read(self):
-            return b'{"ok": true}'
+    monkeypatch.setattr(github.session, "request", fake_request)
 
-    def fake_urlopen(req, timeout):
-        captured["request"] = req
+    return captured
 
-        captured["timeout"] = timeout
 
-        return FakeResponse()
-
-    monkeypatch.setattr(github.request, "urlopen", fake_urlopen)
+def test_github_request_with_json_response(monkeypatch):
+    captured = mock_session(monkeypatch, FakeResponse({"ok": True}))
 
     result = github.github_request("PUT", "contents/test.json", {"value": "test"})
 
     assert result == {"ok": True}
 
-    assert captured["timeout"] == 30
-
-    assert captured["request"].full_url == (
-        "https://api.github.com/repos/Maria0696/script-station/contents/test.json"
-    )
-
-    assert captured["request"].get_method() == "PUT"
-
-    assert json.loads(captured["request"].data) == {"value": "test"}
-
-    headers = {key.lower(): value for key, value in captured["request"].header_items()}
-
-    assert headers["authorization"] == (f"Bearer {github.GITHUB_TOKEN}")
-
-    assert headers["accept"] == ("application/vnd.github+json")
-
-    assert headers["x-github-api-version"] == "2022-11-28"
-
-    assert headers["content-type"] == "application/json"
+    assert captured == {
+        "method": "PUT",
+        "url": (
+            "https://api.github.com/repos/Maria0696/script-station/contents/test.json"
+        ),
+        "json": {"value": "test"},
+        "headers": {
+            "Authorization": f"Bearer {github.GITHUB_TOKEN}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        "timeout": 30,
+    }
 
 
 def test_github_request_without_body(monkeypatch):
-    captured = {}
-
-    class FakeResponse:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc_value, traceback):
-            pass
-
-        def read(self):
-            return b'{"value": 123}'
-
-    def fake_urlopen(req, timeout):
-        captured["request"] = req
-
-        return FakeResponse()
-
-    monkeypatch.setattr(github.request, "urlopen", fake_urlopen)
+    captured = mock_session(monkeypatch, FakeResponse({"value": 123}))
 
     result = github.github_request("GET", "actions/runs")
 
     assert result == {"value": 123}
 
-    assert captured["request"].data is None
+    assert captured["json"] is None
 
 
 def test_github_request_without_content(monkeypatch):
-    class FakeResponse:
-        def __enter__(self):
-            return self
+    # Por ejemplo, el 204 de workflow_dispatch
+    mock_session(monkeypatch, FakeResponse(status_code=204, content=b""))
 
-        def __exit__(self, exc_type, exc_value, traceback):
-            pass
+    assert github.github_request("POST", "actions/workflows/x.yml/dispatches") == {}
 
-        def read(self):
-            return b""
 
-    monkeypatch.setattr(github.request, "urlopen", lambda req, timeout: FakeResponse())
+def test_github_request_error_includes_response(monkeypatch):
+    mock_session(monkeypatch, FakeResponse({"message": "Not Found"}, status_code=404))
 
-    result = github.github_request("GET", "actions/runs")
+    with pytest.raises(
+        requests.HTTPError, match="GitHub GET actions/runs failed: HTTP 404"
+    ):
+        github.github_request("GET", "actions/runs")
 
-    assert result == {}
+
+def test_session_retries_only_safe_methods():
+    # Lanzar workflows (POST) no se repite: podría duplicarlos
+    retry = github.session.get_adapter("https://api.github.com").max_retries
+
+    assert set(retry.allowed_methods) == {"GET", "PUT"}
 
 
 # ============================================================
@@ -281,7 +274,9 @@ def test_rerun_failed_workflow_run(monkeypatch):
 
 
 def http_error(code):
-    return HTTPError("https://api.github.com", code, "error", {}, None)
+    return requests.HTTPError(
+        f"HTTP {code}", response=FakeResponse(status_code=code, content=b"")
+    )
 
 
 def mock_storage(monkeypatch, versions, save_errors=()):
@@ -351,12 +346,12 @@ def test_update_watchlist_gives_up_after_second_conflict(monkeypatch):
         save_errors=[http_error(409), http_error(409)],
     )
 
-    with pytest.raises(HTTPError):
+    with pytest.raises(requests.HTTPError):
         github.update_watchlist(add_game(2))
 
 
 def test_update_watchlist_does_not_retry_other_errors(monkeypatch):
     mock_storage(monkeypatch, [([1], "sha-1")], save_errors=[http_error(422)])
 
-    with pytest.raises(HTTPError):
+    with pytest.raises(requests.HTTPError):
         github.update_watchlist(add_game(2))
