@@ -14,7 +14,8 @@ def telegram_api(bot_token, method, data):
         url, data=body, headers={"Content-Type": "application/json"}, method="POST"
     )
 
-    with request.urlopen(req, timeout=30) as response:
+    # La URL siempre parte de una base https:// fija
+    with request.urlopen(req, timeout=30) as response:  # noqa: S310
         return json.loads(response.read())
 
 

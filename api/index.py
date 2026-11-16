@@ -18,7 +18,8 @@ app = FastAPI()
 
 logger = logging.getLogger(__name__)
 
-TELEGRAM_SECRET_HEADER = "X-Telegram-Bot-Api-Secret-Token"
+# Nombre de la cabecera, no un secreto
+TELEGRAM_SECRET_HEADER = "X-Telegram-Bot-Api-Secret-Token"  # noqa: S105
 
 
 def secret_matches(expected, received):

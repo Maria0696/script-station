@@ -65,7 +65,8 @@ class PackageManager:
 
         print(f"\nInstalling {manager_name} on {operating_system}...")
 
-        result = subprocess.run(command, shell=True, check=False)
+        # Comandos fijos de este módulo que necesitan la shell (tuberías, &&)
+        result = subprocess.run(command, shell=True, check=False)  # noqa: S602
 
         if result.returncode != 0:
             print(f"\nInstallation failed with exit code {result.returncode}.")

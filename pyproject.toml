@@ -49,6 +49,30 @@ namespaces = true
 skip-magic-trailing-comma = true
 
 
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # orden de imports
+    "B",    # bugbear: errores probables
+    "UP",   # sintaxis moderna de Python
+    "SIM",  # simplificaciones
+    "C4",   # comprehensions
+    "S",    # seguridad (bandit)
+    "RUF",  # reglas propias de Ruff
+]
+
+
+# Emoji ℹ️ de los mensajes de Huginn
+allowed-confusables = ["ℹ"]
+
+
+[tool.ruff.lint.per-file-ignores]
+# assert y credenciales falsas son normales en los tests
+"tests/**" = ["S101", "S105", "S106"]
+
+
 [tool.ruff.lint.isort]
 # Coherente con skip-magic-trailing-comma
 split-on-trailing-comma = false

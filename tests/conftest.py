@@ -23,7 +23,7 @@ for key, value in TEST_ENV.items():
 
 
 # Se importa después de fijar el entorno de test
-from core import igdb
+from core import igdb  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

@@ -26,7 +26,8 @@ def github_request(method, path, data=None):
         method=method,
     )
 
-    with request.urlopen(req, timeout=30) as response:
+    # La URL siempre parte de una base https:// fija
+    with request.urlopen(req, timeout=30) as response:  # noqa: S310
         content = response.read()
 
     if not content:

@@ -11,7 +11,7 @@ from core.config import (
     VALID_REGIONS,
 )
 
-TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token"
+TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token"  # noqa: S105
 IGDB_API_URL = "https://api.igdb.com/v4"
 
 # Renueva el token un poco antes de que caduque

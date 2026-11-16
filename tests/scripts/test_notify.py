@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from scripts import notify
@@ -114,5 +116,7 @@ def test_main_uses_sys_argv(monkeypatch):
 
 
 def test_main_rejects_unknown_command():
-    with pytest.raises(SystemExit, match=("python -m scripts.notify workflow-failed")):
+    usage = re.escape("python -m scripts.notify workflow-failed")
+
+    with pytest.raises(SystemExit, match=usage):
         notify.main(["unknown"])
