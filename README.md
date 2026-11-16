@@ -587,6 +587,14 @@ The monitor:
 - Updates the stored watchlist.
 - Emits `game.release_changed` notifications when relevant.
 
+`master` only accepts changes through pull requests, so the workflow pushes watchlist updates with an admin token stored in the `WATCHLIST_PUSH_TOKEN` secret.
+
+Create it as a fine-grained personal access token limited to this repository with:
+
+```text
+Contents: Read and write
+```
+
 ---
 
 # API
