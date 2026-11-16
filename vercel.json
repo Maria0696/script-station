@@ -6,6 +6,12 @@
       "master": true
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "0 7 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/telegram",
@@ -14,6 +20,10 @@
     {
       "source": "/api/heimdall",
       "destination": "/api/index?bot=heimdall"
+    },
+    {
+      "source": "/api/cron",
+      "destination": "/api/index?cron=daily"
     }
   ]
 }

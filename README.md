@@ -18,7 +18,7 @@ It combines an interactive terminal interface, GitHub automation utilities, Tele
 - **IGDB integration** for game information and release dates.
 - **Watchlist monitoring** for release date and platform changes.
 - **Event-based NotificationService** for centralized notification routing.
-- **Scheduled GitHub Actions** for automated reports and monitoring.
+- **Daily GitHub Actions**, started by a Vercel cron, for automated reports and monitoring.
 - **FastAPI webhooks** for Telegram.
 - **Python-only test and quality pipeline** using pytest, coverage and Ruff.
 
@@ -107,6 +107,10 @@ TELEGRAM_CHAT_ID
 TELEGRAM_HEIMDALL_BOT_TOKEN
 TELEGRAM_HEIMDALL_CHAT_ID
 
+TELEGRAM_WEBHOOK_SECRET
+TELEGRAM_HEIMDALL_WEBHOOK_SECRET
+CRON_SECRET
+
 GITHUB_TOKEN
 ```
 
@@ -136,6 +140,16 @@ Used by the workflow monitoring Telegram bot:
 TELEGRAM_HEIMDALL_BOT_TOKEN
 TELEGRAM_HEIMDALL_CHAT_ID
 ```
+
+## Webhooks and cron (Vercel only)
+
+```text
+TELEGRAM_WEBHOOK_SECRET
+TELEGRAM_HEIMDALL_WEBHOOK_SECRET
+CRON_SECRET
+```
+
+Each value is a random string of letters, digits, `_` or `-` (up to 256 characters). The API rejects every request when the matching secret is missing. See [API](#api).
 
 ## GitHub
 
@@ -584,10 +598,12 @@ The monitor:
 - Detects newly announced dates.
 - Detects removed dates.
 - Detects platform changes.
-- Updates the stored watchlist.
-- Emits `game.release_changed` notifications when relevant.
+- Saves the updated watchlist to `master` through the GitHub API.
+- Emits `game.release_changed` notifications only after the watchlist is saved, so a failed save never repeats a notification on the next run.
 
-`master` only accepts changes through pull requests, so the workflow pushes watchlist updates with an admin token stored in the `WATCHLIST_PUSH_TOKEN` secret.
+The watchlist is read and written through the GitHub API, so running the monitor locally (`script-station watchlist`) also commits to `master` and needs `GITHUB_TOKEN`.
+
+`master` only accepts changes through pull requests. The workflow therefore uses an admin token stored in the `WATCHLIST_PUSH_TOKEN` secret, which can bypass that rule.
 
 Create it as a fine-grained personal access token limited to this repository with:
 
@@ -613,6 +629,32 @@ It handles Telegram webhook requests for:
 Huginn
 Heimdall
 ```
+
+## Webhook authentication
+
+Telegram sends the secret registered with `setWebhook` in the `X-Telegram-Bot-Api-Secret-Token` header. The API rejects updates without the right secret (`401`), so only Telegram can drive the bots.
+
+Register each webhook with its secret:
+
+```text
+https://api.telegram.org/bot<BOT_TOKEN>/setWebhook?url=<WEBHOOK_URL>&secret_token=<SECRET>
+```
+
+| Bot | Webhook URL | Secret |
+| --- | --- | --- |
+| Huginn | `https://<domain>/api/telegram` | `TELEGRAM_WEBHOOK_SECRET` |
+| Heimdall | `https://<domain>/api/heimdall` | `TELEGRAM_HEIMDALL_WEBHOOK_SECRET` |
+
+## Daily cron
+
+GitHub can delay `schedule` triggers by several hours. A Vercel Cron Job calls `/api/cron` at 07:00 UTC instead, and the API starts the daily workflows with `workflow_dispatch`:
+
+```text
+videogames.yml
+watchlist.yml
+```
+
+Vercel sends `Authorization: Bearer <CRON_SECRET>` and the API rejects any other caller. The Vercel `GITHUB_TOKEN` needs `Actions: Read and write` to start the workflows.
 
 Deployment configuration:
 
@@ -841,11 +883,11 @@ Runs code quality and tests.
 
 ## Daily Video Game Releases
 
-Runs the scheduled daily release report.
+Sends the daily release report. Started every day by the [daily cron](#daily-cron).
 
 ## Watchlist Release Monitor
 
-Checks the watchlist for release changes.
+Checks the watchlist for release changes. Started every day by the [daily cron](#daily-cron).
 
 Workflow failures can emit:
 

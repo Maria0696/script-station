@@ -1,10 +1,8 @@
 name: Watchlist Release Monitor
 
 on:
-  schedule:
-    # 08:15 en invierno, 09:15 en verano
-    - cron: '15 7 * * *'
-
+  # Lo lanza a diario el cron de Vercel (/api/cron) a las 07:00 UTC.
+  # El "schedule" de GitHub llegaba con horas de retraso.
   workflow_dispatch:
 
 permissions:
@@ -15,12 +13,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # master exige PR; el push usa un token de admin
-      # que puede saltarse la regla "Protect master"
       - name: Checkout repository
         uses: actions/checkout@v7
-        with:
-          token: ${{ secrets.WATCHLIST_PUSH_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -30,6 +24,9 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
+      # El monitor guarda la watchlist con la API de GitHub y
+      # solo después envía los avisos. master exige PR, así que
+      # usa un token de admin que puede saltarse la regla.
       - name: Check watchlist release dates
         run: python -m scripts.watchlist_monitor
         env:
@@ -37,20 +34,7 @@ jobs:
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-
-      - name: Save release date changes
-        run: |
-          if git diff --quiet data/watchlist.json; then
-            echo "No release date changes."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add data/watchlist.json
-          git commit -m "chore: update watchlist release dates"
-          git push
+          GITHUB_TOKEN: ${{ secrets.WATCHLIST_PUSH_TOKEN }}
 
       - name: Notify Heimdall on failure
         if: ${{ always() && failure() }}

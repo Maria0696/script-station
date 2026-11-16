@@ -67,13 +67,19 @@ def get_watchlist():
     )
 
 
-def save_watchlist(watchlist, sha):
-    # Actualiza watchlist.json en GitHub
+def save_watchlist(
+    watchlist,
+    sha,
+    message="chore: update game watchlist",
+):
+    # Actualiza watchlist.json en GitHub.
+    # El sha hace que GitHub rechace la escritura
+    # si otro proceso cambió el archivo entretanto
     content = json.dumps(
         watchlist,
         ensure_ascii=False,
         indent=2,
-    )
+    ) + "\n"
 
     encoded_content = base64.b64encode(
         content.encode("utf-8")
@@ -83,7 +89,7 @@ def save_watchlist(watchlist, sha):
         "PUT",
         f"contents/{WATCHLIST_PATH}",
         {
-            "message": "chore: update game watchlist",
+            "message": message,
             "content": encoded_content,
             "sha": sha,
             "branch": GITHUB_BRANCH,
@@ -105,6 +111,22 @@ def get_workflow_runs():
     return result.get(
         "workflow_runs",
         [],
+    )
+
+
+def dispatch_workflow(
+    workflow_file,
+):
+    # Lanza un workflow con workflow_dispatch
+    return github_request(
+        "POST",
+        (
+            "actions/workflows/"
+            f"{workflow_file}/dispatches"
+        ),
+        {
+            "ref": GITHUB_BRANCH,
+        },
     )
 
 
