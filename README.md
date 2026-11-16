@@ -550,8 +550,7 @@ Workflow:
 
 The automation:
 
-- Authenticates with IGDB.
-- Retrieves releases for the current day.
+- Retrieves releases for the current day from IGDB.
 - Filters and processes release information.
 - Calculates release relevance.
 - Builds a Telegram report.
@@ -662,6 +661,8 @@ Deployment configuration:
 vercel.json
 ```
 
+Commits that only change `data/` (watchlist updates from Huginn or the monitor) skip both the Vercel deployment (`ignoreCommand`) and the Quality Checks push run (`paths-ignore`).
+
 ---
 
 # Core Modules
@@ -703,7 +704,9 @@ Gaming assistant and watchlist Telegram behavior.
 
 ## `igdb.py`
 
-Shared IGDB integration.
+The only IGDB client. Huginn, the daily releases report and the watchlist monitor all go through it.
+
+It reuses the Twitch token until it expires, sends queries as UTF-8, filters regions and platforms, and includes the IGDB response body in HTTP errors.
 
 ## `notifications.py`
 

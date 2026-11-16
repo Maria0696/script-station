@@ -3,26 +3,14 @@ from datetime import datetime, timedelta
 from html import escape
 from zoneinfo import ZoneInfo
 
-import requests
-
+from core import igdb
 from core.config import (
     PLATFORM_LABELS,
     PLATFORM_ORDER,
-    VALID_REGIONS,
 )
 from core.notifications import (
     notifications,
 )
-
-# Credenciales de IGDB
-CLIENT_ID = os.environ[
-    "IGDB_CLIENT_ID"
-]
-
-CLIENT_SECRET = os.environ[
-    "IGDB_CLIENT_SECRET"
-]
-
 
 # Zona horaria usada para definir "hoy"
 MADRID_TZ = ZoneInfo(
@@ -66,41 +54,7 @@ LOG_SCORE_MULTIPLIER = (
 MAX_TELEGRAM_LENGTH = 3900
 
 
-def get_access_token():
-    # Obtiene token temporal de Twitch para usar IGDB
-    response = requests.post(
-        "https://id.twitch.tv/oauth2/token",
-        params={
-            "client_id":
-                CLIENT_ID,
-            "client_secret":
-                CLIENT_SECRET,
-            "grant_type":
-                "client_credentials",
-        },
-        timeout=30,
-    )
-
-    response.raise_for_status()
-
-    return response.json()[
-        "access_token"
-    ]
-
-
-def get_igdb_headers(token):
-    # Cabeceras necesarias para consultar IGDB
-    return {
-        "Client-ID":
-            CLIENT_ID,
-        "Authorization":
-            f"Bearer {token}",
-        "Accept":
-            "application/json",
-    }
-
-
-def get_releases_today(token):
+def get_releases_today():
     # Fecha actual según Madrid
     today = datetime.now(
         MADRID_TZ
@@ -129,54 +83,10 @@ def get_releases_today(token):
         end_datetime.timestamp()
     )
 
-    platform_ids = ",".join(
-        str(platform_id)
-        for platform_id
-        in PLATFORM_ORDER
+    releases = igdb.get_releases_between(
+        start_ts,
+        end_ts,
     )
-
-    query = f"""
-    fields
-        game.id,
-        game.name,
-        platform,
-        release_region.region,
-        date,
-        human;
-
-    where date >= {start_ts}
-        & date < {end_ts}
-        & platform = ({platform_ids});
-
-    limit 500;
-    sort date asc;
-    """
-
-    response = requests.post(
-        (
-            "https://api.igdb.com/v4/"
-            "release_dates"
-        ),
-        headers=get_igdb_headers(
-            token
-        ),
-        data=query,
-        timeout=30,
-    )
-
-    if not response.ok:
-        print(
-            "IGDB releases error: "
-            f"{response.status_code}"
-        )
-
-        print(
-            response.text
-        )
-
-    response.raise_for_status()
-
-    releases = response.json()
 
     print(
         "IGDB releases received: "
@@ -194,28 +104,10 @@ def filter_and_group_releases(
     games = {}
 
     for release in releases:
-        region = release.get(
-            "release_region"
-        )
-
-        if isinstance(
-            region,
-            dict,
+        if not igdb.is_valid_region(
+            release
         ):
-            region_name = (
-                region.get(
-                    "region",
-                    "",
-                )
-                .lower()
-            )
-
-            if (
-                region_name
-                and region_name
-                not in VALID_REGIONS
-            ):
-                continue
+            continue
 
         game = release.get(
             "game"
@@ -288,59 +180,23 @@ def filter_and_group_releases(
 
 
 def add_popularity_data(
-    token,
     games,
 ):
     # No consulta popularidad si no hay juegos
     if not games:
         return games
 
-    game_ids = ",".join(
-        str(game["id"])
-        for game in games
-    )
-
-    query = f"""
-    fields
-        game_id,
-        popularity_type,
-        value;
-
-    where game_id = ({game_ids})
-        & popularity_type = (
-            {POPULARITY_VISITS},
-            {POPULARITY_WANT_TO_PLAY}
-        );
-
-    limit 500;
-    """
-
-    response = requests.post(
-        (
-            "https://api.igdb.com/v4/"
-            "popularity_primitives"
-        ),
-        headers=get_igdb_headers(
-            token
-        ),
-        data=query,
-        timeout=30,
-    )
-
-    if not response.ok:
-        print(
-            "IGDB popularity error: "
-            f"{response.status_code}"
-        )
-
-        print(
-            response.text
-        )
-
-    response.raise_for_status()
-
     popularity_data = (
-        response.json()
+        igdb.get_popularity_primitives(
+            [
+                game["id"]
+                for game in games
+            ],
+            [
+                POPULARITY_VISITS,
+                POPULARITY_WANT_TO_PLAY,
+            ],
+        )
     )
 
     print(
@@ -641,39 +497,31 @@ def send_notification(
 
 
 def main():
-    # 1. Autenticación con IGDB
-    token = get_access_token()
+    # 1. Obtener lanzamientos
+    games = get_releases_today()
 
-    # 2. Obtener lanzamientos
-    games = (
-        get_releases_today(
-            token
-        )
-    )
-
-    # 3. Obtener popularidad
+    # 2. Obtener popularidad
     games = (
         add_popularity_data(
-            token,
-            games,
+            games
         )
     )
 
-    # 4. Marcar destacados
+    # 3. Marcar destacados
     games = (
         mark_featured_games(
             games
         )
     )
 
-    # 5. Construir mensajes
+    # 4. Construir mensajes
     messages = (
         build_messages(
             games
         )
     )
 
-    # 6. Enviar mediante Huginn
+    # 5. Enviar mediante Huginn
     for message in messages:
         send_notification(
             message

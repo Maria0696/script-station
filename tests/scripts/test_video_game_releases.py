@@ -1,115 +1,13 @@
 from datetime import (
+    UTC,
+)
+from datetime import (
     datetime as real_datetime,
 )
 
 from scripts import (
     video_game_releases as releases,
 )
-
-# ============================================================
-# AUTENTICACIÓN
-# ============================================================
-
-def test_get_access_token(
-    monkeypatch,
-):
-    captured = {}
-
-    class FakeResponse:
-        def raise_for_status(
-            self,
-        ):
-            captured[
-                "raised"
-            ] = True
-
-        def json(self):
-            return {
-                "access_token":
-                    "test-token",
-            }
-
-    def fake_post(
-        url,
-        params=None,
-        timeout=None,
-    ):
-        captured[
-            "url"
-        ] = url
-
-        captured[
-            "params"
-        ] = params
-
-        captured[
-            "timeout"
-        ] = timeout
-
-        return FakeResponse()
-
-    monkeypatch.setattr(
-        releases.requests,
-        "post",
-        fake_post,
-    )
-
-    result = (
-        releases
-        .get_access_token()
-    )
-
-    assert (
-        result
-        == "test-token"
-    )
-
-    assert (
-        captured["url"]
-        == (
-            "https://id.twitch.tv/"
-            "oauth2/token"
-        )
-    )
-
-    assert captured[
-        "params"
-    ] == {
-        "client_id":
-            releases.CLIENT_ID,
-        "client_secret":
-            releases.CLIENT_SECRET,
-        "grant_type":
-            "client_credentials",
-    }
-
-    assert (
-        captured["timeout"]
-        == 30
-    )
-
-    assert (
-        captured["raised"]
-        is True
-    )
-
-
-def test_get_igdb_headers():
-    result = (
-        releases.get_igdb_headers(
-            "test-token"
-        )
-    )
-
-    assert result == {
-        "Client-ID":
-            releases.CLIENT_ID,
-        "Authorization":
-            "Bearer test-token",
-        "Accept":
-            "application/json",
-    }
-
 
 # ============================================================
 # LANZAMIENTOS
@@ -137,50 +35,26 @@ def test_get_releases_today(
                 tzinfo=tz,
             )
 
-    class FakeResponse:
-        ok = True
-
-        def raise_for_status(
-            self,
-        ):
-            pass
-
-        def json(self):
-            return [
-                {
-                    "game": {
-                        "id": 123,
-                        "name":
-                            "Test Game",
-                    },
-                    "platform":
-                        167,
-                }
-            ]
-
-    def fake_post(
-        url,
-        headers=None,
-        data=None,
-        timeout=None,
+    def fake_get_releases_between(
+        start_timestamp,
+        end_timestamp,
     ):
-        captured[
-            "url"
-        ] = url
+        captured.update(
+            start=start_timestamp,
+            end=end_timestamp,
+        )
 
-        captured[
-            "headers"
-        ] = headers
-
-        captured[
-            "query"
-        ] = data
-
-        captured[
-            "timeout"
-        ] = timeout
-
-        return FakeResponse()
+        return [
+            {
+                "game": {
+                    "id": 123,
+                    "name":
+                        "Test Game",
+                },
+                "platform":
+                    167,
+            }
+        ]
 
     monkeypatch.setattr(
         releases,
@@ -189,9 +63,9 @@ def test_get_releases_today(
     )
 
     monkeypatch.setattr(
-        releases.requests,
-        "post",
-        fake_post,
+        releases.igdb,
+        "get_releases_between",
+        fake_get_releases_between,
     )
 
     monkeypatch.setattr(
@@ -199,18 +73,17 @@ def test_get_releases_today(
         "filter_and_group_releases",
         lambda values: [
             {
-                "id": 123,
+                "id": value["game"]["id"],
                 "name":
-                    "Test Game",
+                    value["game"]["name"],
             }
+            for value in values
         ],
     )
 
     result = (
         releases
-        .get_releases_today(
-            "test-token"
-        )
+        .get_releases_today()
     )
 
     assert result == [
@@ -221,112 +94,21 @@ def test_get_releases_today(
         }
     ]
 
-    assert (
-        captured["url"]
-        == (
-            "https://api.igdb.com/"
-            "v4/release_dates"
-        )
-    )
-
-    assert (
-        captured["headers"]
-        == releases.get_igdb_headers(
-            "test-token"
-        )
-    )
-
-    assert (
-        "where date >="
-        in captured["query"]
-    )
-
-    assert (
-        "platform = ("
-        in captured["query"]
-    )
-
-    assert (
-        "limit 500;"
-        in captured["query"]
-    )
-
-    assert (
-        captured["timeout"]
-        == 30
-    )
-
-
-def test_get_releases_today_logs_error(
-    monkeypatch,
-    capsys,
-):
-    class FakeDatetime(
-        real_datetime
-    ):
-        @classmethod
-        def now(
-            cls,
-            tz=None,
-        ):
-            return cls(
-                2026,
-                9,
-                14,
-                12,
-                tzinfo=tz,
-            )
-
-    class FakeResponse:
-        ok = False
-        status_code = 500
-        text = "Server error"
-
-        def raise_for_status(
-            self,
-        ):
-            pass
-
-        def json(self):
-            return []
-
-    monkeypatch.setattr(
-        releases,
-        "datetime",
-        FakeDatetime,
-    )
-
-    monkeypatch.setattr(
-        releases.requests,
-        "post",
-        lambda *args, **kwargs:
-            FakeResponse(),
-    )
-
-    result = (
-        releases
-        .get_releases_today(
-            "test-token"
-        )
-    )
-
-    output = (
-        capsys
-        .readouterr()
-        .out
-    )
-
-    assert result == []
-
-    assert (
-        "IGDB releases error: 500"
-        in output
-    )
-
-    assert (
-        "Server error"
-        in output
-    )
+    # Día completo de Madrid (UTC+2 en septiembre)
+    assert captured == {
+        "start": int(
+            real_datetime(
+                2026, 9, 13, 22, 0,
+                tzinfo=UTC,
+            ).timestamp()
+        ),
+        "end": int(
+            real_datetime(
+                2026, 9, 14, 22, 0,
+                tzinfo=UTC,
+            ).timestamp()
+        ),
+    }
 
 
 # ============================================================
@@ -477,8 +259,7 @@ def test_add_popularity_data_empty():
     assert (
         releases
         .add_popularity_data(
-            "token",
-            [],
+            []
         )
         == []
     )
@@ -510,76 +291,86 @@ def test_add_popularity_data(
         },
     ]
 
-    class FakeResponse:
-        ok = True
+    popularity_data = [
+        {
+            "game_id":
+                1,
+            "popularity_type":
+                releases
+                .POPULARITY_VISITS,
+            "value":
+                0.2,
+        },
+        {
+            "game_id":
+                1,
+            "popularity_type":
+                releases
+                .POPULARITY_WANT_TO_PLAY,
+            "value":
+                0.4,
+        },
+        {
+            "game_id":
+                2,
+            "popularity_type":
+                releases
+                .POPULARITY_VISITS,
+            "value":
+                None,
+        },
+        {
+            "game_id":
+                999,
+            "popularity_type":
+                releases
+                .POPULARITY_VISITS,
+            "value":
+                10,
+        },
+        {
+            "game_id":
+                2,
+            "popularity_type":
+                999,
+            "value":
+                10,
+        },
+    ]
 
-        def raise_for_status(
-            self,
-        ):
-            pass
+    captured = {}
 
-        def json(self):
-            return [
-                {
-                    "game_id":
-                        1,
-                    "popularity_type":
-                        releases
-                        .POPULARITY_VISITS,
-                    "value":
-                        0.2,
-                },
-                {
-                    "game_id":
-                        1,
-                    "popularity_type":
-                        releases
-                        .POPULARITY_WANT_TO_PLAY,
-                    "value":
-                        0.4,
-                },
-                {
-                    "game_id":
-                        2,
-                    "popularity_type":
-                        releases
-                        .POPULARITY_VISITS,
-                    "value":
-                        None,
-                },
-                {
-                    "game_id":
-                        999,
-                    "popularity_type":
-                        releases
-                        .POPULARITY_VISITS,
-                    "value":
-                        10,
-                },
-                {
-                    "game_id":
-                        2,
-                    "popularity_type":
-                        999,
-                    "value":
-                        10,
-                },
-            ]
+    def fake_get_popularity_primitives(
+        game_ids,
+        popularity_types,
+    ):
+        captured.update(
+            game_ids=game_ids,
+            popularity_types=popularity_types,
+        )
+
+        return popularity_data
 
     monkeypatch.setattr(
-        releases.requests,
-        "post",
-        lambda *args, **kwargs:
-            FakeResponse(),
+        releases.igdb,
+        "get_popularity_primitives",
+        fake_get_popularity_primitives,
     )
 
     result = (
         releases
         .add_popularity_data(
-            "test-token",
-            games,
+            games
         )
     )
+
+    assert captured == {
+        "game_ids": [1, 2],
+        "popularity_types": [
+            releases.POPULARITY_VISITS,
+            releases.POPULARITY_WANT_TO_PLAY,
+        ],
+    }
 
     assert (
         result[0]["visits"]
@@ -626,67 +417,6 @@ def test_add_popularity_data(
             "popularity_score"
         ]
         == 0.0
-    )
-
-
-def test_add_popularity_data_logs_error(
-    monkeypatch,
-    capsys,
-):
-    games = [
-        {
-            "id": 1,
-            "name":
-                "Test Game",
-            "visits": 0.0,
-            "want_to_play":
-                0.0,
-            "popularity_score":
-                0.0,
-        }
-    ]
-
-    class FakeResponse:
-        ok = False
-        status_code = 500
-        text = (
-            "Popularity error"
-        )
-
-        def raise_for_status(
-            self,
-        ):
-            pass
-
-        def json(self):
-            return []
-
-    monkeypatch.setattr(
-        releases.requests,
-        "post",
-        lambda *args, **kwargs:
-            FakeResponse(),
-    )
-
-    releases.add_popularity_data(
-        "test-token",
-        games,
-    )
-
-    output = (
-        capsys
-        .readouterr()
-        .out
-    )
-
-    assert (
-        "IGDB popularity error: 500"
-        in output
-    )
-
-    assert (
-        "Popularity error"
-        in output
     )
 
 
@@ -1151,19 +881,8 @@ def test_main(
 
     monkeypatch.setattr(
         releases,
-        "get_access_token",
-        lambda: (
-            calls.append(
-                "token"
-            )
-            or "test-token"
-        ),
-    )
-
-    monkeypatch.setattr(
-        releases,
         "get_releases_today",
-        lambda token: (
+        lambda: (
             calls.append(
                 "releases"
             )
@@ -1178,7 +897,7 @@ def test_main(
     monkeypatch.setattr(
         releases,
         "add_popularity_data",
-        lambda token, games: (
+        lambda games: (
             calls.append(
                 "popularity"
             )
@@ -1223,7 +942,6 @@ def test_main(
     releases.main()
 
     assert calls == [
-        "token",
         "releases",
         "popularity",
         "featured",

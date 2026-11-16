@@ -1,5 +1,8 @@
 from datetime import UTC, datetime
 
+import pytest
+import requests
+
 from core import igdb
 
 
@@ -13,6 +16,56 @@ def timestamp(year, month, day):
             tzinfo=UTC,
         ).timestamp()
     )
+
+
+class FakeResponse:
+    # Respuesta mínima de requests
+
+    def __init__(
+        self,
+        data,
+        status_code=200,
+        text="",
+    ):
+        self.data = data
+        self.status_code = status_code
+        self.ok = status_code < 400
+        self.text = text
+
+    def json(self):
+        return self.data
+
+    def raise_for_status(self):
+        if not self.ok:
+            raise requests.HTTPError(
+                f"HTTP {self.status_code}"
+            )
+
+
+def mock_igdb_request(
+    monkeypatch,
+    result,
+):
+    # Sustituye igdb_request y guarda las llamadas
+    calls = []
+
+    def fake_request(endpoint, query):
+        calls.append(
+            {
+                "endpoint": endpoint,
+                "query": query,
+            }
+        )
+
+        return result
+
+    monkeypatch.setattr(
+        igdb,
+        "igdb_request",
+        fake_request,
+    )
+
+    return calls
 
 
 # ============================================================
@@ -51,112 +104,143 @@ def test_display_release_date_without_date():
 
 
 # ============================================================
-# PETICIONES HTTP
+# TOKEN
 # ============================================================
 
 def test_get_igdb_token(monkeypatch):
-    # Comprueba la petición del token de Twitch
+    # Pide el token de Twitch con las credenciales
     captured = {}
 
-    class FakeResponse:
-        def __enter__(self):
-            return self
+    def fake_post(url, params, timeout):
+        captured.update(
+            url=url,
+            params=params,
+            timeout=timeout,
+        )
 
-        def __exit__(
-            self,
-            exc_type,
-            exc_value,
-            traceback,
-        ):
-            pass
-
-        def read(self):
-            return (
-                b'{"access_token": '
-                b'"test-token"}'
-            )
-
-    def fake_urlopen(req, timeout):
-        captured["request"] = req
-        captured["timeout"] = timeout
-
-        return FakeResponse()
+        return FakeResponse(
+            {
+                "access_token": "test-token",
+                "expires_in": 3600,
+            }
+        )
 
     monkeypatch.setattr(
-        igdb.request,
-        "urlopen",
-        fake_urlopen,
+        igdb.requests,
+        "post",
+        fake_post,
     )
 
-    result = igdb.get_igdb_token()
+    assert igdb.get_igdb_token() == "test-token"
 
-    assert result == "test-token"
-    assert captured["timeout"] == 30
+    assert captured == {
+        "url": "https://id.twitch.tv/oauth2/token",
+        "params": {
+            "client_id": igdb.IGDB_CLIENT_ID,
+            "client_secret": igdb.IGDB_CLIENT_SECRET,
+            "grant_type": "client_credentials",
+        },
+        "timeout": 30,
+    }
 
-    assert (
-        captured["request"].get_method()
-        == "POST"
+
+def test_get_igdb_token_is_reused_until_expiry(
+    monkeypatch,
+):
+    # No pide otro token mientras el actual siga vigente
+    calls = []
+    now = [1000.0]
+
+    def fake_post(url, params, timeout):
+        calls.append(url)
+
+        return FakeResponse(
+            {
+                "access_token": f"token-{len(calls)}",
+                "expires_in": 3600,
+            }
+        )
+
+    monkeypatch.setattr(
+        igdb.requests,
+        "post",
+        fake_post,
     )
 
-    assert (
-        "id.twitch.tv/oauth2/token"
-        in captured["request"].full_url
+    monkeypatch.setattr(
+        igdb.time,
+        "monotonic",
+        lambda: now[0],
     )
 
-    assert (
-        "client_id="
-        in captured["request"].full_url
+    assert igdb.get_igdb_token() == "token-1"
+
+    # Dentro del plazo: mismo token
+    now[0] += 3600 - igdb.TOKEN_EXPIRY_MARGIN - 1
+    assert igdb.get_igdb_token() == "token-1"
+
+    # Pasado el plazo: token nuevo
+    now[0] += 2
+    assert igdb.get_igdb_token() == "token-2"
+
+    assert len(calls) == 2
+
+
+def test_get_igdb_token_error(monkeypatch):
+    # Un error de Twitch no deja token en caché
+    monkeypatch.setattr(
+        igdb.requests,
+        "post",
+        lambda url, params, timeout:
+            FakeResponse({}, status_code=401),
     )
 
-    assert (
-        "client_secret="
-        in captured["request"].full_url
-    )
+    with pytest.raises(requests.HTTPError):
+        igdb.get_igdb_token()
 
-    assert (
-        "grant_type=client_credentials"
-        in captured["request"].full_url
-    )
+    assert igdb._token_cache["access_token"] is None
 
+
+# ============================================================
+# PETICIONES
+# ============================================================
 
 def test_igdb_request(monkeypatch):
     # Comprueba una petición genérica a IGDB
     captured = {}
 
-    class FakeResponse:
-        def __enter__(self):
-            return self
+    monkeypatch.setattr(
+        igdb,
+        "get_igdb_token",
+        lambda: "test-token",
+    )
 
-        def __exit__(
-            self,
-            exc_type,
-            exc_value,
-            traceback,
-        ):
-            pass
+    def fake_post(url, headers, data, timeout):
+        captured.update(
+            url=url,
+            headers=headers,
+            data=data,
+            timeout=timeout,
+        )
 
-        def read(self):
-            return (
-                b'[{"id": 123, '
-                b'"name": "Test Game"}]'
-            )
-
-    def fake_urlopen(req, timeout):
-        captured["request"] = req
-        captured["timeout"] = timeout
-
-        return FakeResponse()
+        return FakeResponse(
+            [
+                {
+                    "id": 123,
+                    "name": "Test Game",
+                }
+            ]
+        )
 
     monkeypatch.setattr(
-        igdb.request,
-        "urlopen",
-        fake_urlopen,
+        igdb.requests,
+        "post",
+        fake_post,
     )
 
     result = igdb.igdb_request(
-        "test-token",
         "games",
-        "fields id,name;",
+        'search "Pokémon";',
     )
 
     assert result == [
@@ -166,40 +250,69 @@ def test_igdb_request(monkeypatch):
         }
     ]
 
-    assert captured["timeout"] == 30
-
-    assert (
-        captured["request"].full_url
-        == "https://api.igdb.com/v4/games"
-    )
-
-    assert (
-        captured["request"].get_method()
-        == "POST"
-    )
-
-    assert (
-        captured["request"].data
-        == b"fields id,name;"
-    )
-
-    headers = {
-        key.lower(): value
-        for key, value
-        in captured[
-            "request"
-        ].header_items()
+    assert captured == {
+        "url": "https://api.igdb.com/v4/games",
+        "headers": {
+            "Client-ID": igdb.IGDB_CLIENT_ID,
+            "Authorization": "Bearer test-token",
+            "Accept": "application/json",
+        },
+        # Se envía en UTF-8
+        "data": 'search "Pokémon";'.encode(),
+        "timeout": 30,
     }
 
-    assert (
-        headers["client-id"]
-        == igdb.IGDB_CLIENT_ID
+
+def test_igdb_request_error_includes_response(
+    monkeypatch,
+):
+    # El error incluye el endpoint y la respuesta de IGDB
+    monkeypatch.setattr(
+        igdb,
+        "get_igdb_token",
+        lambda: "test-token",
     )
 
-    assert (
-        headers["authorization"]
-        == "Bearer test-token"
+    monkeypatch.setattr(
+        igdb.requests,
+        "post",
+        lambda url, headers, data, timeout:
+            FakeResponse(
+                {},
+                status_code=400,
+                text="Syntax error",
+            ),
     )
+
+    with pytest.raises(
+        requests.HTTPError,
+        match="IGDB games failed: HTTP 400: Syntax error",
+    ):
+        igdb.igdb_request(
+            "games",
+            "fields id",
+        )
+
+
+# ============================================================
+# REGIONES
+# ============================================================
+
+@pytest.mark.parametrize(
+    ("release", "expected"),
+    [
+        ({"release_region": {"region": "europe"}}, True),
+        ({"release_region": {"region": "Worldwide"}}, True),
+        ({"release_region": {"region": "japan"}}, False),
+        ({"release_region": {"region": None}}, True),
+        ({"release_region": {}}, True),
+        ({"release_region": 8}, True),
+        ({}, True),
+    ],
+)
+def test_is_valid_region(release, expected):
+    # Solo Europa, Worldwide o sin región
+    assert igdb.is_valid_region(release) is expected
 
 
 # ============================================================
@@ -208,34 +321,14 @@ def test_igdb_request(monkeypatch):
 
 def test_search_igdb_games(monkeypatch):
     # Comprueba la búsqueda de juegos por nombre
-    captured = {}
-
-    monkeypatch.setattr(
-        igdb,
-        "get_igdb_token",
-        lambda: "test-token",
-    )
-
-    def fake_request(
-        token,
-        endpoint,
-        query,
-    ):
-        captured["token"] = token
-        captured["endpoint"] = endpoint
-        captured["query"] = query
-
-        return [
+    calls = mock_igdb_request(
+        monkeypatch,
+        [
             {
                 "id": 123,
                 "name": "Test Game",
             }
-        ]
-
-    monkeypatch.setattr(
-        igdb,
-        "igdb_request",
-        fake_request,
+        ],
     )
 
     result = igdb.search_igdb_games(
@@ -249,70 +342,75 @@ def test_search_igdb_games(monkeypatch):
         }
     ]
 
-    assert captured["token"] == "test-token"
-    assert captured["endpoint"] == "games"
+    assert calls[0]["endpoint"] == "games"
 
     assert (
         'search "Game \\"Test\\"";'
-        in captured["query"]
+        in calls[0]["query"]
     )
 
-    assert "limit 5;" in captured["query"]
+    assert "limit 5;" in calls[0]["query"]
 
 
 def test_search_igdb_games_escapes_backslashes(
     monkeypatch,
 ):
     # Escapa barras invertidas en búsquedas
-    captured = {}
-
-    monkeypatch.setattr(
-        igdb,
-        "get_igdb_token",
-        lambda: "test-token",
-    )
-
-    def fake_request(
-        token,
-        endpoint,
-        query,
-    ):
-        captured["query"] = query
-
-        return []
-
-    monkeypatch.setattr(
-        igdb,
-        "igdb_request",
-        fake_request,
+    calls = mock_igdb_request(
+        monkeypatch,
+        [],
     )
 
     igdb.search_igdb_games(
         r"Game\Test"
     )
 
-    assert (
-        r'Game\\Test'
-        in captured["query"]
+    assert r'Game\\Test' in calls[0]["query"]
+
+
+# ============================================================
+# JUEGOS
+# ============================================================
+
+def test_get_igdb_games(monkeypatch):
+    # Indexa los juegos por ID
+    calls = mock_igdb_request(
+        monkeypatch,
+        [
+            {"id": 123, "name": "Game A"},
+            {"id": 456, "name": "Game B"},
+        ],
     )
 
+    result = igdb.get_igdb_games(
+        [123, 456]
+    )
 
-# ============================================================
-# JUEGO INDIVIDUAL
-# ============================================================
+    assert result == {
+        123: {"id": 123, "name": "Game A"},
+        456: {"id": 456, "name": "Game B"},
+    }
+
+    assert calls[0]["endpoint"] == "games"
+    assert "where id = (123,456);" in calls[0]["query"]
+
+
+def test_get_igdb_games_empty(monkeypatch):
+    # Sin IDs no consulta IGDB
+    calls = mock_igdb_request(
+        monkeypatch,
+        [],
+    )
+
+    assert igdb.get_igdb_games([]) == {}
+    assert calls == []
+
 
 def test_get_igdb_game(monkeypatch):
     # Obtiene un juego concreto por ID
-    monkeypatch.setattr(
-        igdb,
-        "get_igdb_token",
-        lambda: "test-token",
-    )
-
-    monkeypatch.setattr(
-        igdb,
-        "igdb_request",
-        lambda token, endpoint, query: [
+    calls = mock_igdb_request(
+        monkeypatch,
+        [
             {
                 "id": 123,
                 "name": "Test Game",
@@ -331,297 +429,186 @@ def test_get_igdb_game(monkeypatch):
         "platforms": [167],
     }
 
+    assert "where id = (123);" in calls[0]["query"]
+
 
 def test_get_igdb_game_not_found(
     monkeypatch,
 ):
     # Devuelve None si el juego no existe
-    monkeypatch.setattr(
-        igdb,
-        "get_igdb_token",
-        lambda: "test-token",
+    mock_igdb_request(
+        monkeypatch,
+        [],
     )
 
-    monkeypatch.setattr(
-        igdb,
-        "igdb_request",
-        lambda token, endpoint, query: [],
-    )
-
-    assert (
-        igdb.get_igdb_game(999)
-        is None
-    )
+    assert igdb.get_igdb_game(999) is None
 
 
 # ============================================================
 # FECHAS POR PLATAFORMA
 # ============================================================
 
+def test_get_release_dates(monkeypatch):
+    # Agrupa la primera fecha válida por juego y plataforma
+    calls = mock_igdb_request(
+        monkeypatch,
+        [
+            {
+                "game": 123,
+                "platform": 167,
+                "date": timestamp(2026, 9, 15),
+                "release_region": {"region": "europe"},
+            },
+            {
+                # Formato expandido de IGDB
+                "game": {"id": 456},
+                "platform": 6,
+                "date": timestamp(2026, 9, 20),
+                "release_region": {"region": "worldwide"},
+            },
+            {
+                # Fecha posterior: se descarta
+                "game": 123,
+                "platform": 167,
+                "date": timestamp(2026, 10, 1),
+            },
+            {
+                # Región no válida
+                "game": 123,
+                "platform": 6,
+                "date": timestamp(2026, 9, 1),
+                "release_region": {"region": "japan"},
+            },
+            {
+                # Plataforma no soportada
+                "game": 123,
+                "platform": 999999,
+                "date": timestamp(2026, 9, 15),
+            },
+            {
+                # Sin fecha
+                "game": 456,
+                "platform": 167,
+                "date": None,
+            },
+        ],
+    )
+
+    result = igdb.get_release_dates(
+        [123, 456]
+    )
+
+    assert result == {
+        123: {167: "2026-09-15"},
+        456: {6: "2026-09-20"},
+    }
+
+    assert calls[0]["endpoint"] == "release_dates"
+    assert "where game = (123,456)" in calls[0]["query"]
+
+    assert (
+        f"platform = ({igdb.platform_filter()})"
+        in calls[0]["query"]
+    )
+
+
+def test_get_release_dates_empty(monkeypatch):
+    # Sin IDs no consulta IGDB
+    calls = mock_igdb_request(
+        monkeypatch,
+        [],
+    )
+
+    assert igdb.get_release_dates([]) == {}
+    assert calls == []
+
+
 def test_get_platform_release_dates(
     monkeypatch,
 ):
-    # Obtiene fechas válidas por plataforma
-    releases = [
-        {
-            "platform": 167,
-            "date": timestamp(
-                2026,
-                9,
-                15,
-            ),
-            "release_region": {
-                "region": "europe",
-            },
-        },
-        {
-            "platform": 6,
-            "date": timestamp(
-                2026,
-                9,
-                20,
-            ),
-            "release_region": {
-                "region": "worldwide",
-            },
-        },
-    ]
-
+    # Devuelve las fechas de un solo juego
     monkeypatch.setattr(
         igdb,
-        "get_igdb_token",
-        lambda: "test-token",
-    )
-
-    monkeypatch.setattr(
-        igdb,
-        "igdb_request",
-        lambda token, endpoint, query:
-            releases,
-    )
-
-    result = (
-        igdb.get_platform_release_dates(
-            123
-        )
-    )
-
-    assert result == {
-        167: "2026-09-15",
-        6: "2026-09-20",
-    }
-
-
-def test_get_platform_release_dates_filters_regions(
-    monkeypatch,
-):
-    # Descarta regiones no permitidas
-    releases = [
-        {
-            "platform": 167,
-            "date": timestamp(
-                2026,
-                9,
-                15,
-            ),
-            "release_region": {
-                "region": "europe",
-            },
+        "get_release_dates",
+        lambda game_ids: {
+            game_ids[0]: {167: "2026-09-15"},
         },
-        {
-            "platform": 6,
-            "date": timestamp(
-                2026,
-                9,
-                20,
-            ),
-            "release_region": {
-                "region": "japan",
-            },
-        },
-    ]
-
-    monkeypatch.setattr(
-        igdb,
-        "get_igdb_token",
-        lambda: "test-token",
     )
 
-    monkeypatch.setattr(
-        igdb,
-        "igdb_request",
-        lambda token, endpoint, query:
-            releases,
-    )
-
-    result = (
-        igdb.get_platform_release_dates(
-            123
-        )
-    )
-
-    assert result == {
+    assert igdb.get_platform_release_dates(123) == {
         167: "2026-09-15",
     }
 
 
-def test_get_platform_release_dates_accepts_missing_region(
+def test_get_platform_release_dates_without_dates(
     monkeypatch,
 ):
-    # Acepta lanzamientos sin región definida
-    releases = [
-        {
-            "platform": 167,
-            "date": timestamp(
-                2026,
-                9,
-                15,
-            ),
-        },
-    ]
-
+    # Devuelve vacío si el juego no tiene fechas
     monkeypatch.setattr(
         igdb,
-        "get_igdb_token",
-        lambda: "test-token",
+        "get_release_dates",
+        lambda game_ids: {},
     )
 
-    monkeypatch.setattr(
-        igdb,
-        "igdb_request",
-        lambda token, endpoint, query:
-            releases,
+    assert igdb.get_platform_release_dates(123) == {}
+
+
+# ============================================================
+# LANZAMIENTOS Y POPULARIDAD
+# ============================================================
+
+def test_get_releases_between(monkeypatch):
+    # Consulta los lanzamientos del intervalo
+    releases = [{"id": 1}]
+
+    calls = mock_igdb_request(
+        monkeypatch,
+        releases,
     )
 
-    result = (
-        igdb.get_platform_release_dates(
-            123
-        )
+    result = igdb.get_releases_between(
+        1000,
+        2000,
     )
 
-    assert result == {
-        167: "2026-09-15",
-    }
+    assert result == releases
+    assert calls[0]["endpoint"] == "release_dates"
+
+    query = calls[0]["query"]
+
+    assert "where date >= 1000" in query
+    assert "& date < 2000" in query
+    assert f"platform = ({igdb.platform_filter()})" in query
+    assert "game.name" in query
 
 
-def test_get_platform_release_dates_ignores_unknown_platforms(
-    monkeypatch,
-):
-    # Ignora plataformas no soportadas
-    releases = [
-        {
-            "platform": 999999,
-            "date": timestamp(
-                2026,
-                9,
-                15,
-            ),
-        },
-    ]
-
-    monkeypatch.setattr(
-        igdb,
-        "get_igdb_token",
-        lambda: "test-token",
+def test_get_popularity_primitives(monkeypatch):
+    # Consulta la popularidad de varios juegos
+    calls = mock_igdb_request(
+        monkeypatch,
+        [{"game_id": 123}],
     )
 
-    monkeypatch.setattr(
-        igdb,
-        "igdb_request",
-        lambda token, endpoint, query:
-            releases,
+    result = igdb.get_popularity_primitives(
+        [123, 456],
+        [1, 2],
     )
 
-    result = (
-        igdb.get_platform_release_dates(
-            123
-        )
+    assert result == [{"game_id": 123}]
+    assert calls[0]["endpoint"] == "popularity_primitives"
+    assert "where game_id = (123,456)" in calls[0]["query"]
+    assert "popularity_type = (1,2)" in calls[0]["query"]
+
+
+def test_get_popularity_primitives_empty(monkeypatch):
+    # Sin juegos no consulta IGDB
+    calls = mock_igdb_request(
+        monkeypatch,
+        [],
     )
 
-    assert result == {}
-
-
-def test_get_platform_release_dates_ignores_missing_date(
-    monkeypatch,
-):
-    # Ignora lanzamientos sin fecha
-    releases = [
-        {
-            "platform": 167,
-            "date": None,
-            "release_region": {
-                "region": "europe",
-            },
-        },
-    ]
-
-    monkeypatch.setattr(
-        igdb,
-        "get_igdb_token",
-        lambda: "test-token",
-    )
-
-    monkeypatch.setattr(
-        igdb,
-        "igdb_request",
-        lambda token, endpoint, query:
-            releases,
-    )
-
-    result = (
-        igdb.get_platform_release_dates(
-            123
-        )
-    )
-
-    assert result == {}
-
-
-def test_get_platform_release_dates_keeps_first_date(
-    monkeypatch,
-):
-    # Conserva la primera fecha encontrada
-    releases = [
-        {
-            "platform": 167,
-            "date": timestamp(
-                2026,
-                9,
-                15,
-            ),
-        },
-        {
-            "platform": 167,
-            "date": timestamp(
-                2026,
-                10,
-                1,
-            ),
-        },
-    ]
-
-    monkeypatch.setattr(
-        igdb,
-        "get_igdb_token",
-        lambda: "test-token",
-    )
-
-    monkeypatch.setattr(
-        igdb,
-        "igdb_request",
-        lambda token, endpoint, query:
-            releases,
-    )
-
-    result = (
-        igdb.get_platform_release_dates(
-            123
-        )
-    )
-
-    assert result == {
-        167: "2026-09-15",
-    }
+    assert igdb.get_popularity_primitives([], [1]) == []
+    assert calls == []
 
 
 # ============================================================
@@ -665,6 +652,33 @@ def test_build_platform_data(
             "label": "💻 PC",
             "release_date":
                 "2026-09-20",
+        },
+    ]
+
+
+def test_build_platform_data_with_known_dates(
+    monkeypatch,
+):
+    # Con fechas ya conocidas no consulta IGDB
+    def fail(game_id):
+        raise AssertionError("unexpected IGDB call")
+
+    monkeypatch.setattr(
+        igdb,
+        "get_platform_release_dates",
+        fail,
+    )
+
+    result = igdb.build_platform_data(
+        {"id": 123, "platforms": [167]},
+        {},
+    )
+
+    assert result == [
+        {
+            "id": 167,
+            "label": "🔵 PS5",
+            "release_date": None,
         },
     ]
 

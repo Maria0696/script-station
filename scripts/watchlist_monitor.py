@@ -1,47 +1,9 @@
-import os
-from datetime import UTC, date, datetime
+from datetime import date
 
-import requests
-
-from core import github
-from core.config import (
-    PLATFORM_LABELS,
-    PLATFORM_ORDER,
-    VALID_REGIONS,
-)
+from core import github, igdb
 from core.notifications import (
     notifications,
 )
-
-# Credenciales de IGDB
-CLIENT_ID = os.environ["IGDB_CLIENT_ID"]
-CLIENT_SECRET = os.environ["IGDB_CLIENT_SECRET"]
-
-
-def get_access_token():
-    # Obtiene token temporal de Twitch para usar IGDB
-    response = requests.post(
-        "https://id.twitch.tv/oauth2/token",
-        params={
-            "client_id": CLIENT_ID,
-            "client_secret": CLIENT_SECRET,
-            "grant_type": "client_credentials",
-        },
-        timeout=30,
-    )
-
-    response.raise_for_status()
-
-    return response.json()["access_token"]
-
-
-def get_igdb_headers(token):
-    # Construye las cabeceras para IGDB
-    return {
-        "Client-ID": CLIENT_ID,
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/json",
-    }
 
 
 def load_watchlist():
@@ -64,189 +26,6 @@ def save_watchlist(
     )
 
 
-def get_games_from_igdb(
-    token,
-    game_ids,
-):
-    # Consulta datos básicos de los juegos
-    if not game_ids:
-        return {}
-
-    ids = ",".join(
-        str(game_id)
-        for game_id in game_ids
-    )
-
-    query = f"""
-    fields
-        id,
-        name,
-        first_release_date,
-        platforms;
-    where id = ({ids});
-    limit 500;
-    """
-
-    response = requests.post(
-        "https://api.igdb.com/v4/games",
-        headers=get_igdb_headers(token),
-        data=query,
-        timeout=30,
-    )
-
-    response.raise_for_status()
-
-    return {
-        game["id"]: game
-        for game in response.json()
-    }
-
-
-def get_release_dates_from_igdb(
-    token,
-    game_ids,
-):
-    # Consulta fechas por juego y plataforma
-    if not game_ids:
-        return {}
-
-    ids = ",".join(
-        str(game_id)
-        for game_id in game_ids
-    )
-
-    platform_ids = ",".join(
-        str(platform_id)
-        for platform_id
-        in PLATFORM_ORDER
-    )
-
-    query = f"""
-    fields
-        game,
-        platform,
-        date,
-        release_region.region;
-
-    where game = ({ids})
-        & platform = ({platform_ids});
-
-    limit 500;
-    sort date asc;
-    """
-
-    response = requests.post(
-        "https://api.igdb.com/v4/release_dates",
-        headers=get_igdb_headers(token),
-        data=query,
-        timeout=30,
-    )
-
-    response.raise_for_status()
-
-    result = {}
-
-    for release in response.json():
-        game_id = release.get(
-            "game"
-        )
-
-        platform_id = release.get(
-            "platform"
-        )
-
-        region = release.get(
-            "release_region"
-        )
-
-        if isinstance(
-            game_id,
-            dict,
-        ):
-            game_id = game_id.get(
-                "id"
-            )
-
-        if (
-            platform_id
-            not in PLATFORM_LABELS
-        ):
-            continue
-
-        # Solo Europa, Worldwide o sin región
-        if isinstance(
-            region,
-            dict,
-        ):
-            region_name = region.get(
-                "region",
-                "",
-            ).lower()
-
-            if (
-                region_name
-                and region_name
-                not in VALID_REGIONS
-            ):
-                continue
-
-        release_date = (
-            timestamp_to_date(
-                release.get(
-                    "date"
-                )
-            )
-        )
-
-        if not release_date:
-            continue
-
-        game_dates = (
-            result.setdefault(
-                game_id,
-                {},
-            )
-        )
-
-        # Conserva la primera fecha válida
-        if (
-            platform_id
-            not in game_dates
-        ):
-            game_dates[
-                platform_id
-            ] = release_date
-
-    return result
-
-
-def timestamp_to_date(
-    timestamp,
-):
-    # Convierte timestamp de IGDB a YYYY-MM-DD
-    if not timestamp:
-        return None
-
-    return datetime.fromtimestamp(
-        timestamp,
-        tz=UTC,
-    ).date().isoformat()
-
-
-def display_date(
-    date_string,
-):
-    # Convierte YYYY-MM-DD a DD-MM-YYYY
-    if not date_string:
-        return "Sin fecha"
-
-    return date.fromisoformat(
-        date_string
-    ).strftime(
-        "%d-%m-%Y"
-    )
-
-
 def send_notification(
     text,
 ):
@@ -255,80 +34,6 @@ def send_notification(
         "game.release_changed",
         text,
     )
-
-
-def build_platforms(
-    game,
-    release_dates,
-):
-    # Construye las plataformas actuales
-    platform_ids = set(
-        game.get(
-            "platforms",
-            [],
-        )
-    )
-
-    platform_ids.update(
-        release_dates.keys()
-    )
-
-    platforms = []
-    label_indexes = {}
-
-    for platform_id in (
-        PLATFORM_ORDER
-    ):
-        if (
-            platform_id
-            not in platform_ids
-        ):
-            continue
-
-        label = (
-            PLATFORM_LABELS[
-                platform_id
-            ]
-        )
-
-        release_date = (
-            release_dates.get(
-                platform_id
-            )
-        )
-
-        # Agrupa Meta Quest 2 y 3 igual que Huginn
-        if label in label_indexes:
-            platform = platforms[
-                label_indexes[label]
-            ]
-
-            if (
-                platform["release_date"] is None
-                and release_date
-            ):
-                platform[
-                    "release_date"
-                ] = release_date
-
-            continue
-
-        label_indexes[label] = len(
-            platforms
-        )
-
-        platforms.append(
-            {
-                "id":
-                    platform_id,
-                "label":
-                    label,
-                "release_date":
-                    release_date,
-            }
-        )
-
-    return platforms
 
 
 def build_change_message(
@@ -346,7 +51,7 @@ def build_change_message(
             "📅 NUEVA FECHA DE LANZAMIENTO\n\n"
             f"🎮 {game_name}\n"
             f"{platform_label}\n"
-            f"📅 {display_date(new_date)}"
+            f"📅 {igdb.display_release_date(new_date)}"
         )
 
     # Se retira una fecha existente
@@ -358,7 +63,7 @@ def build_change_message(
             "⚠️ FECHA DE LANZAMIENTO RETIRADA\n\n"
             f"🎮 {game_name}\n"
             f"{platform_label}\n\n"
-            f"Antes: {display_date(old_date)}\n"
+            f"Antes: {igdb.display_release_date(old_date)}\n"
             "Ahora: Por confirmar"
         )
 
@@ -399,8 +104,8 @@ def build_change_message(
         f"{title}\n\n"
         f"🎮 {game_name}\n"
         f"{platform_label}\n\n"
-        f"Antes: {display_date(old_date)}\n"
-        f"Ahora: {display_date(new_date)}"
+        f"Antes: {igdb.display_release_date(old_date)}\n"
+        f"Ahora: {igdb.display_release_date(new_date)}"
     )
 
 
@@ -417,8 +122,6 @@ def monitor_watchlist():
 
         return False
 
-    token = get_access_token()
-
     game_ids = [
         game["id"]
         for game in watchlist
@@ -426,16 +129,14 @@ def monitor_watchlist():
 
     # Datos actuales de IGDB
     igdb_games = (
-        get_games_from_igdb(
-            token,
-            game_ids,
+        igdb.get_igdb_games(
+            game_ids
         )
     )
 
     release_dates = (
-        get_release_dates_from_igdb(
-            token,
-            game_ids,
+        igdb.get_release_dates(
+            game_ids
         )
     )
 
@@ -472,14 +173,14 @@ def monitor_watchlist():
 
         item[
             "release_date"
-        ] = timestamp_to_date(
+        ] = igdb.format_release_date(
             igdb_game.get(
                 "first_release_date"
             )
         )
 
         current_platforms = (
-            build_platforms(
+            igdb.build_platform_data(
                 igdb_game,
                 release_dates.get(
                     game_id,
