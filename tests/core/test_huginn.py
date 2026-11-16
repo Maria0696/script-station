@@ -312,6 +312,23 @@ def test_add_game_to_watchlist_not_found(monkeypatch):
     assert result == (None, False)
 
 
+def fake_update_watchlist(monkeypatch, watchlist):
+    # update_watchlist sobre una lista en memoria; guarda las copias
+    saved = []
+
+    def update(change, message=None):
+        result, changed = change(watchlist)
+
+        if changed:
+            saved.append([dict(item) for item in watchlist])
+
+        return result
+
+    monkeypatch.setattr(huginn, "update_watchlist", update)
+
+    return saved
+
+
 def test_add_game_to_watchlist_existing(monkeypatch):
     # No duplica juegos ya guardados
     game = {"id": 123, "name": "Test Game"}
@@ -320,23 +337,19 @@ def test_add_game_to_watchlist_existing(monkeypatch):
 
     monkeypatch.setattr(huginn, "get_igdb_game", lambda game_id: game)
 
-    monkeypatch.setattr(huginn, "get_watchlist", lambda: ([existing], "sha"))
+    saved = fake_update_watchlist(monkeypatch, [existing])
 
     result = huginn.add_game_to_watchlist(123)
 
     assert result == (existing, False)
+    assert saved == []
 
 
 def test_add_game_to_watchlist(monkeypatch):
     # Guarda un juego nuevo con sus plataformas
     game = {"id": 123, "name": "Test Game", "first_release_date": 123456789}
 
-    watchlist = []
-    saved = {}
-
     monkeypatch.setattr(huginn, "get_igdb_game", lambda game_id: game)
-
-    monkeypatch.setattr(huginn, "get_watchlist", lambda: (watchlist, "test-sha"))
 
     monkeypatch.setattr(huginn, "format_release_date", lambda timestamp: "2026-09-20")
 
@@ -346,25 +359,21 @@ def test_add_game_to_watchlist(monkeypatch):
         lambda game: [{"label": "PS5", "release_date": "2026-09-20"}],
     )
 
-    def fake_save(new_watchlist, sha):
-        saved["watchlist"] = new_watchlist.copy()
-        saved["sha"] = sha
-
-    monkeypatch.setattr(huginn, "save_watchlist", fake_save)
+    saved = fake_update_watchlist(monkeypatch, [])
 
     result, added = huginn.add_game_to_watchlist(123)
 
     assert added is True
 
-    assert saved["sha"] == "test-sha"
-
-    assert saved["watchlist"] == [
-        {
-            "id": 123,
-            "name": "Test Game",
-            "release_date": "2026-09-20",
-            "platforms": [{"label": "PS5", "release_date": "2026-09-20"}],
-        }
+    assert saved == [
+        [
+            {
+                "id": 123,
+                "name": "Test Game",
+                "release_date": "2026-09-20",
+                "platforms": [{"label": "PS5", "release_date": "2026-09-20"}],
+            }
+        ]
     ]
 
     assert result["release_date"] == "2026-09-20"
@@ -374,26 +383,19 @@ def test_add_game_to_watchlist(monkeypatch):
 
 def test_remove_game_from_watchlist_not_found(monkeypatch):
     # No elimina juegos inexistentes
-    monkeypatch.setattr(huginn, "get_watchlist", lambda: ([], "sha"))
+    saved = fake_update_watchlist(monkeypatch, [])
 
     result = huginn.remove_game_from_watchlist(123)
 
     assert result == (None, False)
+    assert saved == []
 
 
 def test_remove_game_from_watchlist(monkeypatch):
     # Elimina un juego existente
     watchlist = [{"id": 123, "name": "Game One"}, {"id": 456, "name": "Game Two"}]
 
-    saved = {}
-
-    monkeypatch.setattr(huginn, "get_watchlist", lambda: (watchlist, "test-sha"))
-
-    def fake_save(new_watchlist, sha):
-        saved["watchlist"] = new_watchlist
-        saved["sha"] = sha
-
-    monkeypatch.setattr(huginn, "save_watchlist", fake_save)
+    saved = fake_update_watchlist(monkeypatch, watchlist)
 
     game, removed = huginn.remove_game_from_watchlist(123)
 
@@ -401,9 +403,7 @@ def test_remove_game_from_watchlist(monkeypatch):
 
     assert game == {"id": 123, "name": "Game One"}
 
-    assert saved["watchlist"] == [{"id": 456, "name": "Game Two"}]
-
-    assert saved["sha"] == "test-sha"
+    assert saved == [[{"id": 456, "name": "Game Two"}]]
 
 
 # ============================================================
@@ -949,3 +949,59 @@ def test_handle_released_command(monkeypatch):
 
 def test_help_lists_released_command():
     assert "/released" in huginn.build_help_message()
+
+
+# ============================================================
+# ERRORES
+# ============================================================
+
+
+def failing_dispatch(update):
+    raise OSError("IGDB unavailable")
+
+
+def test_update_error_is_reported_in_chat(monkeypatch, caplog):
+    # Si algo falla, Huginn lo dice en vez de quedarse callado
+    sent = []
+
+    monkeypatch.setattr(huginn, "dispatch_huginn_update", failing_dispatch)
+    monkeypatch.setattr(
+        huginn, "send_huginn_message", lambda chat_id, text: sent.append(text)
+    )
+
+    result = huginn.handle_huginn_update(
+        {"message": {"chat": {"id": int(huginn.HUGINN_CHAT_ID)}, "text": "/next"}}
+    )
+
+    assert result == {"ok": True}
+    assert sent == [huginn.ERROR_MESSAGE]
+    assert "Huginn could not process an update" in caplog.text
+
+
+def test_update_error_is_not_reported_to_other_chats(monkeypatch):
+    sent = []
+
+    monkeypatch.setattr(huginn, "dispatch_huginn_update", failing_dispatch)
+    monkeypatch.setattr(
+        huginn, "send_huginn_message", lambda chat_id, text: sent.append(text)
+    )
+
+    huginn.handle_huginn_update({"message": {"chat": {"id": 999}, "text": "/next"}})
+
+    assert sent == []
+
+
+def test_update_error_survives_failed_error_message(monkeypatch, caplog):
+    # Si tampoco se puede avisar, se registra y se responde OK
+    def failing_send(chat_id, text):
+        raise OSError("Telegram unavailable")
+
+    monkeypatch.setattr(huginn, "dispatch_huginn_update", failing_dispatch)
+    monkeypatch.setattr(huginn, "send_huginn_message", failing_send)
+
+    result = huginn.handle_huginn_update(
+        {"callback_query": {"message": {"chat": {"id": int(huginn.HUGINN_CHAT_ID)}}}}
+    )
+
+    assert result == {"ok": True}
+    assert "Could not send the Huginn error message" in caplog.text

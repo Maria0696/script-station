@@ -19,6 +19,22 @@ def telegram_api(bot_token, method, data):
         return json.loads(response.read())
 
 
+def get_update_chat_id(update):
+    # Chat de un mensaje o del mensaje de un botón pulsado
+    message = update.get("message")
+
+    if not isinstance(message, dict):
+        callback = update.get("callback_query")
+        message = callback.get("message") if isinstance(callback, dict) else None
+
+    if not isinstance(message, dict):
+        return None
+
+    chat_id = message.get("chat", {}).get("id")
+
+    return str(chat_id) if chat_id is not None else None
+
+
 def send_message(bot_token, chat_id, text, reply_markup=None, parse_mode=None):
     # Envía un mensaje genérico a Telegram
     data = {"chat_id": chat_id, "text": text}

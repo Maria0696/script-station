@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from core import telegram
 
 # ============================================================
@@ -227,3 +229,22 @@ def test_answer_heimdall_callback(monkeypatch):
     assert captured["method"] == "answerCallbackQuery"
 
     assert captured["data"] == {"callback_query_id": "callback-1", "text": "Done"}
+
+
+# ============================================================
+# CHAT DE UN UPDATE
+# ============================================================
+
+
+@pytest.mark.parametrize(
+    ("update", "expected"),
+    [
+        ({"message": {"chat": {"id": 123}}}, "123"),
+        ({"callback_query": {"message": {"chat": {"id": 456}}}}, "456"),
+        ({"callback_query": {"id": "1"}}, None),
+        ({"message": {"text": "/help"}}, None),
+        ({"edited_message": {"chat": {"id": 123}}}, None),
+    ],
+)
+def test_get_update_chat_id(update, expected):
+    assert telegram.get_update_chat_id(update) == expected
