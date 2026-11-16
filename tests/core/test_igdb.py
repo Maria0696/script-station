@@ -132,16 +132,21 @@ def test_get_igdb_token_is_reused_until_expiry(monkeypatch):
 
 
 def test_get_igdb_token_error(monkeypatch):
-    # Un error de Twitch no deja token en caché
+    # Un error de Twitch no deja token en caché ni muestra el secreto,
+    # que va en la URL de la petición
     monkeypatch.setattr(
         igdb.session,
         "post",
-        lambda url, params, timeout: FakeResponse({}, status_code=401),
+        lambda url, params, timeout: FakeResponse(
+            {}, status_code=401, text="invalid client secret"
+        ),
     )
 
-    with pytest.raises(requests.HTTPError):
+    with pytest.raises(requests.HTTPError) as error:
         igdb.get_igdb_token()
 
+    assert "Twitch token failed: HTTP 401" in str(error.value)
+    assert igdb.IGDB_CLIENT_SECRET not in str(error.value)
     assert igdb._token_cache["access_token"] is None
 
 
@@ -631,7 +636,7 @@ def flaky_server():
 
 def local_session():
     # Misma política de reintentos, sin esperas y para http://
-    retry = igdb.create_session().get_adapter("https://").max_retries
+    retry = igdb.create_session(methods={"POST"}).get_adapter("https://").max_retries
     session = requests.Session()
     session.mount("http://", HTTPAdapter(max_retries=retry.new(backoff_factor=0)))
 

@@ -2,10 +2,6 @@ import calendar
 import time
 from datetime import UTC, date, datetime
 
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util import Retry
-
 from core.config import (
     IGDB_CLIENT_ID,
     IGDB_CLIENT_SECRET,
@@ -13,6 +9,7 @@ from core.config import (
     PLATFORM_ORDER,
     VALID_REGIONS,
 )
+from core.http import create_session, raise_for_status
 
 TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token"  # noqa: S105
 IGDB_API_URL = "https://api.igdb.com/v4"
@@ -54,27 +51,8 @@ MONTH_NAMES = (
 _token_cache = {"access_token": None, "expires_at": 0.0}
 
 
-def create_session():
-    # Reintenta límites de uso (429) y errores temporales (5xx).
-    # Las consultas a IGDB son de solo lectura, así que repetir
-    # un POST es seguro. Esperas: 0.5 s, 1 s, 2 s o Retry-After
-    retry = Retry(
-        total=3,
-        backoff_factor=0.5,
-        status_forcelist=(429, 500, 502, 503, 504),
-        allowed_methods=frozenset({"POST"}),
-        respect_retry_after_header=True,
-        # Devuelve la última respuesta para incluirla en el error
-        raise_on_status=False,
-    )
-
-    session = requests.Session()
-    session.mount("https://", HTTPAdapter(max_retries=retry))
-
-    return session
-
-
-session = create_session()
+# Las consultas a IGDB son de solo lectura: repetir un POST es seguro
+session = create_session(methods={"POST"})
 
 
 # ============================================================
@@ -105,7 +83,8 @@ def get_igdb_token():
         timeout=30,
     )
 
-    response.raise_for_status()
+    # La URL lleva el client_secret: el error no debe incluirla
+    raise_for_status(response, "Twitch", "token")
 
     data = response.json()
 
@@ -129,13 +108,7 @@ def igdb_request(endpoint, query):
         timeout=30,
     )
 
-    if not response.ok:
-        raise requests.HTTPError(
-            f"IGDB {endpoint} failed: "
-            f"HTTP {response.status_code}: "
-            f"{response.text[:500]}",
-            response=response,
-        )
+    raise_for_status(response, "IGDB", endpoint)
 
     return response.json()
 

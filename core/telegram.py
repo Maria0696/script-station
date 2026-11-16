@@ -1,22 +1,21 @@
-import json
-from urllib import request
-
 from core.config import HEIMDALL_BOT_TOKEN, HUGINN_BOT_TOKEN
+from core.http import create_session, raise_for_status
+
+# Reintenta límites de uso (429) y fallos de pasarela (502-504), en los que
+# Telegram no llegó a procesar el mensaje. Un 500 no se repite: el mensaje
+# podría haberse enviado ya y se duplicaría
+session = create_session(methods={"POST"}, statuses=(429, 502, 503, 504))
 
 
 def telegram_api(bot_token, method, data):
     # Ejecuta una llamada a Telegram
-    url = f"https://api.telegram.org/bot{bot_token}/{method}"
-
-    body = json.dumps(data).encode("utf-8")
-
-    req = request.Request(
-        url, data=body, headers={"Content-Type": "application/json"}, method="POST"
+    response = session.post(
+        f"https://api.telegram.org/bot{bot_token}/{method}", json=data, timeout=30
     )
 
-    # La URL siempre parte de una base https:// fija
-    with request.urlopen(req, timeout=30) as response:  # noqa: S310
-        return json.loads(response.read())
+    raise_for_status(response, "Telegram", method)
+
+    return response.json()
 
 
 def get_update_chat_id(update):

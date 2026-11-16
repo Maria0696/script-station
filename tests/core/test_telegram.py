@@ -1,8 +1,23 @@
 import json
 
 import pytest
+import requests
 
 from core import telegram
+
+
+class FakeResponse:
+    # Respuesta mínima de requests
+
+    def __init__(self, data, status_code=200):
+        self.data = data
+        self.status_code = status_code
+        self.ok = status_code < 400
+        self.text = json.dumps(data)
+
+    def json(self):
+        return self.data
+
 
 # ============================================================
 # TELEGRAM API
@@ -12,24 +27,12 @@ from core import telegram
 def test_telegram_api(monkeypatch):
     captured = {}
 
-    class FakeResponse:
-        def __enter__(self):
-            return self
+    def fake_post(url, json, timeout):
+        captured.update(url=url, json=json, timeout=timeout)
 
-        def __exit__(self, exc_type, exc_value, traceback):
-            pass
+        return FakeResponse({"ok": True})
 
-        def read(self):
-            return b'{"ok": true}'
-
-    def fake_urlopen(req, timeout):
-        captured["request"] = req
-
-        captured["timeout"] = timeout
-
-        return FakeResponse()
-
-    monkeypatch.setattr(telegram.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(telegram.session, "post", fake_post)
 
     result = telegram.telegram_api(
         "test-token", "sendMessage", {"chat_id": "123", "text": "Hello"}
@@ -37,19 +40,37 @@ def test_telegram_api(monkeypatch):
 
     assert result == {"ok": True}
 
-    assert captured["timeout"] == 30
+    assert captured == {
+        "url": "https://api.telegram.org/bottest-token/sendMessage",
+        "json": {"chat_id": "123", "text": "Hello"},
+        "timeout": 30,
+    }
 
-    assert captured["request"].full_url == (
-        "https://api.telegram.org/bottest-token/sendMessage"
+
+def test_telegram_api_error_hides_bot_token(monkeypatch):
+    # El token va en la URL y los logs de Actions son públicos
+    monkeypatch.setattr(
+        telegram.session,
+        "post",
+        lambda url, json, timeout: FakeResponse(
+            {"ok": False, "description": "Bad Request: chat not found"}, status_code=400
+        ),
     )
 
-    assert captured["request"].get_method() == "POST"
+    with pytest.raises(requests.HTTPError) as error:
+        telegram.telegram_api("secret-bot-token", "sendMessage", {})
 
-    assert json.loads(captured["request"].data) == {"chat_id": "123", "text": "Hello"}
+    assert "Telegram sendMessage failed: HTTP 400" in str(error.value)
+    assert "chat not found" in str(error.value)
+    assert "secret-bot-token" not in str(error.value)
 
-    headers = {key.lower(): value for key, value in captured["request"].header_items()}
 
-    assert headers["content-type"] == "application/json"
+def test_session_does_not_retry_server_errors():
+    # Con un 500 el mensaje podría haberse enviado: no se repite
+    retry = telegram.session.get_adapter("https://api.telegram.org").max_retries
+
+    assert set(retry.status_forcelist) == {429, 502, 503, 504}
+    assert set(retry.allowed_methods) == {"POST"}
 
 
 # ============================================================

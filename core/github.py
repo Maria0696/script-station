@@ -1,40 +1,36 @@
 import base64
 import json
-from urllib import request
-from urllib.error import HTTPError
+
+import requests
 
 from core.config import GITHUB_BRANCH, GITHUB_REPO, GITHUB_TOKEN, WATCHLIST_PATH
+from core.http import create_session, raise_for_status
+
+# GET y PUT son seguros de repetir (el PUT de la watchlist lleva sha).
+# Los POST lanzan o relanzan workflows: repetirlos los duplicaría
+session = create_session(methods={"GET", "PUT"})
 
 
 def github_request(method, path, data=None):
     # Ejecuta una llamada a GitHub
-    url = f"https://api.github.com/repos/{GITHUB_REPO}/{path}"
-
-    body = None
-
-    if data is not None:
-        body = json.dumps(data).encode("utf-8")
-
-    req = request.Request(
-        url,
-        data=body,
+    response = session.request(
+        method,
+        f"https://api.github.com/repos/{GITHUB_REPO}/{path}",
+        json=data,
         headers={
             "Authorization": f"Bearer {GITHUB_TOKEN}",
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
-            "Content-Type": "application/json",
         },
-        method=method,
+        timeout=30,
     )
 
-    # La URL siempre parte de una base https:// fija
-    with request.urlopen(req, timeout=30) as response:  # noqa: S310
-        content = response.read()
+    raise_for_status(response, "GitHub", f"{method} {path}")
 
-    if not content:
+    if not response.content:
         return {}
 
-    return json.loads(content)
+    return response.json()
 
 
 def get_watchlist():
@@ -85,8 +81,10 @@ def update_watchlist(change, message="chore: update game watchlist"):
 
             return result
 
-        except HTTPError as error:
-            if error.code != 409 or attempt == attempts:
+        except requests.HTTPError as error:
+            conflict = error.response is not None and error.response.status_code == 409
+
+            if not conflict or attempt == attempts:
                 raise
 
 
