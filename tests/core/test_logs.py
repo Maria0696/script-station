@@ -10,7 +10,6 @@ from core import logs
     [("true", logging.DEBUG), ("TRUE", logging.DEBUG), ("false", logging.INFO)],
 )
 def test_configure_logging(monkeypatch, debug, level):
-    # DEBUG=true activa los mensajes de depuración
     captured = {}
 
     monkeypatch.setenv("DEBUG", debug)

@@ -1,3 +1,8 @@
+# Añade el mismo workflow a varios repositorios de una organización.
+# Por cada repo crea una rama desde la rama por defecto, sube el archivo
+# y abre una PR, todo con la API de GitHub (sin clonar nada).
+# Con dry_run solo muestra lo que haría. Plantilla: templates/configs.
+
 import base64
 import os
 import secrets
@@ -130,6 +135,8 @@ class AddWorkflow:
 
         token_env = str(config.get("github_token_env", "GITHUB_TOKEN")).strip()
 
+        # Se prefiere github_token_env: un token escrito en el YAML acabaría
+        # fácilmente en un commit
         self.github_token = str(config.get("github_token", "")).strip()
 
         if not self.github_token:

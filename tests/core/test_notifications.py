@@ -2,10 +2,6 @@ import pytest
 
 from core import notifications
 
-# ============================================================
-# EVENTOS
-# ============================================================
-
 
 def test_workflow_failed_event_routes_to_heimdall(monkeypatch):
     captured = {}
@@ -73,13 +69,7 @@ def test_game_release_changed_event_routes_to_huginn(monkeypatch):
     assert captured["chat_id"] is None
 
 
-# ============================================================
-# HUGINN
-# ============================================================
-
-
 def test_huginn_notification(monkeypatch):
-    # Envía una notificación por Huginn
     captured = {}
 
     def fake_send_message(bot_token, chat_id, text, reply_markup=None, parse_mode=None):
@@ -115,7 +105,6 @@ def test_huginn_notification(monkeypatch):
 
 
 def test_huginn_notification_with_parse_mode(monkeypatch):
-    # Envía HTML mediante Huginn
     captured = {}
 
     def fake_send_message(bot_token, chat_id, text, reply_markup=None, parse_mode=None):
@@ -132,13 +121,7 @@ def test_huginn_notification_with_parse_mode(monkeypatch):
     assert captured["parse_mode"] == "HTML"
 
 
-# ============================================================
-# HEIMDALL
-# ============================================================
-
-
 def test_heimdall_notification(monkeypatch):
-    # Envía una notificación por Heimdall
     captured = {}
 
     keyboard = {
@@ -174,7 +157,6 @@ def test_heimdall_notification(monkeypatch):
 
 
 def test_notification_custom_chat_id(monkeypatch):
-    # Permite sobrescribir el chat destino
     captured = {}
 
     def fake_send_message(bot_token, chat_id, text, reply_markup=None, parse_mode=None):
@@ -191,13 +173,7 @@ def test_notification_custom_chat_id(monkeypatch):
     assert captured["chat_id"] == "999999"
 
 
-# ============================================================
-# ERRORES
-# ============================================================
-
-
 def test_unknown_notification_event():
-    # Rechaza eventos desconocidos
     service = notifications.NotificationService()
 
     with pytest.raises(ValueError, match=("Unknown notification event")):
@@ -205,7 +181,6 @@ def test_unknown_notification_event():
 
 
 def test_unknown_notification_channel():
-    # Rechaza canales desconocidos
     service = notifications.NotificationService()
 
     with pytest.raises(ValueError, match=("Unknown notification channel")):

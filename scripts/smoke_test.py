@@ -1,3 +1,6 @@
+# Prueba de producción tras cada despliegue de Vercel (smoke-test.yml).
+# Un webhook que responde sin secreto cuenta como fallo, igual que uno caído.
+
 import logging
 import os
 import time
@@ -27,7 +30,6 @@ RETRY_DELAY_SECONDS = 15
 
 
 def run_checks(base_url):
-    # Devuelve los fallos encontrados
     failures = []
 
     for method, path, expected in CHECKS:

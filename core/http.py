@@ -29,8 +29,9 @@ def create_session(methods, statuses=RETRY_STATUSES):
 
 
 def raise_for_status(response, service, action):
-    # Error con la respuesta del servicio pero sin la URL:
-    # la de Telegram incluye el token del bot y los logs son públicos
+    # Sustituye a response.raise_for_status(), cuyo mensaje incluye la URL:
+    # la de Telegram lleva el token del bot, la del token de Twitch el
+    # client_secret, y los logs de Actions de este repo son públicos
     if response.ok:
         return
 

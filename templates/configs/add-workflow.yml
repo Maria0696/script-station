@@ -1,6 +1,22 @@
+# Configuración de `script-station github add-workflow`.
+# Copia este archivo, ajústalo y pásalo cuando la herramienta lo pida.
+
+# Organización o usuario dueño de los repositorios
 org: my-org
+
+# Variable de entorno con el token (no escribas el token aquí).
+# Necesita Contents, Pull requests y Workflows de lectura y escritura:
+# sin Workflows, GitHub rechaza archivos en .github/workflows/
 github_token_env: GITHUB_TOKEN
+
+# Un repositorio por línea; las líneas que empiezan por # se ignoran
 repo_list_path: repos.txt
+
+# Workflow que se añadirá en .github/workflows/ de cada repositorio
 workflow_template_path: templates/workflows/update-readme-profile.yml
+
+# Las ramas se llaman add-workflow-<sufijo>-<timestamp>-<aleatorio>
 branch_suffix: ci
+
+# true: solo muestra lo que haría, sin tocar ningún repositorio
 dry_run: true

@@ -1,3 +1,7 @@
+# CLI `script-station`: menú interactivo y comandos directos sobre los
+# scripts. Los módulos de core/ y scripts/ se importan dentro de cada
+# comando, después de cargar el .env, porque leen el entorno al importarse.
+
 import argparse
 import os
 import sys
@@ -15,6 +19,7 @@ RELEASES_ENV = (
     "TELEGRAM_CHAT_ID",
 )
 
+# El monitor guarda la watchlist en GitHub: también commitea en local
 WATCHLIST_ENV = (*RELEASES_ENV, "GITHUB_TOKEN")
 
 HEIMDALL_ENV = ("GITHUB_TOKEN",)

@@ -1,3 +1,9 @@
+# Heimdall: bot de Telegram que vigila los workflows de GitHub Actions.
+# Responde a /status y /failures y gestiona los botones de los avisos:
+# "🔄 Re-run" (workflow fallido) y "▶️ Lanzar" (workflow que no se ejecutó).
+# Los avisos los envían los propios workflows (scripts/notify.py y
+# scripts/watchdog.py); este módulo solo atiende al chat HEIMDALL_CHAT_ID.
+
 import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -17,6 +23,8 @@ ERROR_MESSAGE = "❌ No he podido consultar GitHub. Inténtalo de nuevo en un ra
 MADRID_TIMEZONE = ZoneInfo("Europe/Madrid")
 
 
+# Conclusiones de GitHub que cuentan como incidencia. "cancelled" y
+# "skipped" no: suelen ser intencionadas
 FAILURE_CONCLUSIONS = {
     "failure",
     "timed_out",
@@ -26,13 +34,7 @@ FAILURE_CONCLUSIONS = {
 }
 
 
-# ============================================================
-# ESTILO
-# ============================================================
-
-
 def build_title(title, icon="", indent=0):
-    # Encabezado con posición configurable
     title_text = f"{icon} {title}" if icon else title
 
     return f"━━━━━━━━━━━━━━━━━━━\n{' ' * indent}{title_text}\n━━━━━━━━━━━━━━━━━━━\n\n"
@@ -44,7 +46,6 @@ def build_title(title, icon="", indent=0):
 
 
 def format_run_time(date_string):
-    # Convierte la hora de GitHub a Madrid
     if not date_string:
         return "Hora desconocida"
 
@@ -59,7 +60,6 @@ def format_run_time(date_string):
 
 
 def workflow_status(run):
-    # Convierte el estado de GitHub a texto
     if not run:
         return "⚪ Sin datos"
 
@@ -84,7 +84,6 @@ def workflow_status(run):
 
 
 def get_latest_workflows():
-    # Busca la última ejecución de cada workflow
     runs = get_workflow_runs()
 
     latest_runs = {}
@@ -98,7 +97,6 @@ def get_latest_workflows():
 
 
 def count_incidents(latest_runs):
-    # Cuenta workflows actualmente fallidos
     return sum(
         1
         for run in latest_runs.values()
@@ -111,7 +109,6 @@ def count_incidents(latest_runs):
 
 
 def get_failed_workflows():
-    # Obtiene los workflows actualmente fallidos
     latest_runs = get_latest_workflows()
 
     return {
@@ -131,7 +128,6 @@ def get_failed_workflows():
 
 
 def build_heimdall_status():
-    # Construye el panel de estado
     latest_runs = get_latest_workflows()
 
     incidents = count_incidents(latest_runs)
@@ -154,7 +150,6 @@ def build_heimdall_status():
 
 
 def build_heimdall_failures(failed_workflows=None):
-    # Construye el listado de fallos activos
     if failed_workflows is None:
         failed_workflows = get_failed_workflows()
 
@@ -189,7 +184,6 @@ def build_heimdall_failures(failed_workflows=None):
 
 
 def build_heimdall_help():
-    # Lista de comandos de Heimdall
     return (
         build_title("COMANDOS", icon="🛡️", indent=22)
         + "/status\n"
@@ -207,7 +201,6 @@ def build_heimdall_help():
 
 
 def build_failures_keyboard(failed_workflows):
-    # Botones para reejecutar workflows fallidos
     buttons = []
 
     for workflow_name, run in failed_workflows.items():
@@ -234,7 +227,6 @@ def build_failures_keyboard(failed_workflows):
 
 
 def handle_heimdall_callback(callback):
-    # Procesa botones de Heimdall
     callback_id = callback.get("id")
 
     callback_data = callback.get("data", "")
@@ -243,10 +235,11 @@ def handle_heimdall_callback(callback):
 
     chat_id = str(message.get("chat", {}).get("id", ""))
 
+    # Bot de un solo usuario: otros chats se ignoran sin responder
     if chat_id != HEIMDALL_CHAT_ID:
         return {"ok": True}
 
-    # Re-run de jobs fallidos
+    # Relanza solo los jobs que fallaron, no el workflow entero
     if callback_data.startswith("rerun:"):
         try:
             run_id = int(callback_data.split(":", 1)[1])
@@ -274,7 +267,8 @@ def handle_heimdall_callback(callback):
 
 
 def handle_dispatch_callback(chat_id, callback_id, callback_data):
-    # Solo se pueden lanzar los workflows diarios conocidos
+    # Solo se lanzan los workflows diarios conocidos: el callback_data
+    # viene de Telegram y no debe poder lanzar cualquier workflow
     workflow_file = callback_data.split(":", 1)[1]
 
     label = DAILY_WORKFLOWS.get(workflow_file)
@@ -306,7 +300,6 @@ def handle_dispatch_callback(chat_id, callback_id, callback_data):
 
 
 def handle_heimdall_message(message):
-    # Procesa comandos de Heimdall
     chat_id = str(message.get("chat", {}).get("id", ""))
 
     text = message.get("text", "").strip()
@@ -314,11 +307,9 @@ def handle_heimdall_message(message):
     if chat_id != HEIMDALL_CHAT_ID:
         return {"ok": True}
 
-    # Estado
     if text in {"/start", "/status"}:
         send_heimdall_message(chat_id, build_heimdall_status())
 
-    # Fallos activos
     elif text == "/failures":
         failed_workflows = get_failed_workflows()
 
@@ -328,7 +319,6 @@ def handle_heimdall_message(message):
             build_failures_keyboard(failed_workflows),
         )
 
-    # Ayuda
     elif text == "/help":
         send_heimdall_message(chat_id, build_heimdall_help())
 
@@ -341,7 +331,6 @@ def handle_heimdall_message(message):
 
 
 def dispatch_heimdall_update(update):
-    # Envía el update a su handler
     callback = update.get("callback_query")
 
     if isinstance(callback, dict):
@@ -356,7 +345,6 @@ def dispatch_heimdall_update(update):
 
 
 def report_heimdall_error(update):
-    # Avisa en el chat en vez de quedarse callado
     chat_id = get_update_chat_id(update)
 
     if chat_id != HEIMDALL_CHAT_ID:
@@ -370,7 +358,8 @@ def report_heimdall_error(update):
 
 
 def handle_heimdall_update(update):
-    # Entrada principal de Heimdall
+    # Un fallo (GitHub caído) se registra y se avisa en el chat;
+    # a Telegram se le responde OK para que no reenvíe el mismo update
     try:
         return dispatch_heimdall_update(update)
 

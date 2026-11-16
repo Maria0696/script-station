@@ -8,7 +8,6 @@ session = create_session(methods={"POST"}, statuses=(429, 502, 503, 504))
 
 
 def telegram_api(bot_token, method, data):
-    # Ejecuta una llamada a Telegram
     response = session.post(
         f"https://api.telegram.org/bot{bot_token}/{method}", json=data, timeout=30
     )
@@ -19,7 +18,8 @@ def telegram_api(bot_token, method, data):
 
 
 def get_update_chat_id(update):
-    # Chat de un mensaje o del mensaje de un botón pulsado
+    # Un update es un mensaje o un botón pulsado (callback_query), que
+    # trae dentro el mensaje donde estaba el botón
     message = update.get("message")
 
     if not isinstance(message, dict):
@@ -35,7 +35,6 @@ def get_update_chat_id(update):
 
 
 def send_message(bot_token, chat_id, text, reply_markup=None, parse_mode=None):
-    # Envía un mensaje genérico a Telegram
     data = {"chat_id": chat_id, "text": text}
 
     if reply_markup:
@@ -48,17 +47,15 @@ def send_message(bot_token, chat_id, text, reply_markup=None, parse_mode=None):
 
 
 def send_huginn_message(chat_id, text, reply_markup=None, parse_mode=None):
-    # Envía un mensaje desde Huginn
     return send_message(HUGINN_BOT_TOKEN, chat_id, text, reply_markup, parse_mode)
 
 
 def send_heimdall_message(chat_id, text, reply_markup=None, parse_mode=None):
-    # Envía un mensaje desde Heimdall
     return send_message(HEIMDALL_BOT_TOKEN, chat_id, text, reply_markup, parse_mode)
 
 
 def answer_heimdall_callback(callback_query_id, text=None):
-    # Cierra la animación del botón pulsado
+    # Telegram deja el botón "cargando" hasta que se responde el callback
     data = {"callback_query_id": callback_query_id}
 
     if text:
@@ -68,7 +65,6 @@ def answer_heimdall_callback(callback_query_id, text=None):
 
 
 def answer_huginn_callback(callback_query_id):
-    # Cierra la animación del botón pulsado
     return telegram_api(
         HUGINN_BOT_TOKEN,
         "answerCallbackQuery",

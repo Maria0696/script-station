@@ -9,13 +9,7 @@ HUGINN_HEADERS = {"X-Telegram-Bot-Api-Secret-Token": "test-huginn-secret"}
 HEIMDALL_HEADERS = {"X-Telegram-Bot-Api-Secret-Token": "test-heimdall-secret"}
 
 
-# ============================================================
-# INDEX
-# ============================================================
-
-
 def test_index_health_check_defaults_to_huginn():
-    # Usa Huginn por defecto
     response = client.get("/api/index")
 
     assert response.status_code == 200
@@ -24,7 +18,6 @@ def test_index_health_check_defaults_to_huginn():
 
 
 def test_index_health_check_heimdall():
-    # Reconoce Heimdall por query param
     response = client.get("/api/index?bot=heimdall")
 
     assert response.status_code == 200
@@ -33,7 +26,6 @@ def test_index_health_check_heimdall():
 
 
 def test_index_webhook_routes_to_huginn(monkeypatch):
-    # Envía updates a Huginn por defecto
     update = {"message": {"text": "/help"}}
 
     monkeypatch.setattr(
@@ -50,7 +42,6 @@ def test_index_webhook_routes_to_huginn(monkeypatch):
 
 
 def test_index_webhook_routes_to_heimdall(monkeypatch):
-    # Envía updates a Heimdall si se indica
     update = {"message": {"text": "/status"}}
 
     monkeypatch.setattr(
@@ -68,13 +59,7 @@ def test_index_webhook_routes_to_heimdall(monkeypatch):
     assert response.json() == {"bot": "heimdall", "update": update}
 
 
-# ============================================================
-# HUGINN
-# ============================================================
-
-
 def test_huginn_health_check():
-    # Comprueba que Huginn está disponible
     response = client.get("/api/telegram")
 
     assert response.status_code == 200
@@ -83,7 +68,6 @@ def test_huginn_health_check():
 
 
 def test_huginn_webhook(monkeypatch):
-    # Envía el update al handler de Huginn
     update = {"message": {"text": "/watchlist"}}
 
     monkeypatch.setattr(
@@ -99,13 +83,7 @@ def test_huginn_webhook(monkeypatch):
     assert response.json() == {"ok": True, "update": update}
 
 
-# ============================================================
-# HEIMDALL
-# ============================================================
-
-
 def test_heimdall_health_check():
-    # Comprueba que Heimdall está disponible
     response = client.get("/api/heimdall")
 
     assert response.status_code == 200
@@ -114,7 +92,6 @@ def test_heimdall_health_check():
 
 
 def test_heimdall_webhook(monkeypatch):
-    # Envía el update al handler de Heimdall
     update = {"message": {"text": "/status"}}
 
     monkeypatch.setattr(
@@ -130,13 +107,7 @@ def test_heimdall_webhook(monkeypatch):
     assert response.json() == {"ok": True, "update": update}
 
 
-# ============================================================
-# ERRORES
-# ============================================================
-
-
 def test_webhook_error_returns_ok(monkeypatch, caplog):
-    # Un fallo interno no debe provocar reintentos de Telegram
     def failing_handler(received):
         raise OSError("GitHub unavailable")
 
@@ -156,7 +127,6 @@ def test_webhook_error_returns_ok(monkeypatch, caplog):
 
 
 def test_webhook_invalid_json_returns_ok():
-    # Un cuerpo no válido tampoco devuelve 500
     response = client.post(
         "/api/heimdall",
         content=b"not json",
@@ -168,13 +138,7 @@ def test_webhook_invalid_json_returns_ok():
     assert response.json() == {"ok": True}
 
 
-# ============================================================
-# AUTENTICACIÓN DE WEBHOOKS
-# ============================================================
-
-
 def test_webhook_rejects_missing_secret(monkeypatch):
-    # Sin la cabecera de Telegram no se procesa nada
     called = []
 
     monkeypatch.setattr(api_index, "handle_huginn_update", called.append)
@@ -189,7 +153,6 @@ def test_webhook_rejects_missing_secret(monkeypatch):
 
 
 def test_webhook_rejects_other_bot_secret(monkeypatch):
-    # El secreto de Huginn no sirve para Heimdall
     called = []
 
     monkeypatch.setattr(api_index, "handle_heimdall_update", called.append)
@@ -206,17 +169,12 @@ def test_webhook_rejects_other_bot_secret(monkeypatch):
 
 
 def test_webhook_rejects_when_secret_not_configured(monkeypatch):
-    # Si falta la variable de entorno se rechaza todo
     monkeypatch.setattr(api_index, "HUGINN_WEBHOOK_SECRET", None)
 
     response = client.post("/api/telegram", json={}, headers=HUGINN_HEADERS)
 
     assert response.status_code == 401
 
-
-# ============================================================
-# CRON
-# ============================================================
 
 CRON_HEADERS = {"Authorization": "Bearer test-cron-secret"}
 
@@ -239,7 +197,6 @@ def test_cron_dispatches_daily_workflows(monkeypatch):
 
 
 def test_cron_through_index_rewrite(monkeypatch):
-    # Vercel reescribe /api/cron a /api/index?cron=daily
     dispatched = []
 
     monkeypatch.setattr(api_index, "dispatch_workflow", dispatched.append)

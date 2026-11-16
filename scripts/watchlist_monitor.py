@@ -1,3 +1,11 @@
+# Monitor diario de la watchlist (watchlist.yml). Por cada juego pendiente
+# compara las fechas guardadas con IGDB y avisa por Huginn de retrasos,
+# adelantos, fechas nuevas o concretadas y salidas. Los juegos que ya han
+# salido se archivan.
+#
+# Es idempotente: guarda primero y avisa después, y marca cada salida como
+# avisada. Si un día falla, el siguiente no repite ni pierde avisos.
+
 import logging
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -17,12 +25,12 @@ RELEASE_ALERT_WINDOW_DAYS = 7
 
 
 def get_today():
-    # Fecha actual según Madrid
+    # "Hoy" es el día de Madrid
     return datetime.now(MADRID_TZ).date()
 
 
 def is_released(platform, today):
-    # Ha salido: fecha exacta (día) igual o anterior a hoy
+    # Solo cuenta una fecha exacta: "2027" no significa que haya salido
     release_date = platform.get("release_date")
 
     return (
@@ -33,7 +41,6 @@ def is_released(platform, today):
 
 
 def build_release_message(game_name, platforms, igdb_game, today):
-    # Aviso de salida de un juego de la watchlist
     released_today = any(
         date.fromisoformat(platform["release_date"]) == today for platform in platforms
     )
@@ -62,19 +69,16 @@ def build_release_message(game_name, platforms, igdb_game, today):
 
 
 def load_watchlist():
-    # Lee la watchlist y su sha desde GitHub
     return github.get_watchlist()
 
 
 def save_watchlist(watchlist, sha):
-    # Guarda la watchlist en GitHub con un commit
     github.save_watchlist(
         watchlist, sha, message=("chore: update watchlist release dates")
     )
 
 
 def send_notification(text):
-    # Publica un cambio de lanzamiento
     return notifications.emit("game.release_changed", text)
 
 
@@ -91,7 +95,6 @@ def build_change_message(
     old_text = igdb.display_release_date(old_date, old_precision)
     new_text = igdb.display_release_date(new_date, new_precision)
 
-    # Se anuncia una fecha nueva
     if old_date is None and new_date is not None:
         return (
             "📅 NUEVA FECHA DE LANZAMIENTO\n\n"
@@ -100,7 +103,6 @@ def build_change_message(
             f"📅 {new_text}"
         )
 
-    # Se retira una fecha existente
     if old_date is not None and new_date is None:
         return (
             "⚠️ FECHA DE LANZAMIENTO RETIRADA\n\n"
@@ -173,7 +175,8 @@ def check_new_releases(game_name, platforms, igdb_game, today):
 
 
 def archive_if_released(item, today):
-    # Archiva el juego cuando todas sus plataformas con fecha han salido
+    # Solo cuando han salido todas las plataformas con fecha: si sale en
+    # PS5 y meses después en PC, se sigue vigilando hasta que salga en PC
     dated = [
         platform for platform in item.get("platforms", []) if platform["release_date"]
     ]
@@ -190,7 +193,6 @@ def archive_if_released(item, today):
 
 
 def monitor_watchlist():
-    # Carga los juegos que seguimos
     watchlist, sha = load_watchlist()
 
     if not watchlist:
@@ -208,7 +210,6 @@ def monitor_watchlist():
 
     game_ids = [game["id"] for game in active_games]
 
-    # Datos actuales de IGDB
     igdb_games = igdb.get_igdb_games(game_ids)
 
     release_dates = igdb.get_release_dates(game_ids)
@@ -227,7 +228,6 @@ def monitor_watchlist():
 
             continue
 
-        # Actualiza nombre y fecha general
         item["name"] = igdb_game.get("name", item["name"])
 
         item["release_date"] = igdb.format_release_date(
@@ -240,7 +240,7 @@ def monitor_watchlist():
 
         stored_platforms = item.get("platforms", [])
 
-        # Migra silenciosamente el formato antiguo
+        # Formato antiguo (lista de etiquetas sin fechas): se migra sin avisar
         if not stored_platforms or not isinstance(stored_platforms[0], dict):
             item["platforms"] = current_platforms
 
@@ -259,7 +259,6 @@ def monitor_watchlist():
             if old_by_id.get(platform_id, {}).get("release_notified"):
                 platform["release_notified"] = True
 
-        # Comprueba cambios de fecha por plataforma
         for platform_id in old_by_id.keys() & current_by_id.keys():
             old_platform = old_by_id[platform_id]
 
@@ -301,7 +300,6 @@ def monitor_watchlist():
 
             changes_found = True
 
-        # Avisa de las plataformas que acaban de salir
         release_message = check_new_releases(
             item["name"], current_platforms, igdb_game, today
         )
@@ -309,7 +307,7 @@ def monitor_watchlist():
         if release_message:
             pending_messages.append(release_message)
 
-        # Actualiza siempre el listado de plataformas
+        # Plataformas añadidas o quitadas se guardan sin aviso
         if stored_platforms != current_platforms:
             item["platforms"] = current_platforms
 
@@ -318,7 +316,6 @@ def monitor_watchlist():
         if archive_if_released(item, today):
             changes_found = True
 
-    # Solo guarda el JSON si hubo cambios
     if changes_found:
         save_watchlist(watchlist, sha)
 
@@ -333,7 +330,6 @@ def monitor_watchlist():
 def main():
     configure_logging()
 
-    # Comprueba cambios en toda la watchlist
     monitor_watchlist()
 
 

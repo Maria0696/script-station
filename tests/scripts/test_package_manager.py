@@ -11,11 +11,6 @@ class FakePrompt:
         return self.value
 
 
-# ============================================================
-# PACKAGE MANAGER
-# ============================================================
-
-
 def test_list_operating_systems():
     manager = package_manager.PackageManager()
 
@@ -100,11 +95,6 @@ def test_install_package_manager_failure(monkeypatch):
     )
 
     assert manager.install_package_manager("Linux") == 9
-
-
-# ============================================================
-# MAIN
-# ============================================================
 
 
 def test_main_cancelled_selection(monkeypatch):

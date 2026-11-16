@@ -18,7 +18,6 @@ class FakeResponse:
 
 
 def mock_api(monkeypatch, statuses=None):
-    # Simula la API; statuses sustituye respuestas concretas
     calls = []
     overrides = statuses or {}
 
@@ -46,7 +45,6 @@ def test_run_checks_all_ok(monkeypatch):
 
 
 def test_run_checks_reports_failures(monkeypatch):
-    # Un webhook abierto (200 sin secreto) o caído es un fallo
     mock_api(
         monkeypatch,
         {
@@ -62,7 +60,6 @@ def test_run_checks_reports_failures(monkeypatch):
 
 
 def test_smoke_test_retries_until_ok(monkeypatch):
-    # El dominio tarda en apuntar al nuevo despliegue
     results = iter([["GET /api/cron: expected 401, got 404"], []])
 
     monkeypatch.setattr(smoke_test, "run_checks", lambda base_url: next(results))

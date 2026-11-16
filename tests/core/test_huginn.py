@@ -2,32 +2,20 @@ from datetime import datetime
 
 from core import huginn
 
-# ============================================================
-# ESTILO
-# ============================================================
-
 
 def test_build_title_with_icon():
-    # Construye título con icono e indentación
     result = huginn.build_title("TEST", icon="🤖", indent=2)
 
     assert result == ("━━━━━━━━━━━━━━━━━━━\n  🤖 TEST\n━━━━━━━━━━━━━━━━━━━\n\n")
 
 
 def test_build_title_without_icon():
-    # Construye título sin icono
     result = huginn.build_title("TEST")
 
     assert result == ("━━━━━━━━━━━━━━━━━━━\nTEST\n━━━━━━━━━━━━━━━━━━━\n\n")
 
 
-# ============================================================
-# MENSAJES
-# ============================================================
-
-
 def test_build_help_message():
-    # Construye la ayuda de Huginn
     result = huginn.build_help_message()
 
     assert "🤖 COMANDOS" in result
@@ -39,12 +27,10 @@ def test_build_help_message():
 
 
 def test_build_watch_search_message():
-    # Construye el mensaje de selección
     assert huginn.build_watch_search_message() == "¿Qué juego quieres añadir?"
 
 
 def test_build_watch_added_message():
-    # Confirma un juego añadido
     assert (
         huginn.build_watch_added_message({"name": "Test Game"})
         == "✅ Añadido: Test Game"
@@ -52,33 +38,28 @@ def test_build_watch_added_message():
 
 
 def test_build_already_added_message():
-    # Informa de un juego ya guardado
     assert huginn.build_already_added_message({"name": "Test Game"}) == (
         "ℹ️ Ese juego ya estaba en tu lista: Test Game"
     )
 
 
 def test_build_unwatch_message():
-    # Construye el mensaje para eliminar
     assert huginn.build_unwatch_message() == "¿Qué juego quieres eliminar?"
 
 
 def test_build_removed_message():
-    # Confirma un juego eliminado
     assert (
         huginn.build_removed_message({"name": "Test Game"}) == "🗑️ Eliminado: Test Game"
     )
 
 
 def test_build_watchlist_message_empty(monkeypatch):
-    # Muestra mensaje si la lista está vacía
     monkeypatch.setattr(huginn, "get_watchlist", lambda: ([], "sha"))
 
     assert huginn.build_watchlist_message() == "👀 Tu lista está vacía."
 
 
 def test_build_watchlist_message_current_format(monkeypatch):
-    # Muestra plataformas con formato actual
     monkeypatch.setattr(
         huginn,
         "get_watchlist",
@@ -106,7 +87,6 @@ def test_build_watchlist_message_current_format(monkeypatch):
 
 
 def test_build_watchlist_message_legacy_format(monkeypatch):
-    # Mantiene compatibilidad con formato antiguo
     monkeypatch.setattr(
         huginn,
         "get_watchlist",
@@ -131,7 +111,6 @@ def test_build_watchlist_message_legacy_format(monkeypatch):
 
 
 def test_build_watchlist_message_without_platforms(monkeypatch):
-    # Muestra plataforma pendiente si no existe
     monkeypatch.setattr(
         huginn,
         "get_watchlist",
@@ -146,30 +125,21 @@ def test_build_watchlist_message_without_platforms(monkeypatch):
     assert "Plataformas por confirmar — 01-11-2026" in result
 
 
-# ============================================================
-# FECHAS Y NEXT
-# ============================================================
-
-
 def test_parse_release_date():
-    # Convierte texto a fecha
     result = huginn.parse_release_date("2026-09-20")
 
     assert result.isoformat() == "2026-09-20"
 
 
 def test_parse_release_date_without_date():
-    # Devuelve None si no hay fecha
     assert huginn.parse_release_date(None) is None
 
 
 def test_parse_release_date_invalid():
-    # Devuelve None si la fecha es inválida
     assert huginn.parse_release_date("invalid-date") is None
 
 
 def test_get_upcoming_games(monkeypatch):
-    # Filtra, ordena y agrupa próximos juegos
     class FakeDatetime:
         @classmethod
         def now(cls, tz=None):
@@ -206,7 +176,6 @@ def test_get_upcoming_games(monkeypatch):
 
 
 def test_get_upcoming_games_limits_results(monkeypatch):
-    # Limita el resultado a cinco juegos
     class FakeDatetime:
         @classmethod
         def now(cls, tz=None):
@@ -235,7 +204,6 @@ def test_get_upcoming_games_limits_results(monkeypatch):
 
 
 def test_build_next_message_empty(monkeypatch):
-    # Informa si no hay próximos juegos
     monkeypatch.setattr(huginn, "get_upcoming_games", list)
 
     assert huginn.build_next_message() == (
@@ -244,7 +212,6 @@ def test_build_next_message_empty(monkeypatch):
 
 
 def test_build_next_message(monkeypatch):
-    # Construye la lista de próximos juegos
     monkeypatch.setattr(
         huginn,
         "get_upcoming_games",
@@ -268,13 +235,7 @@ def test_build_next_message(monkeypatch):
     assert "PC — 2027" in result
 
 
-# ============================================================
-# BOTONES
-# ============================================================
-
-
 def test_build_search_keyboard():
-    # Construye botones de búsqueda
     games = [{"id": 123, "name": "Game One"}, {"id": 456, "name": "Game Two"}]
 
     result = huginn.build_search_keyboard(games)
@@ -288,7 +249,6 @@ def test_build_search_keyboard():
 
 
 def test_build_unwatch_keyboard():
-    # Construye botones para eliminar juegos
     watchlist = [{"id": 123, "name": "Game One"}]
 
     result = huginn.build_unwatch_keyboard(watchlist)
@@ -298,13 +258,7 @@ def test_build_unwatch_keyboard():
     }
 
 
-# ============================================================
-# WATCHLIST
-# ============================================================
-
-
 def test_add_game_to_watchlist_not_found(monkeypatch):
-    # No añade juegos inexistentes
     monkeypatch.setattr(huginn, "get_igdb_game", lambda game_id: None)
 
     result = huginn.add_game_to_watchlist(999)
@@ -313,7 +267,6 @@ def test_add_game_to_watchlist_not_found(monkeypatch):
 
 
 def fake_update_watchlist(monkeypatch, watchlist):
-    # update_watchlist sobre una lista en memoria; guarda las copias
     saved = []
 
     def update(change, message=None):
@@ -330,7 +283,6 @@ def fake_update_watchlist(monkeypatch, watchlist):
 
 
 def test_add_game_to_watchlist_existing(monkeypatch):
-    # No duplica juegos ya guardados
     game = {"id": 123, "name": "Test Game"}
 
     existing = {"id": 123, "name": "Test Game"}
@@ -346,7 +298,6 @@ def test_add_game_to_watchlist_existing(monkeypatch):
 
 
 def test_add_game_to_watchlist(monkeypatch):
-    # Guarda un juego nuevo con sus plataformas
     game = {"id": 123, "name": "Test Game", "first_release_date": 123456789}
 
     monkeypatch.setattr(huginn, "get_igdb_game", lambda game_id: game)
@@ -382,7 +333,6 @@ def test_add_game_to_watchlist(monkeypatch):
 
 
 def test_remove_game_from_watchlist_not_found(monkeypatch):
-    # No elimina juegos inexistentes
     saved = fake_update_watchlist(monkeypatch, [])
 
     result = huginn.remove_game_from_watchlist(123)
@@ -392,7 +342,6 @@ def test_remove_game_from_watchlist_not_found(monkeypatch):
 
 
 def test_remove_game_from_watchlist(monkeypatch):
-    # Elimina un juego existente
     watchlist = [{"id": 123, "name": "Game One"}, {"id": 456, "name": "Game Two"}]
 
     saved = fake_update_watchlist(monkeypatch, watchlist)
@@ -406,13 +355,7 @@ def test_remove_game_from_watchlist(monkeypatch):
     assert saved == [[{"id": 456, "name": "Game Two"}]]
 
 
-# ============================================================
-# CALLBACKS
-# ============================================================
-
-
 def test_handle_watch_callback_not_found(monkeypatch):
-    # Informa si el juego no existe
     sent = []
 
     monkeypatch.setattr(huginn, "add_game_to_watchlist", lambda game_id: (None, False))
@@ -425,7 +368,6 @@ def test_handle_watch_callback_not_found(monkeypatch):
 
 
 def test_handle_watch_callback_existing(monkeypatch):
-    # Informa si ya estaba guardado
     sent = []
 
     game = {"id": 123, "name": "Test Game"}
@@ -440,7 +382,6 @@ def test_handle_watch_callback_existing(monkeypatch):
 
 
 def test_handle_watch_callback_added(monkeypatch):
-    # Confirma que el juego fue añadido
     sent = []
 
     game = {"id": 123, "name": "Test Game"}
@@ -455,7 +396,6 @@ def test_handle_watch_callback_added(monkeypatch):
 
 
 def test_handle_unwatch_callback_missing(monkeypatch):
-    # Informa si el juego ya no está guardado
     sent = []
 
     monkeypatch.setattr(
@@ -470,7 +410,6 @@ def test_handle_unwatch_callback_missing(monkeypatch):
 
 
 def test_handle_unwatch_callback_removed(monkeypatch):
-    # Confirma que el juego fue eliminado
     sent = []
 
     game = {"id": 123, "name": "Test Game"}
@@ -487,7 +426,6 @@ def test_handle_unwatch_callback_removed(monkeypatch):
 
 
 def test_handle_huginn_callback_unauthorized(monkeypatch):
-    # Ignora callbacks de otros chats
     answered = []
 
     monkeypatch.setattr(
@@ -506,7 +444,6 @@ def test_handle_huginn_callback_unauthorized(monkeypatch):
 
 
 def test_handle_huginn_callback_watch(monkeypatch):
-    # Procesa callback para añadir juego
     answered = []
     handled = []
 
@@ -538,7 +475,6 @@ def test_handle_huginn_callback_watch(monkeypatch):
 
 
 def test_handle_huginn_callback_unwatch(monkeypatch):
-    # Procesa callback para eliminar juego
     handled = []
 
     monkeypatch.setattr(huginn, "answer_huginn_callback", lambda callback_id: None)
@@ -563,7 +499,6 @@ def test_handle_huginn_callback_unwatch(monkeypatch):
 
 
 def test_handle_huginn_callback_without_id(monkeypatch):
-    # Permite callbacks sin ID
     answered = []
 
     monkeypatch.setattr(
@@ -581,13 +516,7 @@ def test_handle_huginn_callback_without_id(monkeypatch):
     assert answered == []
 
 
-# ============================================================
-# COMANDOS
-# ============================================================
-
-
 def test_handle_huginn_message_unauthorized(monkeypatch):
-    # Ignora mensajes de otros chats
     sent = []
 
     monkeypatch.setattr(huginn, "send_huginn_message", lambda *args: sent.append(args))
@@ -600,7 +529,6 @@ def test_handle_huginn_message_unauthorized(monkeypatch):
 
 
 def test_handle_huginn_help(monkeypatch):
-    # Responde al comando /help
     sent = []
 
     monkeypatch.setattr(huginn, "build_help_message", lambda: "HELP")
@@ -617,7 +545,6 @@ def test_handle_huginn_help(monkeypatch):
 
 
 def test_handle_huginn_next(monkeypatch):
-    # Responde al comando /next
     sent = []
 
     monkeypatch.setattr(huginn, "build_next_message", lambda: "NEXT")
@@ -632,7 +559,6 @@ def test_handle_huginn_next(monkeypatch):
 
 
 def test_handle_huginn_watchlist(monkeypatch):
-    # Responde al comando /watchlist
     sent = []
 
     monkeypatch.setattr(huginn, "build_watchlist_message", lambda: "WATCHLIST")
@@ -647,7 +573,6 @@ def test_handle_huginn_watchlist(monkeypatch):
 
 
 def test_handle_huginn_unwatch_empty(monkeypatch):
-    # Informa si no hay juegos para eliminar
     sent = []
 
     monkeypatch.setattr(huginn, "get_watchlist", lambda: ([], "sha"))
@@ -662,7 +587,6 @@ def test_handle_huginn_unwatch_empty(monkeypatch):
 
 
 def test_handle_huginn_unwatch_with_games(monkeypatch):
-    # Muestra botones para eliminar juegos
     sent = []
 
     watchlist = [{"id": 123, "name": "Test Game"}]
@@ -689,7 +613,6 @@ def test_handle_huginn_unwatch_with_games(monkeypatch):
 
 
 def test_handle_huginn_watch_without_name(monkeypatch):
-    # Muestra uso correcto de /watch
     sent = []
 
     monkeypatch.setattr(huginn, "send_huginn_message", lambda *args: sent.append(args))
@@ -702,7 +625,6 @@ def test_handle_huginn_watch_without_name(monkeypatch):
 
 
 def test_handle_huginn_watch_empty_search(monkeypatch):
-    # Protege búsquedas vacías tras /watch
     sent = []
 
     class FakeText:
@@ -721,7 +643,6 @@ def test_handle_huginn_watch_empty_search(monkeypatch):
 
 
 def test_handle_huginn_watch_not_found(monkeypatch):
-    # Informa si IGDB no encuentra juegos
     sent = []
 
     monkeypatch.setattr(huginn, "search_igdb_games", lambda search_term: [])
@@ -736,7 +657,6 @@ def test_handle_huginn_watch_not_found(monkeypatch):
 
 
 def test_handle_huginn_watch_results(monkeypatch):
-    # Muestra resultados encontrados en IGDB
     sent = []
 
     games = [{"id": 123, "name": "Test Game"}]
@@ -772,7 +692,6 @@ def test_handle_huginn_watch_results(monkeypatch):
 
 
 def test_handle_huginn_unknown_command(monkeypatch):
-    # Ignora comandos desconocidos
     sent = []
 
     monkeypatch.setattr(huginn, "send_huginn_message", lambda *args: sent.append(args))
@@ -786,13 +705,7 @@ def test_handle_huginn_unknown_command(monkeypatch):
     assert sent == []
 
 
-# ============================================================
-# ENTRADA
-# ============================================================
-
-
 def test_handle_huginn_update_callback(monkeypatch):
-    # Prioriza callbacks válidos
     callback = {"id": "callback-1"}
 
     monkeypatch.setattr(
@@ -807,7 +720,6 @@ def test_handle_huginn_update_callback(monkeypatch):
 
 
 def test_handle_huginn_update_message(monkeypatch):
-    # Procesa mensajes normales
     message = {"text": "/help"}
 
     monkeypatch.setattr(
@@ -822,14 +734,12 @@ def test_handle_huginn_update_message(monkeypatch):
 
 
 def test_handle_huginn_update_empty():
-    # Ignora updates sin contenido útil
     result = huginn.handle_huginn_update({})
 
     assert result == {"ok": True}
 
 
 def test_build_watchlist_message_shows_precision(monkeypatch):
-    # Una fecha de solo año se muestra como año
     platform = {
         "id": 167,
         "label": "🔵 PS5",
@@ -845,10 +755,6 @@ def test_build_watchlist_message_shows_precision(monkeypatch):
 
     assert "🔵 PS5 — 2027" in huginn.build_watchlist_message()
 
-
-# ============================================================
-# JUEGOS LANZADOS
-# ============================================================
 
 ACTIVE_GAME = {
     "id": 1,
@@ -886,7 +792,6 @@ def mock_watchlist(monkeypatch, games):
 
 
 def test_build_watchlist_message_hides_released_games(monkeypatch):
-    # /watchlist solo muestra lo pendiente y cuenta lo archivado
     mock_watchlist(monkeypatch, [ACTIVE_GAME, *RELEASED_GAMES])
 
     result = huginn.build_watchlist_message()
@@ -905,7 +810,6 @@ def test_build_watchlist_message_only_released_games(monkeypatch):
 
 
 def test_build_released_message(monkeypatch):
-    # Más recientes primero
     mock_watchlist(monkeypatch, [ACTIVE_GAME, *RELEASED_GAMES])
 
     result = huginn.build_released_message()
@@ -951,17 +855,11 @@ def test_help_lists_released_command():
     assert "/released" in huginn.build_help_message()
 
 
-# ============================================================
-# ERRORES
-# ============================================================
-
-
 def failing_dispatch(update):
     raise OSError("IGDB unavailable")
 
 
 def test_update_error_is_reported_in_chat(monkeypatch, caplog):
-    # Si algo falla, Huginn lo dice en vez de quedarse callado
     sent = []
 
     monkeypatch.setattr(huginn, "dispatch_huginn_update", failing_dispatch)
@@ -992,7 +890,6 @@ def test_update_error_is_not_reported_to_other_chats(monkeypatch):
 
 
 def test_update_error_survives_failed_error_message(monkeypatch, caplog):
-    # Si tampoco se puede avisar, se registra y se responde OK
     def failing_send(chat_id, text):
         raise OSError("Telegram unavailable")
 

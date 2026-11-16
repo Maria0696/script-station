@@ -49,11 +49,6 @@ def configured_tool(tmp_path):
     return tool
 
 
-# ============================================================
-# CONFIG
-# ============================================================
-
-
 def test_load_config_uses_env_token(monkeypatch, tmp_path):
     repos = tmp_path / "repos.txt"
 
@@ -187,20 +182,10 @@ def test_load_config_dry_run_without_token(monkeypatch, tmp_path):
     assert tool.dry_run is True
 
 
-# ============================================================
-# REPOSITORIES
-# ============================================================
-
-
 def test_load_repositories(tmp_path):
     tool = configured_tool(tmp_path)
 
     assert tool.load_repositories() == ["repo-one", "repo-two"]
-
-
-# ============================================================
-# FILE VALIDATION
-# ============================================================
 
 
 def test_validate_files(tmp_path):
@@ -237,11 +222,6 @@ def test_validate_files_without_workflow_path(tmp_path):
     assert tool.validate_files() is False
 
 
-# ============================================================
-# TOKEN
-# ============================================================
-
-
 def test_validate_token(monkeypatch, tmp_path):
     tool = configured_tool(tmp_path)
 
@@ -258,11 +238,6 @@ def test_validate_token(monkeypatch, tmp_path):
     assert tool.validate_token() is False
 
 
-# ============================================================
-# BRANCH
-# ============================================================
-
-
 def test_build_branch_name(monkeypatch, tmp_path):
     tool = configured_tool(tmp_path)
 
@@ -271,11 +246,6 @@ def test_build_branch_name(monkeypatch, tmp_path):
     monkeypatch.setattr(add_workflow.secrets, "token_hex", lambda size: "abcdef12")
 
     assert tool.build_branch_name() == ("add-workflow-ci-1234567890-abcdef12")
-
-
-# ============================================================
-# DEFAULT BRANCH / SHA
-# ============================================================
 
 
 def test_get_default_branch_and_sha(monkeypatch, tmp_path):
@@ -317,11 +287,6 @@ def test_branch_sha_missing(monkeypatch, tmp_path):
         tool.get_branch_sha("repo-one", "master")
 
 
-# ============================================================
-# CREATE BRANCH
-# ============================================================
-
-
 def test_create_branch(monkeypatch, tmp_path):
     tool = configured_tool(tmp_path)
 
@@ -342,11 +307,6 @@ def test_create_branch(monkeypatch, tmp_path):
     assert kwargs["data"] == {"ref": ("refs/heads/feature"), "sha": "abc123"}
 
 
-# ============================================================
-# WORKFLOW UPLOAD
-# ============================================================
-
-
 def test_upload_workflow(monkeypatch, tmp_path):
     tool = configured_tool(tmp_path)
 
@@ -365,11 +325,6 @@ def test_upload_workflow(monkeypatch, tmp_path):
     decoded = base64.b64decode(kwargs["data"]["content"]).decode("utf-8")
 
     assert decoded == "name: CI\n"
-
-
-# ============================================================
-# PULL REQUEST
-# ============================================================
 
 
 def test_create_pull_request_success(monkeypatch, tmp_path, capsys):
@@ -417,11 +372,6 @@ def test_create_pull_request_failure(monkeypatch, tmp_path):
 
     with pytest.raises(RuntimeError, match=("Failed to create pull request")):
         tool.create_pull_request("repo-one", "feature", "master", "ci.yml")
-
-
-# ============================================================
-# GENERIC REQUEST
-# ============================================================
 
 
 def test_request_success(monkeypatch, tmp_path):
@@ -489,11 +439,6 @@ def test_request_failure(monkeypatch, tmp_path):
         tool.request("GET", "repo-one")
 
 
-# ============================================================
-# HEADERS
-# ============================================================
-
-
 def test_github_headers(tmp_path):
     tool = configured_tool(tmp_path)
 
@@ -502,11 +447,6 @@ def test_github_headers(tmp_path):
         "Accept": ("application/vnd.github+json"),
         "X-GitHub-Api-Version": "2022-11-28",
     }
-
-
-# ============================================================
-# PROCESS REPOSITORY
-# ============================================================
 
 
 def test_process_repository(monkeypatch, tmp_path):
@@ -535,11 +475,6 @@ def test_process_repository(monkeypatch, tmp_path):
     assert called == ["branch", "upload", "pr"]
 
 
-# ============================================================
-# DRY RUN
-# ============================================================
-
-
 def test_dry_run_output(tmp_path, capsys):
     tool = configured_tool(tmp_path)
 
@@ -554,11 +489,6 @@ def test_dry_run_output(tmp_path, capsys):
     assert ".github/workflows/ci.yml" in output
 
     assert "open a pull request" in output
-
-
-# ============================================================
-# RUN
-# ============================================================
 
 
 def test_run_config_cancelled(monkeypatch, tmp_path):
@@ -757,11 +687,6 @@ def test_run_value_error(monkeypatch, tmp_path):
     assert tool.run() == 1
 
 
-# ============================================================
-# MANUAL INPUT
-# ============================================================
-
-
 def test_manual_input_missing_required(monkeypatch, tmp_path):
     tool = configured_tool(tmp_path)
 
@@ -866,11 +791,6 @@ def test_manual_input_cancelled_token(monkeypatch, tmp_path):
     assert tool.github_token == ""
 
 
-# ============================================================
-# LOG
-# ============================================================
-
-
 def test_log(monkeypatch, tmp_path):
     tool = configured_tool(tmp_path)
 
@@ -885,11 +805,6 @@ def test_log(monkeypatch, tmp_path):
     assert "TEST MESSAGE" in content
 
 
-# ============================================================
-# PATHS
-# ============================================================
-
-
 def test_resolve_path_absolute_and_relative(monkeypatch, tmp_path):
     monkeypatch.setattr(add_workflow, "PROJECT_ROOT", tmp_path)
 
@@ -901,11 +816,6 @@ def test_resolve_path_absolute_and_relative(monkeypatch, tmp_path):
         add_workflow.resolve_path("relative.txt")
         == (tmp_path / "relative.txt").resolve()
     )
-
-
-# ============================================================
-# USER INPUT
-# ============================================================
 
 
 def test_ask_required_retries_empty_value(monkeypatch, capsys):
@@ -960,11 +870,6 @@ def test_confirm_action_false(monkeypatch):
     assert add_workflow.confirm_action("Continue?") is False
 
 
-# ============================================================
-# JSON
-# ============================================================
-
-
 def test_safe_json():
     response = FakeResponse(payload={"ok": True})
 
@@ -973,11 +878,6 @@ def test_safe_json():
 
 def test_safe_json_invalid():
     assert add_workflow.safe_json(BrokenJsonResponse()) == {}
-
-
-# ============================================================
-# PULL REQUEST DETECTION
-# ============================================================
 
 
 def test_pull_request_exists():
@@ -996,11 +896,6 @@ def test_pull_request_exists_other_error():
     assert not (
         add_workflow.pull_request_exists({"errors": [{"message": "Different error"}]})
     )
-
-
-# ============================================================
-# MAIN
-# ============================================================
 
 
 def test_main_success(monkeypatch):

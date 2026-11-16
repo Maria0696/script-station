@@ -28,7 +28,6 @@ from core import igdb  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def clear_igdb_token_cache():
-    # Cada test empieza sin token de IGDB guardado
     igdb.clear_token_cache()
 
     yield
@@ -37,7 +36,6 @@ def clear_igdb_token_cache():
 
 
 def pytest_report_teststatus(report, config):
-    # Muestra estado y duración de cada test
     if report.when != "call":
         return None
 

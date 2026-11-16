@@ -1,3 +1,6 @@
+# Aviso de workflow fallido a Heimdall, con botón de Re-run. Se ejecuta
+# como último paso de cada workflow: `if: always() && failure()`.
+
 import os
 import sys
 
@@ -5,7 +8,6 @@ from core.notifications import notifications
 
 
 def build_workflow_failure_message(workflow, repository, server_url, run_id):
-    # Construye el mensaje común de fallo
     return (
         "⚠️ WORKFLOW FAILED\n\n"
         f"🔧 {workflow}\n"
@@ -17,14 +19,13 @@ def build_workflow_failure_message(workflow, repository, server_url, run_id):
 
 
 def build_rerun_keyboard(run_id):
-    # Añade el botón para reintentar el workflow
     return {
         "inline_keyboard": [[{"text": "🔄 Re-run", "callback_data": f"rerun:{run_id}"}]]
     }
 
 
 def notify_workflow_failure():
-    # GitHub Actions proporciona estas variables
+    # Variables que GitHub Actions define en cada ejecución
     workflow = os.environ["GITHUB_WORKFLOW"]
 
     repository = os.environ["GITHUB_REPOSITORY"]
@@ -41,7 +42,6 @@ def notify_workflow_failure():
 
 
 def main(args=None):
-    # Permite añadir otros tipos de aviso en el futuro
     if args is None:
         args = sys.argv[1:]
 
