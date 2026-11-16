@@ -10,15 +10,32 @@ name = "script-station"
 version = "0.1.0"
 description = "Automation and monitoring toolkit"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 
+# Fuente única de dependencias. requirements*.txt se generan con:
+#   uv pip compile pyproject.toml --python-version 3.12 \
+#     --python-platform x86_64-unknown-linux-gnu -o requirements.txt
+#   uv pip compile pyproject.toml --extra dev -c requirements.txt \
+#     --python-version 3.12 --python-platform x86_64-unknown-linux-gnu \
+#     -o requirements-dev.txt
 dependencies = [
-    "fastapi",
-    "python-dotenv",
-    "PyYAML",
-    "questionary",
-    "requests",
-    "tzdata",
+    "fastapi>=0.141,<1",
+    "python-dotenv>=1.2,<2",
+    "PyYAML>=6.0,<7",
+    "questionary>=2.1,<3",
+    "requests>=2.34,<3",
+    "tzdata>=2026.4",
+    # Retry para los reintentos de IGDB
+    "urllib3>=2.7,<3",
+]
+
+
+[project.optional-dependencies]
+dev = [
+    "httpx2>=2.13,<3",
+    "pytest>=9.1,<10",
+    "pytest-cov>=7.1,<8",
+    "ruff>=0.16.7,<0.17",
 ]
 
 
