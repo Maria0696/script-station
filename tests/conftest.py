@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 TEST_ENV = {
     "TELEGRAM_BOT_TOKEN":
         "test-huginn-token",
@@ -30,6 +32,20 @@ for key, value in TEST_ENV.items():
     os.environ[
         key
     ] = value
+
+
+# Se importa después de fijar el entorno de test
+from core import igdb
+
+
+@pytest.fixture(autouse=True)
+def clear_igdb_token_cache():
+    # Cada test empieza sin token de IGDB guardado
+    igdb.clear_token_cache()
+
+    yield
+
+    igdb.clear_token_cache()
 
 
 def pytest_report_teststatus(

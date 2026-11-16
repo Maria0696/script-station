@@ -27,102 +27,6 @@ def timestamp(
 
 
 # ============================================================
-# AUTENTICACIÓN
-# ============================================================
-
-def test_get_access_token(
-    monkeypatch,
-):
-    captured = {}
-
-    class FakeResponse:
-        def raise_for_status(
-            self,
-        ):
-            captured[
-                "raised"
-            ] = True
-
-        def json(self):
-            return {
-                "access_token":
-                    "test-token",
-            }
-
-    def fake_post(
-        url,
-        params=None,
-        timeout=None,
-    ):
-        captured["url"] = url
-        captured["params"] = params
-        captured["timeout"] = timeout
-
-        return FakeResponse()
-
-    monkeypatch.setattr(
-        monitor.requests,
-        "post",
-        fake_post,
-    )
-
-    result = (
-        monitor.get_access_token()
-    )
-
-    assert (
-        result
-        == "test-token"
-    )
-
-    assert (
-        captured["url"]
-        == (
-            "https://id.twitch.tv/"
-            "oauth2/token"
-        )
-    )
-
-    assert captured[
-        "params"
-    ] == {
-        "client_id":
-            monitor.CLIENT_ID,
-        "client_secret":
-            monitor.CLIENT_SECRET,
-        "grant_type":
-            "client_credentials",
-    }
-
-    assert (
-        captured["timeout"]
-        == 30
-    )
-
-    assert (
-        captured["raised"]
-        is True
-    )
-
-
-def test_get_igdb_headers():
-    result = (
-        monitor.get_igdb_headers(
-            "test-token"
-        )
-    )
-
-    assert result == {
-        "Client-ID":
-            monitor.CLIENT_ID,
-        "Authorization":
-            "Bearer test-token",
-        "Accept":
-            "application/json",
-    }
-
-
-# ============================================================
 # WATCHLIST EN GITHUB
 # ============================================================
 
@@ -201,276 +105,6 @@ def test_save_watchlist(
 
 
 # ============================================================
-# JUEGOS DE IGDB
-# ============================================================
-
-def test_get_games_from_igdb_empty():
-    assert (
-        monitor
-        .get_games_from_igdb(
-            "token",
-            [],
-        )
-        == {}
-    )
-
-
-def test_get_games_from_igdb(
-    monkeypatch,
-):
-    captured = {}
-
-    class FakeResponse:
-        def raise_for_status(
-            self,
-        ):
-            pass
-
-        def json(self):
-            return [
-                {
-                    "id": 123,
-                    "name":
-                        "Game One",
-                },
-                {
-                    "id": 456,
-                    "name":
-                        "Game Two",
-                },
-            ]
-
-    def fake_post(
-        url,
-        headers=None,
-        data=None,
-        timeout=None,
-    ):
-        captured["url"] = url
-        captured["headers"] = headers
-        captured["query"] = data
-        captured["timeout"] = timeout
-
-        return FakeResponse()
-
-    monkeypatch.setattr(
-        monitor.requests,
-        "post",
-        fake_post,
-    )
-
-    result = (
-        monitor
-        .get_games_from_igdb(
-            "test-token",
-            [
-                123,
-                456,
-            ],
-        )
-    )
-
-    assert result == {
-        123: {
-            "id": 123,
-            "name":
-                "Game One",
-        },
-        456: {
-            "id": 456,
-            "name":
-                "Game Two",
-        },
-    }
-
-    assert (
-        captured["url"]
-        == (
-            "https://api.igdb.com/"
-            "v4/games"
-        )
-    )
-
-    assert (
-        "where id = (123,456);"
-        in captured["query"]
-    )
-
-    assert (
-        captured["timeout"]
-        == 30
-    )
-
-
-# ============================================================
-# FECHAS DE LANZAMIENTO
-# ============================================================
-
-def test_get_release_dates_from_igdb_empty():
-    assert (
-        monitor
-        .get_release_dates_from_igdb(
-            "token",
-            [],
-        )
-        == {}
-    )
-
-
-def test_get_release_dates_from_igdb(
-    monkeypatch,
-):
-    releases = [
-        {
-            "game": 123,
-            "platform": 167,
-            "date": timestamp(
-                2026,
-                9,
-                20,
-            ),
-            "release_region": {
-                "region":
-                    "europe",
-            },
-        },
-        {
-            "game": {
-                "id": 123,
-            },
-            "platform": 6,
-            "date": timestamp(
-                2026,
-                9,
-                25,
-            ),
-            "release_region": {
-                "region":
-                    "worldwide",
-            },
-        },
-        {
-            "game": 123,
-            "platform": 167,
-            "date": timestamp(
-                2026,
-                10,
-                1,
-            ),
-        },
-        {
-            "game": 123,
-            "platform": 130,
-            "date": timestamp(
-                2026,
-                9,
-                22,
-            ),
-            "release_region": {
-                "region":
-                    "japan",
-            },
-        },
-        {
-            "game": 123,
-            "platform": 999999,
-            "date": timestamp(
-                2026,
-                9,
-                22,
-            ),
-        },
-        {
-            "game": 123,
-            "platform": 508,
-            "date": None,
-        },
-    ]
-
-    class FakeResponse:
-        def raise_for_status(
-            self,
-        ):
-            pass
-
-        def json(self):
-            return releases
-
-    monkeypatch.setattr(
-        monitor.requests,
-        "post",
-        lambda *args, **kwargs:
-            FakeResponse(),
-    )
-
-    result = (
-        monitor
-        .get_release_dates_from_igdb(
-            "test-token",
-            [123],
-        )
-    )
-
-    assert result == {
-        123: {
-            167:
-                "2026-09-20",
-            6:
-                "2026-09-25",
-        }
-    }
-
-
-# ============================================================
-# FECHAS
-# ============================================================
-
-def test_timestamp_to_date():
-    result = (
-        monitor.timestamp_to_date(
-            timestamp(
-                2026,
-                9,
-                20,
-            )
-        )
-    )
-
-    assert (
-        result
-        == "2026-09-20"
-    )
-
-
-def test_timestamp_to_date_empty():
-    assert (
-        monitor
-        .timestamp_to_date(
-            None
-        )
-        is None
-    )
-
-
-def test_display_date():
-    assert (
-        monitor.display_date(
-            "2026-09-20"
-        )
-        == "20-09-2026"
-    )
-
-
-def test_display_date_empty():
-    assert (
-        monitor.display_date(
-            None
-        )
-        == "Sin fecha"
-    )
-
-
-# ============================================================
 # NOTIFICACIONES
 # ============================================================
 
@@ -540,130 +174,6 @@ def test_send_notification(
         captured["chat_id"]
         is None
     )
-
-
-# ============================================================
-# PLATAFORMAS
-# ============================================================
-
-def test_build_platforms():
-    game = {
-        "platforms": [
-            6,
-            167,
-        ],
-    }
-
-    release_dates = {
-        167:
-            "2026-09-20",
-        6:
-            "2026-09-25",
-    }
-
-    result = (
-        monitor.build_platforms(
-            game,
-            release_dates,
-        )
-    )
-
-    assert result == [
-        {
-            "id": 167,
-            "label":
-                "🔵 PS5",
-            "release_date":
-                "2026-09-20",
-        },
-        {
-            "id": 6,
-            "label":
-                "💻 PC",
-            "release_date":
-                "2026-09-25",
-        },
-    ]
-
-
-def test_build_platforms_adds_release_platform():
-    game = {
-        "platforms": [],
-    }
-
-    result = (
-        monitor.build_platforms(
-            game,
-            {
-                167:
-                    "2026-09-20",
-            },
-        )
-    )
-
-    assert result == [
-        {
-            "id": 167,
-            "label":
-                "🔵 PS5",
-            "release_date":
-                "2026-09-20",
-        }
-    ]
-
-
-def test_build_platforms_groups_meta_quest():
-    game = {
-        "platforms": [
-            471,
-            386,
-        ],
-    }
-
-    result = (
-        monitor.build_platforms(
-            game,
-            {},
-        )
-    )
-
-    assert result == [
-        {
-            "id": 471,
-            "label":
-                "🥽 Meta Quest",
-            "release_date":
-                None,
-        }
-    ]
-
-
-def test_build_platforms_uses_second_quest_date_when_needed():
-    game = {
-        "platforms": [
-            471,
-            386,
-        ],
-    }
-
-    result = (
-        monitor.build_platforms(
-            game,
-            {
-                386: "2026-10-02",
-            },
-        )
-    )
-
-    assert result == [
-        {
-            "id": 471,
-            "label":
-                "🥽 Meta Quest",
-            "release_date":
-                "2026-10-02",
-        }
-    ]
 
 
 # ============================================================
@@ -833,23 +343,16 @@ def test_monitor_watchlist_game_not_found(
     )
 
     monkeypatch.setattr(
-        monitor,
-        "get_access_token",
-        lambda:
-            "token",
-    )
-
-    monkeypatch.setattr(
-        monitor,
-        "get_games_from_igdb",
-        lambda token, ids:
+        monitor.igdb,
+        "get_igdb_games",
+        lambda ids:
             {},
     )
 
     monkeypatch.setattr(
-        monitor,
-        "get_release_dates_from_igdb",
-        lambda token, ids:
+        monitor.igdb,
+        "get_release_dates",
+        lambda ids:
             {},
     )
 
@@ -913,16 +416,9 @@ def test_monitor_watchlist_migrates_old_format(
     )
 
     monkeypatch.setattr(
-        monitor,
-        "get_access_token",
-        lambda:
-            "token",
-    )
-
-    monkeypatch.setattr(
-        monitor,
-        "get_games_from_igdb",
-        lambda token, ids: {
+        monitor.igdb,
+        "get_igdb_games",
+        lambda ids: {
             123: {
                 "id": 123,
                 "name":
@@ -941,9 +437,9 @@ def test_monitor_watchlist_migrates_old_format(
     )
 
     monkeypatch.setattr(
-        monitor,
-        "get_release_dates_from_igdb",
-        lambda token, ids: {
+        monitor.igdb,
+        "get_release_dates",
+        lambda ids: {
             123: {
                 167:
                     "2026-09-20",
@@ -1046,16 +542,9 @@ def test_monitor_watchlist_date_changed(
     )
 
     monkeypatch.setattr(
-        monitor,
-        "get_access_token",
-        lambda:
-            "token",
-    )
-
-    monkeypatch.setattr(
-        monitor,
-        "get_games_from_igdb",
-        lambda token, ids: {
+        monitor.igdb,
+        "get_igdb_games",
+        lambda ids: {
             123: {
                 "id": 123,
                 "name":
@@ -1074,9 +563,9 @@ def test_monitor_watchlist_date_changed(
     )
 
     monkeypatch.setattr(
-        monitor,
-        "get_release_dates_from_igdb",
-        lambda token, ids: {
+        monitor.igdb,
+        "get_release_dates",
+        lambda ids: {
             123: {
                 167:
                     "2026-10-01",
@@ -1168,16 +657,9 @@ def mock_delayed_game(
     )
 
     monkeypatch.setattr(
-        monitor,
-        "get_access_token",
-        lambda:
-            "token",
-    )
-
-    monkeypatch.setattr(
-        monitor,
-        "get_games_from_igdb",
-        lambda token, ids: {
+        monitor.igdb,
+        "get_igdb_games",
+        lambda ids: {
             123: {
                 "id": 123,
                 "name":
@@ -1190,9 +672,9 @@ def mock_delayed_game(
     )
 
     monkeypatch.setattr(
-        monitor,
-        "get_release_dates_from_igdb",
-        lambda token, ids: {
+        monitor.igdb,
+        "get_release_dates",
+        lambda ids: {
             123: {
                 167:
                     "2026-10-01",
@@ -1301,16 +783,9 @@ def test_monitor_watchlist_without_changes(
     )
 
     monkeypatch.setattr(
-        monitor,
-        "get_access_token",
-        lambda:
-            "token",
-    )
-
-    monkeypatch.setattr(
-        monitor,
-        "get_games_from_igdb",
-        lambda token, ids: {
+        monitor.igdb,
+        "get_igdb_games",
+        lambda ids: {
             123: {
                 "id": 123,
                 "name":
@@ -1329,9 +804,9 @@ def test_monitor_watchlist_without_changes(
     )
 
     monkeypatch.setattr(
-        monitor,
-        "get_release_dates_from_igdb",
-        lambda token, ids: {
+        monitor.igdb,
+        "get_release_dates",
+        lambda ids: {
             123: {
                 167:
                     "2026-09-20",
@@ -1405,16 +880,9 @@ def test_monitor_watchlist_platform_change(
     )
 
     monkeypatch.setattr(
-        monitor,
-        "get_access_token",
-        lambda:
-            "token",
-    )
-
-    monkeypatch.setattr(
-        monitor,
-        "get_games_from_igdb",
-        lambda token, ids: {
+        monitor.igdb,
+        "get_igdb_games",
+        lambda ids: {
             123: {
                 "id": 123,
                 "name":
@@ -1428,9 +896,9 @@ def test_monitor_watchlist_platform_change(
     )
 
     monkeypatch.setattr(
-        monitor,
-        "get_release_dates_from_igdb",
-        lambda token, ids:
+        monitor.igdb,
+        "get_release_dates",
+        lambda ids:
             {},
     )
 
