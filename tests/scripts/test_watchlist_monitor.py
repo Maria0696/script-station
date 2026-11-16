@@ -196,7 +196,9 @@ def test_monitor_watchlist_migrates_old_format(monkeypatch, caplog):
     )
 
     monkeypatch.setattr(
-        monitor.igdb, "get_release_dates", lambda ids: {123: {167: "2026-09-20"}}
+        monitor.igdb,
+        "get_release_dates",
+        lambda ids: {123: {167: {"date": "2026-09-20", "precision": "day"}}},
     )
 
     monkeypatch.setattr(
@@ -218,7 +220,12 @@ def test_monitor_watchlist_migrates_old_format(monkeypatch, caplog):
     assert watchlist[0]["release_date"] == "2026-09-20"
 
     assert watchlist[0]["platforms"] == [
-        {"id": 167, "label": "🔵 PS5", "release_date": "2026-09-20"}
+        {
+            "id": 167,
+            "label": "🔵 PS5",
+            "release_date": "2026-09-20",
+            "date_precision": "day",
+        }
     ]
 
 
@@ -228,7 +235,14 @@ def test_monitor_watchlist_date_changed(monkeypatch):
             "id": 123,
             "name": "Test Game",
             "release_date": "2026-09-20",
-            "platforms": [{"id": 167, "label": "🔵 PS5", "release_date": "2026-09-20"}],
+            "platforms": [
+                {
+                    "id": 167,
+                    "label": "🔵 PS5",
+                    "release_date": "2026-09-20",
+                    "date_precision": "day",
+                }
+            ],
         }
     ]
 
@@ -251,7 +265,9 @@ def test_monitor_watchlist_date_changed(monkeypatch):
     )
 
     monkeypatch.setattr(
-        monitor.igdb, "get_release_dates", lambda ids: {123: {167: "2026-10-01"}}
+        monitor.igdb,
+        "get_release_dates",
+        lambda ids: {123: {167: {"date": "2026-10-01", "precision": "day"}}},
     )
 
     monkeypatch.setattr(
@@ -282,7 +298,14 @@ def mock_delayed_game(monkeypatch, events):
             "id": 123,
             "name": "Test Game",
             "release_date": "2026-09-20",
-            "platforms": [{"id": 167, "label": "🔵 PS5", "release_date": "2026-09-20"}],
+            "platforms": [
+                {
+                    "id": 167,
+                    "label": "🔵 PS5",
+                    "release_date": "2026-09-20",
+                    "date_precision": "day",
+                }
+            ],
         }
     ]
 
@@ -295,7 +318,9 @@ def mock_delayed_game(monkeypatch, events):
     )
 
     monkeypatch.setattr(
-        monitor.igdb, "get_release_dates", lambda ids: {123: {167: "2026-10-01"}}
+        monitor.igdb,
+        "get_release_dates",
+        lambda ids: {123: {167: {"date": "2026-10-01", "precision": "day"}}},
     )
 
     monkeypatch.setattr(
@@ -339,7 +364,14 @@ def test_monitor_watchlist_without_changes(monkeypatch):
             "id": 123,
             "name": "Test Game",
             "release_date": "2026-09-20",
-            "platforms": [{"id": 167, "label": "🔵 PS5", "release_date": "2026-09-20"}],
+            "platforms": [
+                {
+                    "id": 167,
+                    "label": "🔵 PS5",
+                    "release_date": "2026-09-20",
+                    "date_precision": "day",
+                }
+            ],
         }
     ]
 
@@ -362,7 +394,9 @@ def test_monitor_watchlist_without_changes(monkeypatch):
     )
 
     monkeypatch.setattr(
-        monitor.igdb, "get_release_dates", lambda ids: {123: {167: "2026-09-20"}}
+        monitor.igdb,
+        "get_release_dates",
+        lambda ids: {123: {167: {"date": "2026-09-20", "precision": "day"}}},
     )
 
     monkeypatch.setattr(monitor, "save_watchlist", lambda data, sha: saved.append(data))
@@ -385,7 +419,14 @@ def test_monitor_watchlist_platform_change(monkeypatch):
         {
             "id": 123,
             "name": "Test Game",
-            "platforms": [{"id": 167, "label": "🔵 PS5", "release_date": None}],
+            "platforms": [
+                {
+                    "id": 167,
+                    "label": "🔵 PS5",
+                    "release_date": None,
+                    "date_precision": None,
+                }
+            ],
         }
     ]
 
@@ -427,3 +468,114 @@ def test_main(monkeypatch):
     monitor.main()
 
     assert called == [True]
+
+
+# ============================================================
+# PRECISIÓN DE FECHAS
+# ============================================================
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "title"),
+    [
+        # "2027" pasa a un día de 2027: se concreta, no se adelanta
+        (("2027-12-31", "year"), ("2027-03-15", "day"), "📅 FECHA CONCRETADA"),
+        (("2027-12-31", "quarter"), ("2027-11-30", "month"), "📅 FECHA CONCRETADA"),
+        (("2027-02-12", "day"), ("2027-12-31", "year"), "⚠️ FECHA MENOS CONCRETA"),
+        (("2027-12-31", "year"), ("2028-01-10", "day"), "⏳ RETRASO DE LANZAMIENTO"),
+        (
+            ("2027-03-31", "quarter"),
+            ("2026-12-01", "day"),
+            "⏩ ADELANTO DE LANZAMIENTO",
+        ),
+    ],
+)
+def test_build_change_message_with_precision(old, new, title):
+    message = monitor.build_change_message(
+        "Ill", "🔵 PS5", old[0], new[0], old[1], new[1]
+    )
+
+    assert message.startswith(title)
+
+
+def test_build_change_message_shows_precision():
+    message = monitor.build_change_message(
+        "Ill", "🔵 PS5", "2027-12-31", "2027-03-31", "year", "month"
+    )
+
+    assert "Antes: 2027\nAhora: Marzo 2027" in message
+
+
+def test_build_change_message_same_period_and_precision():
+    # Mismo periodo y misma precisión: no hay nada que avisar
+    message = monitor.build_change_message(
+        "Ill", "🔵 PS5", "2027-12-30", "2027-12-31", "year", "year"
+    )
+
+    assert message is None
+
+
+def mock_ill(monkeypatch, stored_platform, new_release, events):
+    # "Ill" con una sola plataforma y la fecha que devuelve IGDB
+    watchlist = [{"id": 142520, "name": "Ill", "platforms": [stored_platform]}]
+
+    monkeypatch.setattr(monitor, "load_watchlist", lambda: (watchlist, "sha"))
+
+    monkeypatch.setattr(
+        monitor.igdb,
+        "get_igdb_games",
+        lambda ids: {142520: {"id": 142520, "name": "Ill", "platforms": [167]}},
+    )
+
+    monkeypatch.setattr(
+        monitor.igdb, "get_release_dates", lambda ids: {142520: {167: new_release}}
+    )
+
+    monkeypatch.setattr(monitor, "send_notification", events.append)
+
+    monkeypatch.setattr(
+        monitor, "save_watchlist", lambda data, sha: events.append("save")
+    )
+
+    return watchlist
+
+
+def test_monitor_watchlist_migrates_precision_silently(monkeypatch):
+    # Dato antiguo sin precisión y misma fecha: se actualiza sin avisar
+    events = []
+
+    watchlist = mock_ill(
+        monkeypatch,
+        {"id": 167, "label": "🔵 PS5", "release_date": "2027-12-31"},
+        {"date": "2027-12-31", "precision": "year"},
+        events,
+    )
+
+    assert monitor.monitor_watchlist() is True
+
+    assert events == ["save"]
+
+    assert watchlist[0]["platforms"][0]["date_precision"] == "year"
+
+
+def test_monitor_watchlist_notifies_concrete_date(monkeypatch):
+    # "2027" -> 15-03-2027 se avisa como fecha concretada
+    events = []
+
+    mock_ill(
+        monkeypatch,
+        {
+            "id": 167,
+            "label": "🔵 PS5",
+            "release_date": "2027-12-31",
+            "date_precision": "year",
+        },
+        {"date": "2027-03-15", "precision": "day"},
+        events,
+    )
+
+    monitor.monitor_watchlist()
+
+    assert events[0] == "save"
+    assert events[1].startswith("📅 FECHA CONCRETADA")
+    assert "Antes: 2027\nAhora: 15-03-2027" in events[1]

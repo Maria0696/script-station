@@ -5,6 +5,7 @@ from core.config import HUGINN_CHAT_ID
 from core.github import get_watchlist, save_watchlist
 from core.igdb import (
     build_platform_data,
+    display_platform_date,
     display_release_date,
     format_release_date,
     get_igdb_game,
@@ -94,10 +95,7 @@ def build_watchlist_message():
         if platforms and isinstance(platforms[0], dict):
             for platform in platforms:
                 lines.append(
-                    "      "
-                    f"{platform['label']}"
-                    " — "
-                    f"{display_release_date(platform.get('release_date'))}"
+                    f"      {platform['label']} — {display_platform_date(platform)}"
                 )
 
         # Compatibilidad con formato antiguo
@@ -161,6 +159,7 @@ def get_upcoming_games():
                         "label": platform["label"],
                         "date": date_string,
                         "date_obj": release_date,
+                        "display": display_platform_date(platform),
                     }
                 )
 
@@ -177,7 +176,12 @@ def get_upcoming_games():
                     label = "Plataformas por confirmar"
 
                 future_releases.append(
-                    {"label": label, "date": date_string, "date_obj": release_date}
+                    {
+                        "label": label,
+                        "date": date_string,
+                        "date_obj": release_date,
+                        "display": display_release_date(date_string),
+                    }
                 )
 
         if not future_releases:
@@ -212,9 +216,7 @@ def build_next_message():
         lines.append(f"🎮 {game['name']}")
 
         for release in game["releases"]:
-            lines.append(
-                f"      {release['label']} — {display_release_date(release['date'])}"
-            )
+            lines.append(f"      {release['label']} — {release['display']}")
 
         lines.append("")
 

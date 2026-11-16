@@ -252,8 +252,8 @@ def test_build_next_message(monkeypatch):
             {
                 "name": "Test Game",
                 "releases": [
-                    {"label": "PS5", "date": "2026-09-20"},
-                    {"label": "PC", "date": "2026-09-21"},
+                    {"label": "PS5", "date": "2026-09-20", "display": "20-09-2026"},
+                    {"label": "PC", "date": "2027-12-31", "display": "2027"},
                 ],
             }
         ],
@@ -265,7 +265,7 @@ def test_build_next_message(monkeypatch):
 
     assert "🎮 Test Game" in result
     assert "PS5 — 20-09-2026" in result
-    assert "PC — 21-09-2026" in result
+    assert "PC — 2027" in result
 
 
 # ============================================================
@@ -826,3 +826,21 @@ def test_handle_huginn_update_empty():
     result = huginn.handle_huginn_update({})
 
     assert result == {"ok": True}
+
+
+def test_build_watchlist_message_shows_precision(monkeypatch):
+    # Una fecha de solo año se muestra como año
+    platform = {
+        "id": 167,
+        "label": "🔵 PS5",
+        "release_date": "2027-12-31",
+        "date_precision": "year",
+    }
+
+    monkeypatch.setattr(
+        huginn,
+        "get_watchlist",
+        lambda: ([{"id": 1, "name": "Ill", "platforms": [platform]}], "sha"),
+    )
+
+    assert "🔵 PS5 — 2027" in huginn.build_watchlist_message()
