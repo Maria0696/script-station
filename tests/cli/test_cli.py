@@ -11,11 +11,6 @@ class FakePrompt:
         return self.value
 
 
-# ============================================================
-# ENTORNO
-# ============================================================
-
-
 def test_load_environment(monkeypatch):
     captured = []
 
@@ -40,11 +35,6 @@ def test_environment_ready_success(monkeypatch):
     assert cli.environment_ready(("CLI_TEST_SECRET",)) is True
 
 
-# ============================================================
-# INTERACCIÓN
-# ============================================================
-
-
 def test_select_option(monkeypatch):
     monkeypatch.setattr(
         cli.questionary, "select", lambda *args, **kwargs: FakePrompt("Selected")
@@ -59,11 +49,6 @@ def test_confirm_action(monkeypatch):
     )
 
     assert cli.confirm_action("Continue?") is True
-
-
-# ============================================================
-# RELEASES
-# ============================================================
 
 
 def test_run_releases(monkeypatch):
@@ -88,11 +73,6 @@ def test_run_releases_cancelled(monkeypatch):
     assert cli.run_releases(confirm=True) == 0
 
 
-# ============================================================
-# WATCHLIST
-# ============================================================
-
-
 def test_run_watchlist(monkeypatch):
     from scripts import watchlist_monitor
 
@@ -115,11 +95,6 @@ def test_run_watchlist_cancelled(monkeypatch):
     assert cli.run_watchlist(confirm=True) == 0
 
 
-# ============================================================
-# ENTORNO INCOMPLETO
-# ============================================================
-
-
 def test_commands_fail_without_environment(monkeypatch):
     monkeypatch.setattr(cli, "environment_ready", lambda required: False)
 
@@ -132,11 +107,6 @@ def test_commands_fail_without_environment(monkeypatch):
     assert cli.run_heimdall_failures() == 1
 
 
-# ============================================================
-# NOTIFY
-# ============================================================
-
-
 def test_run_notify(monkeypatch):
     from scripts import notify
 
@@ -147,11 +117,6 @@ def test_run_notify(monkeypatch):
     assert cli.run_notify("workflow-failed") == 0
 
     assert captured == [["workflow-failed"]]
-
-
-# ============================================================
-# HEIMDALL
-# ============================================================
 
 
 def test_run_heimdall_status(monkeypatch, capsys):
@@ -178,11 +143,6 @@ def test_run_heimdall_failures(monkeypatch, capsys):
     assert "TEST FAILURES" in capsys.readouterr().out
 
 
-# ============================================================
-# WRAPPERS
-# ============================================================
-
-
 def test_run_add_workflow(monkeypatch):
     from scripts import add_workflow
 
@@ -197,11 +157,6 @@ def test_run_package_manager(monkeypatch):
     monkeypatch.setattr(package_manager, "main", lambda: 4)
 
     assert cli.run_package_manager() == 4
-
-
-# ============================================================
-# MENÚS
-# ============================================================
 
 
 def test_git_support_menu(monkeypatch):
@@ -294,11 +249,6 @@ def test_interactive_menu(monkeypatch):
     assert called == ["github", "install", "games", "heimdall"]
 
 
-# ============================================================
-# PARSER
-# ============================================================
-
-
 def test_parser_nested_commands():
     parser = cli.build_parser()
 
@@ -315,11 +265,6 @@ def test_parser_nested_commands():
     assert heimdall.heimdall_command == "failures"
 
 
-# ============================================================
-# DISPATCH
-# ============================================================
-
-
 def test_dispatch_fallback():
     called = []
 
@@ -330,11 +275,6 @@ def test_dispatch_fallback():
     assert cli.dispatch(parsed, parser) == 1
 
     assert called == [True]
-
-
-# ============================================================
-# MAIN
-# ============================================================
 
 
 def test_main_defaults_to_menu(monkeypatch):

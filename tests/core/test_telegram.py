@@ -19,11 +19,6 @@ class FakeResponse:
         return self.data
 
 
-# ============================================================
-# TELEGRAM API
-# ============================================================
-
-
 def test_telegram_api(monkeypatch):
     captured = {}
 
@@ -48,7 +43,6 @@ def test_telegram_api(monkeypatch):
 
 
 def test_telegram_api_error_hides_bot_token(monkeypatch):
-    # El token va en la URL y los logs de Actions son públicos
     monkeypatch.setattr(
         telegram.session,
         "post",
@@ -66,16 +60,10 @@ def test_telegram_api_error_hides_bot_token(monkeypatch):
 
 
 def test_session_does_not_retry_server_errors():
-    # Con un 500 el mensaje podría haberse enviado: no se repite
     retry = telegram.session.get_adapter("https://api.telegram.org").max_retries
 
     assert set(retry.status_forcelist) == {429, 502, 503, 504}
     assert set(retry.allowed_methods) == {"POST"}
-
-
-# ============================================================
-# SEND MESSAGE
-# ============================================================
 
 
 def test_send_message_with_parse_mode(monkeypatch):
@@ -106,11 +94,6 @@ def test_send_message_with_parse_mode(monkeypatch):
         "reply_markup": keyboard,
         "parse_mode": "HTML",
     }
-
-
-# ============================================================
-# HUGINN
-# ============================================================
 
 
 def test_send_huginn_message_without_markup(monkeypatch):
@@ -167,11 +150,6 @@ def test_send_huginn_message_with_markup(monkeypatch):
     }
 
 
-# ============================================================
-# HEIMDALL
-# ============================================================
-
-
 def test_send_heimdall_message(monkeypatch):
     captured = {}
 
@@ -195,11 +173,6 @@ def test_send_heimdall_message(monkeypatch):
     assert captured["method"] == "sendMessage"
 
     assert captured["data"] == {"chat_id": "456", "text": "Workflow failed"}
-
-
-# ============================================================
-# CALLBACKS
-# ============================================================
 
 
 def test_answer_huginn_callback(monkeypatch):
@@ -250,11 +223,6 @@ def test_answer_heimdall_callback(monkeypatch):
     assert captured["method"] == "answerCallbackQuery"
 
     assert captured["data"] == {"callback_query_id": "callback-1", "text": "Done"}
-
-
-# ============================================================
-# CHAT DE UN UPDATE
-# ============================================================
 
 
 @pytest.mark.parametrize(

@@ -11,13 +11,10 @@ from core import igdb
 
 
 def timestamp(year, month, day):
-    # Crea timestamps UTC para los tests
     return int(datetime(year, month, day, tzinfo=UTC).timestamp())
 
 
 class FakeResponse:
-    # Respuesta mínima de requests
-
     def __init__(self, data, status_code=200, text=""):
         self.data = data
         self.status_code = status_code
@@ -33,7 +30,6 @@ class FakeResponse:
 
 
 def mock_igdb_request(monkeypatch, result):
-    # Sustituye igdb_request y guarda las llamadas
     calls = []
 
     def fake_request(endpoint, query):
@@ -46,42 +42,27 @@ def mock_igdb_request(monkeypatch, result):
     return calls
 
 
-# ============================================================
-# FECHAS
-# ============================================================
-
-
 def test_format_release_date():
-    # Convierte timestamp a fecha interna
     result = igdb.format_release_date(timestamp(2026, 9, 15))
 
     assert result == "2026-09-15"
 
 
 def test_format_release_date_without_timestamp():
-    # Devuelve None si no hay timestamp
     assert igdb.format_release_date(None) is None
 
 
 def test_display_release_date():
-    # Convierte la fecha al formato visible
     result = igdb.display_release_date("2026-09-15")
 
     assert result == "15-09-2026"
 
 
 def test_display_release_date_without_date():
-    # Muestra texto cuando no hay fecha
     assert igdb.display_release_date(None) == "Sin fecha"
 
 
-# ============================================================
-# TOKEN
-# ============================================================
-
-
 def test_get_igdb_token(monkeypatch):
-    # Pide el token de Twitch con las credenciales
     captured = {}
 
     def fake_post(url, params, timeout):
@@ -105,7 +86,6 @@ def test_get_igdb_token(monkeypatch):
 
 
 def test_get_igdb_token_is_reused_until_expiry(monkeypatch):
-    # No pide otro token mientras el actual siga vigente
     calls = []
     now = [1000.0]
 
@@ -150,13 +130,7 @@ def test_get_igdb_token_error(monkeypatch):
     assert igdb._token_cache["access_token"] is None
 
 
-# ============================================================
-# PETICIONES
-# ============================================================
-
-
 def test_igdb_request(monkeypatch):
-    # Comprueba una petición genérica a IGDB
     captured = {}
 
     monkeypatch.setattr(igdb, "get_igdb_token", lambda: "test-token")
@@ -186,7 +160,6 @@ def test_igdb_request(monkeypatch):
 
 
 def test_igdb_request_error_includes_response(monkeypatch):
-    # El error incluye el endpoint y la respuesta de IGDB
     monkeypatch.setattr(igdb, "get_igdb_token", lambda: "test-token")
 
     monkeypatch.setattr(
@@ -203,11 +176,6 @@ def test_igdb_request_error_includes_response(monkeypatch):
         igdb.igdb_request("games", "fields id")
 
 
-# ============================================================
-# REGIONES
-# ============================================================
-
-
 @pytest.mark.parametrize(
     ("release", "expected"),
     [
@@ -221,17 +189,10 @@ def test_igdb_request_error_includes_response(monkeypatch):
     ],
 )
 def test_is_valid_region(release, expected):
-    # Solo Europa, Worldwide o sin región
     assert igdb.is_valid_region(release) is expected
 
 
-# ============================================================
-# BÚSQUEDA
-# ============================================================
-
-
 def test_search_igdb_games(monkeypatch):
-    # Comprueba la búsqueda de juegos por nombre
     calls = mock_igdb_request(monkeypatch, [{"id": 123, "name": "Test Game"}])
 
     result = igdb.search_igdb_games('Game "Test"')
@@ -246,7 +207,6 @@ def test_search_igdb_games(monkeypatch):
 
 
 def test_search_igdb_games_escapes_backslashes(monkeypatch):
-    # Escapa barras invertidas en búsquedas
     calls = mock_igdb_request(monkeypatch, [])
 
     igdb.search_igdb_games(r"Game\Test")
@@ -254,13 +214,7 @@ def test_search_igdb_games_escapes_backslashes(monkeypatch):
     assert r"Game\\Test" in calls[0]["query"]
 
 
-# ============================================================
-# JUEGOS
-# ============================================================
-
-
 def test_get_igdb_games(monkeypatch):
-    # Indexa los juegos por ID
     calls = mock_igdb_request(
         monkeypatch, [{"id": 123, "name": "Game A"}, {"id": 456, "name": "Game B"}]
     )
@@ -277,7 +231,6 @@ def test_get_igdb_games(monkeypatch):
 
 
 def test_get_igdb_games_empty(monkeypatch):
-    # Sin IDs no consulta IGDB
     calls = mock_igdb_request(monkeypatch, [])
 
     assert igdb.get_igdb_games([]) == {}
@@ -285,7 +238,6 @@ def test_get_igdb_games_empty(monkeypatch):
 
 
 def test_get_igdb_game(monkeypatch):
-    # Obtiene un juego concreto por ID
     calls = mock_igdb_request(
         monkeypatch, [{"id": 123, "name": "Test Game", "platforms": [167]}]
     )
@@ -298,19 +250,12 @@ def test_get_igdb_game(monkeypatch):
 
 
 def test_get_igdb_game_not_found(monkeypatch):
-    # Devuelve None si el juego no existe
     mock_igdb_request(monkeypatch, [])
 
     assert igdb.get_igdb_game(999) is None
 
 
-# ============================================================
-# FECHAS POR PLATAFORMA
-# ============================================================
-
-
 def test_get_release_dates(monkeypatch):
-    # Agrupa la primera fecha válida por juego y plataforma
     calls = mock_igdb_request(
         monkeypatch,
         [
@@ -369,7 +314,6 @@ def test_get_release_dates(monkeypatch):
 
 
 def test_get_release_dates_empty(monkeypatch):
-    # Sin IDs no consulta IGDB
     calls = mock_igdb_request(monkeypatch, [])
 
     assert igdb.get_release_dates([]) == {}
@@ -377,7 +321,6 @@ def test_get_release_dates_empty(monkeypatch):
 
 
 def test_get_platform_release_dates(monkeypatch):
-    # Devuelve las fechas de un solo juego
     monkeypatch.setattr(
         igdb,
         "get_release_dates",
@@ -392,19 +335,12 @@ def test_get_platform_release_dates(monkeypatch):
 
 
 def test_get_platform_release_dates_without_dates(monkeypatch):
-    # Devuelve vacío si el juego no tiene fechas
     monkeypatch.setattr(igdb, "get_release_dates", lambda game_ids: {})
 
     assert igdb.get_platform_release_dates(123) == {}
 
 
-# ============================================================
-# LANZAMIENTOS Y POPULARIDAD
-# ============================================================
-
-
 def test_get_releases_between(monkeypatch):
-    # Consulta los lanzamientos del intervalo
     releases = [{"id": 1}]
 
     calls = mock_igdb_request(monkeypatch, releases)
@@ -423,7 +359,6 @@ def test_get_releases_between(monkeypatch):
 
 
 def test_get_popularity_primitives(monkeypatch):
-    # Consulta la popularidad de varios juegos
     calls = mock_igdb_request(monkeypatch, [{"game_id": 123}])
 
     result = igdb.get_popularity_primitives([123, 456], [1, 2])
@@ -435,20 +370,13 @@ def test_get_popularity_primitives(monkeypatch):
 
 
 def test_get_popularity_primitives_empty(monkeypatch):
-    # Sin juegos no consulta IGDB
     calls = mock_igdb_request(monkeypatch, [])
 
     assert igdb.get_popularity_primitives([], [1]) == []
     assert calls == []
 
 
-# ============================================================
-# PLATAFORMAS
-# ============================================================
-
-
 def test_build_platform_data(monkeypatch):
-    # Ordena plataformas y añade sus fechas
     monkeypatch.setattr(
         igdb,
         "get_platform_release_dates",
@@ -479,7 +407,6 @@ def test_build_platform_data(monkeypatch):
 
 
 def test_build_platform_data_with_known_dates(monkeypatch):
-    # Con fechas ya conocidas no consulta IGDB
     def fail(game_id):
         raise AssertionError("unexpected IGDB call")
 
@@ -493,7 +420,6 @@ def test_build_platform_data_with_known_dates(monkeypatch):
 
 
 def test_build_platform_data_adds_platform_from_release_date(monkeypatch):
-    # Añade plataformas detectadas por su fecha
     monkeypatch.setattr(
         igdb,
         "get_platform_release_dates",
@@ -515,7 +441,6 @@ def test_build_platform_data_adds_platform_from_release_date(monkeypatch):
 
 
 def test_build_platform_data_groups_meta_quest(monkeypatch):
-    # Agrupa Quest 2 y Quest 3
     monkeypatch.setattr(
         igdb,
         "get_platform_release_dates",
@@ -540,7 +465,6 @@ def test_build_platform_data_groups_meta_quest(monkeypatch):
 
 
 def test_build_platform_data_uses_second_quest_date_when_needed(monkeypatch):
-    # Usa la fecha de Quest disponible
     monkeypatch.setattr(
         igdb,
         "get_platform_release_dates",
@@ -562,7 +486,6 @@ def test_build_platform_data_uses_second_quest_date_when_needed(monkeypatch):
 
 
 def test_build_platform_data_without_platforms(monkeypatch):
-    # Devuelve vacío si no hay plataformas
     monkeypatch.setattr(igdb, "get_platform_release_dates", lambda game_id: {})
 
     game = {"id": 123}
@@ -572,13 +495,7 @@ def test_build_platform_data_without_platforms(monkeypatch):
     assert result == []
 
 
-# ============================================================
-# REINTENTOS
-# ============================================================
-
-
 def test_session_retries_temporary_errors():
-    # Reintenta 429 y 5xx, también en POST, respetando Retry-After
     retry = igdb.session.get_adapter(igdb.IGDB_API_URL).max_retries
 
     assert retry.total == 3
@@ -591,19 +508,16 @@ def test_session_retries_temporary_errors():
 
 
 def test_session_retries_twitch_token_requests():
-    # El token de Twitch usa la misma política
     retry = igdb.session.get_adapter(igdb.TWITCH_TOKEN_URL).max_retries
 
     assert retry.total == 3
 
 
 class FlakyHandler(BaseHTTPRequestHandler):
-    # Responde con los códigos de "statuses" en orden
     statuses: ClassVar[list[int]] = []
     calls = 0
 
     def do_POST(self):
-        # Lee el cuerpo antes de responder para no cortar la conexión
         self.rfile.read(int(self.headers["Content-Length"]))
         type(self).calls += 1
         status = type(self).statuses.pop(0)
@@ -620,7 +534,6 @@ class FlakyHandler(BaseHTTPRequestHandler):
 
 @pytest.fixture
 def flaky_server():
-    # Servidor HTTP local para probar los reintentos reales
     FlakyHandler.calls = 0
     server = HTTPServer(("127.0.0.1", 0), FlakyHandler)
     thread = threading.Thread(
@@ -635,7 +548,6 @@ def flaky_server():
 
 
 def local_session():
-    # Misma política de reintentos, sin esperas y para http://
     retry = igdb.create_session(methods={"POST"}).get_adapter("https://").max_retries
     session = requests.Session()
     session.mount("http://", HTTPAdapter(max_retries=retry.new(backoff_factor=0)))
@@ -653,7 +565,6 @@ def test_session_recovers_from_temporary_error(flaky_server):
 
 
 def test_igdb_request_reports_last_response_after_retries(monkeypatch, flaky_server):
-    # Agotados los reintentos, el error incluye la respuesta de IGDB
     FlakyHandler.statuses = [503] * 4
 
     monkeypatch.setattr(igdb, "session", local_session())
@@ -666,13 +577,7 @@ def test_igdb_request_reports_last_response_after_retries(monkeypatch, flaky_ser
     assert FlakyHandler.calls == 4
 
 
-# ============================================================
-# PRECISIÓN DE FECHAS
-# ============================================================
-
-
 def test_get_release_dates_reads_precision(monkeypatch):
-    # Lee date_format y descarta las fechas TBD
     mock_igdb_request(
         monkeypatch,
         [
@@ -744,7 +649,6 @@ def test_display_release_date_with_precision(date_string, precision, expected):
 
 
 def test_display_platform_date_assumes_day_for_old_data():
-    # Las plataformas guardadas antes no tienen date_precision
     assert igdb.display_platform_date({"release_date": "2027-12-31"}) == "31-12-2027"
 
     year_only = {"release_date": "2027-12-31", "date_precision": "year"}
@@ -775,7 +679,6 @@ def test_is_more_precise():
 
 
 def test_build_platform_data_keeps_precision_when_grouping_quest():
-    # Quest 3 sin fecha toma la fecha y la precisión de Quest 2
     result = igdb.build_platform_data(
         {"id": 1, "platforms": [471, 386]},
         {386: {"date": "2027-12-31", "precision": "year"}},

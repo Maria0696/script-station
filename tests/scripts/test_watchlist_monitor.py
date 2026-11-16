@@ -16,13 +16,7 @@ def fixed_today(monkeypatch):
 
 
 def timestamp(year, month, day):
-    # Crea timestamps UTC para los tests
     return int(datetime(year, month, day, tzinfo=UTC).timestamp())
-
-
-# ============================================================
-# WATCHLIST EN GITHUB
-# ============================================================
 
 
 def test_load_watchlist(monkeypatch):
@@ -52,11 +46,6 @@ def test_save_watchlist(monkeypatch):
     }
 
 
-# ============================================================
-# NOTIFICACIONES
-# ============================================================
-
-
 def test_send_notification(monkeypatch):
     captured = {}
 
@@ -84,11 +73,6 @@ def test_send_notification(monkeypatch):
     assert captured["parse_mode"] is None
 
     assert captured["chat_id"] is None
-
-
-# ============================================================
-# MENSAJES DE CAMBIO
-# ============================================================
 
 
 def test_build_change_message_new_date():
@@ -135,11 +119,6 @@ def test_build_change_message_same_date():
     )
 
     assert result is None
-
-
-# ============================================================
-# MONITOR
-# ============================================================
 
 
 def test_monitor_watchlist_empty(monkeypatch, caplog):
@@ -301,7 +280,6 @@ def test_monitor_watchlist_date_changed(monkeypatch):
 
 
 def mock_delayed_game(monkeypatch, events):
-    # Juego cuya fecha pasa del 20-09 al 01-10
     watchlist = [
         {
             "id": 123,
@@ -464,11 +442,6 @@ def test_monitor_watchlist_platform_change(monkeypatch):
     assert len(watchlist[0]["platforms"]) == 2
 
 
-# ============================================================
-# MAIN
-# ============================================================
-
-
 def test_main(monkeypatch):
     called = []
 
@@ -477,11 +450,6 @@ def test_main(monkeypatch):
     monitor.main()
 
     assert called == [True]
-
-
-# ============================================================
-# PRECISIÓN DE FECHAS
-# ============================================================
 
 
 @pytest.mark.parametrize(
@@ -516,7 +484,6 @@ def test_build_change_message_shows_precision():
 
 
 def test_build_change_message_same_period_and_precision():
-    # Mismo periodo y misma precisión: no hay nada que avisar
     message = monitor.build_change_message(
         "Ill", "🔵 PS5", "2027-12-30", "2027-12-31", "year", "year"
     )
@@ -525,7 +492,6 @@ def test_build_change_message_same_period_and_precision():
 
 
 def mock_ill(monkeypatch, stored_platform, new_release, events):
-    # "Ill" con una sola plataforma y la fecha que devuelve IGDB
     watchlist = [{"id": 142520, "name": "Ill", "platforms": [stored_platform]}]
 
     monkeypatch.setattr(monitor, "load_watchlist", lambda: (watchlist, "sha"))
@@ -550,7 +516,6 @@ def mock_ill(monkeypatch, stored_platform, new_release, events):
 
 
 def test_monitor_watchlist_migrates_precision_silently(monkeypatch):
-    # Dato antiguo sin precisión y misma fecha: se actualiza sin avisar
     events = []
 
     watchlist = mock_ill(
@@ -568,7 +533,6 @@ def test_monitor_watchlist_migrates_precision_silently(monkeypatch):
 
 
 def test_monitor_watchlist_notifies_concrete_date(monkeypatch):
-    # "2027" -> 15-03-2027 se avisa como fecha concretada
     events = []
 
     mock_ill(
@@ -589,10 +553,6 @@ def test_monitor_watchlist_notifies_concrete_date(monkeypatch):
     assert events[1].startswith("📅 FECHA CONCRETADA")
     assert "Antes: 2027\nAhora: 15-03-2027" in events[1]
 
-
-# ============================================================
-# SALIDAS Y ARCHIVO
-# ============================================================
 
 real_get_today = monitor.get_today
 
@@ -662,7 +622,6 @@ def test_build_release_message_rating_without_count():
 
 
 def mock_game(monkeypatch, stored_platforms, igdb_dates, events, **igdb_fields):
-    # Juego 1 con las plataformas guardadas y las fechas actuales de IGDB
     watchlist = [{"id": 1, "name": "Game", "platforms": stored_platforms}]
     platform_ids = list(igdb_dates)
 
@@ -697,7 +656,6 @@ def mock_game(monkeypatch, stored_platforms, igdb_dates, events, **igdb_fields):
 
 
 def test_monitor_watchlist_alerts_release_and_archives(monkeypatch):
-    # Sale hoy: avisa después de guardar, marca y archiva
     events = []
 
     watchlist = mock_game(
@@ -722,7 +680,6 @@ def test_monitor_watchlist_alerts_release_and_archives(monkeypatch):
 
 
 def test_monitor_watchlist_alerts_missed_release(monkeypatch):
-    # Si el monitor no se ejecutó ayer, avisa hoy igualmente
     events = []
 
     mock_game(monkeypatch, [platform(167, "2025-12-30")], {167: "2025-12-30"}, events)
@@ -733,7 +690,6 @@ def test_monitor_watchlist_alerts_missed_release(monkeypatch):
 
 
 def test_monitor_watchlist_archives_old_release_silently(monkeypatch):
-    # Salió hace meses (Wolverine): se archiva sin avisar
     events = []
 
     watchlist = mock_game(
@@ -747,7 +703,6 @@ def test_monitor_watchlist_archives_old_release_silently(monkeypatch):
 
 
 def test_monitor_watchlist_partial_release(monkeypatch):
-    # Sale en PS5 y en PC más tarde: avisa de PS5 y sigue vigilando
     events = []
 
     watchlist = mock_game(
@@ -765,7 +720,6 @@ def test_monitor_watchlist_partial_release(monkeypatch):
 
 
 def test_monitor_watchlist_does_not_repeat_release_alert(monkeypatch):
-    # Ya avisado en una ejecución anterior: no hay cambios ni aviso
     events = []
 
     mock_game(
@@ -780,7 +734,6 @@ def test_monitor_watchlist_does_not_repeat_release_alert(monkeypatch):
 
 
 def test_monitor_watchlist_skips_archived_games(monkeypatch):
-    # Los juegos archivados no se consultan a IGDB
     watchlist = [{"id": 1, "name": "Game", "status": "released", "platforms": []}]
 
     monkeypatch.setattr(monitor, "load_watchlist", lambda: (watchlist, "sha"))
@@ -794,7 +747,6 @@ def test_monitor_watchlist_skips_archived_games(monkeypatch):
 
 
 def test_archive_if_released_needs_a_dated_platform():
-    # Sin ninguna fecha no se puede saber si ha salido
     item = {"name": "Game", "platforms": [platform(167, None, None)]}
 
     assert monitor.archive_if_released(item, TODAY) is False

@@ -11,6 +11,10 @@ from core.config import (
 )
 from core.http import create_session, raise_for_status
 
+# Único cliente de IGDB. Las consultas usan su lenguaje Apicalypse
+# ("fields ...; where ...; limit ...;") y devuelven como mucho 500 resultados.
+# IGDB se autentica con un token de aplicación de Twitch.
+
 TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token"  # noqa: S105
 IGDB_API_URL = "https://api.igdb.com/v4"
 
@@ -47,7 +51,8 @@ MONTH_NAMES = (
     "diciembre",
 )
 
-# Token de Twitch compartido mientras siga vigente
+# Token de Twitch reutilizado mientras sea válido. En Vercel la caché dura
+# lo que la función siga activa; en Actions, una ejecución
 _token_cache = {"access_token": None, "expires_at": 0.0}
 
 
@@ -61,13 +66,12 @@ session = create_session(methods={"POST"})
 
 
 def clear_token_cache():
-    # Olvida el token guardado
+    # Para los tests: cada uno empieza sin token
     _token_cache["access_token"] = None
     _token_cache["expires_at"] = 0.0
 
 
 def get_igdb_token():
-    # Reutiliza el token de Twitch hasta que caduca
     now = time.monotonic()
 
     if _token_cache["access_token"] and now < _token_cache["expires_at"]:
@@ -95,7 +99,6 @@ def get_igdb_token():
 
 
 def igdb_request(endpoint, query):
-    # Ejecuta una consulta a IGDB
     response = session.post(
         f"{IGDB_API_URL}/{endpoint}",
         headers={
@@ -114,12 +117,11 @@ def igdb_request(endpoint, query):
 
 
 def platform_filter():
-    # Plataformas soportadas para las consultas
     return ",".join(str(platform_id) for platform_id in PLATFORM_ORDER)
 
 
 def is_valid_region(release):
-    # Solo Europa, Worldwide o sin región
+    # Solo Europa, Worldwide o sin región: evita fechas de Japón o EE. UU.
     region = release.get("release_region")
 
     if not isinstance(region, dict):
@@ -136,7 +138,7 @@ def is_valid_region(release):
 
 
 def search_igdb_games(game_name):
-    # Busca juegos por nombre
+    # Escapa el texto del usuario para que no rompa ni altere la consulta
     safe_name = game_name.replace("\\", "\\\\").replace('"', '\\"')
 
     query = f"""
@@ -154,7 +156,6 @@ def search_igdb_games(game_name):
 
 
 def get_igdb_games(game_ids):
-    # Obtiene varios juegos indexados por ID
     if not game_ids:
         return {}
 
@@ -178,7 +179,6 @@ def get_igdb_games(game_ids):
 
 
 def get_igdb_game(game_id):
-    # Obtiene un juego exacto
     return get_igdb_games([game_id]).get(game_id)
 
 
@@ -188,8 +188,8 @@ def get_igdb_game(game_id):
 
 
 def get_release_dates(game_ids):
-    # Primera fecha válida por juego y plataforma:
-    # {game_id: {platform_id: {"date": "YYYY-MM-DD", "precision": "day"}}}
+    # Devuelve {game_id: {platform_id: {"date": "YYYY-MM-DD", "precision": ...}}}
+    # con la fecha más temprana de cada plataforma en las regiones válidas
     if not game_ids:
         return {}
 
@@ -217,6 +217,7 @@ def get_release_dates(game_ids):
         game_id = release.get("game")
         platform_id = release.get("platform")
 
+        # IGDB devuelve el id o el objeto completo según la consulta
         if isinstance(game_id, dict):
             game_id = game_id.get("id")
 
@@ -229,7 +230,8 @@ def get_release_dates(game_ids):
         if not release_date or not precision:
             continue
 
-        # Conserva la primera fecha válida
+        # Ordenadas por fecha, la primera gana. Las imprecisas usan el último
+        # día del periodo, así que una fecha exacta anterior tiene prioridad
         release_dates.setdefault(game_id, {}).setdefault(
             platform_id, {"date": release_date, "precision": precision}
         )
@@ -238,12 +240,10 @@ def get_release_dates(game_ids):
 
 
 def get_platform_release_dates(game_id):
-    # Fechas por plataforma de un solo juego
     return get_release_dates([game_id]).get(game_id, {})
 
 
 def get_releases_between(start_timestamp, end_timestamp):
-    # Lanzamientos en plataformas soportadas en un intervalo
     query = f"""
     fields
         game.id,
@@ -266,7 +266,6 @@ def get_releases_between(start_timestamp, end_timestamp):
 
 
 def get_popularity_primitives(game_ids, popularity_types):
-    # Métricas de popularidad de varios juegos
     if not game_ids:
         return []
 
@@ -290,7 +289,6 @@ def get_popularity_primitives(game_ids, popularity_types):
 
 
 def format_release_date(timestamp):
-    # Convierte timestamp a YYYY-MM-DD
     if not timestamp:
         return None
 
@@ -309,8 +307,7 @@ def get_date_precision(release):
 
 
 def display_release_date(date_string, precision="day"):
-    # Muestra la fecha según su precisión:
-    # 15-03-2027, Marzo 2027, T1 2027 o 2027
+    # 15-03-2027, Marzo 2027, T1 2027 o 2027 según la precisión
     if not date_string:
         return "Sin fecha"
 
@@ -329,19 +326,19 @@ def display_release_date(date_string, precision="day"):
 
 
 def get_platform_precision(platform):
-    # Precisión guardada; los datos antiguos eran siempre por día
+    # Las plataformas guardadas antes de existir date_precision eran por día
     return platform.get("date_precision") or "day"
 
 
 def display_platform_date(platform):
-    # Fecha visible de una plataforma de la watchlist
     return display_release_date(
         platform.get("release_date"), get_platform_precision(platform)
     )
 
 
 def release_period(date_string, precision="day"):
-    # Primer y último día que abarca una fecha imprecisa
+    # Primer y último día que abarca la fecha: "2027" es todo el año.
+    # El monitor compara periodos para no confundir concretar con adelantar
     value = date.fromisoformat(date_string)
 
     if precision == "year":
@@ -363,7 +360,6 @@ def release_period(date_string, precision="day"):
 
 
 def is_more_precise(precision, other):
-    # True si precision concreta más que other
     return PRECISION_ORDER.index(precision) < PRECISION_ORDER.index(other)
 
 
@@ -373,7 +369,8 @@ def is_more_precise(precision, other):
 
 
 def build_platform_data(game, release_dates=None):
-    # Une plataformas con sus fechas.
+    # Lista de plataformas con su fecha, en el orden de PLATFORM_ORDER.
+    # Incluye las que solo aparecen en las fechas de lanzamiento.
     # Sin release_dates, las consulta a IGDB
     if release_dates is None:
         release_dates = get_platform_release_dates(game["id"])

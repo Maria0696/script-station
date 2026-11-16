@@ -12,7 +12,6 @@ session = create_session(methods={"GET", "PUT"})
 
 
 def github_request(method, path, data=None):
-    # Ejecuta una llamada a GitHub
     response = session.request(
         method,
         f"https://api.github.com/repos/{GITHUB_REPO}/{path}",
@@ -34,7 +33,6 @@ def github_request(method, path, data=None):
 
 
 def get_watchlist():
-    # Lee watchlist.json desde GitHub
     result = github_request("GET", (f"contents/{WATCHLIST_PATH}?ref={GITHUB_BRANCH}"))
 
     content = base64.b64decode(result["content"]).decode("utf-8")
@@ -43,9 +41,8 @@ def get_watchlist():
 
 
 def save_watchlist(watchlist, sha, message="chore: update game watchlist"):
-    # Actualiza watchlist.json en GitHub.
-    # El sha hace que GitHub rechace la escritura
-    # si otro proceso cambió el archivo entretanto
+    # Cada guardado es un commit en master. El sha es el de la versión
+    # leída: si otro proceso la cambió entretanto, GitHub responde 409
     content = json.dumps(watchlist, ensure_ascii=False, indent=2) + "\n"
 
     encoded_content = base64.b64encode(content.encode("utf-8")).decode("utf-8")
@@ -89,14 +86,13 @@ def update_watchlist(change, message="chore: update game watchlist"):
 
 
 def get_workflow_runs():
-    # Obtiene las últimas ejecuciones de master
+    # Las 50 más recientes bastan: Heimdall y el watchdog solo miran hoy
     result = github_request("GET", (f"actions/runs?branch={GITHUB_BRANCH}&per_page=50"))
 
     return result.get("workflow_runs", [])
 
 
 def dispatch_workflow(workflow_file):
-    # Lanza un workflow con workflow_dispatch
     return github_request(
         "POST",
         (f"actions/workflows/{workflow_file}/dispatches"),
@@ -105,5 +101,4 @@ def dispatch_workflow(workflow_file):
 
 
 def rerun_failed_workflow_run(run_id):
-    # Reejecuta los jobs fallidos de un workflow
     return github_request("POST", (f"actions/runs/{run_id}/rerun-failed-jobs"))

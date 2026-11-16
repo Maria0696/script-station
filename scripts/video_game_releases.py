@@ -1,3 +1,7 @@
+# Informe diario de lanzamientos por Huginn (videogames.yml, cada mañana).
+# Juegos que salen hoy en las plataformas soportadas, con hasta 3 destacados
+# (⭐) según su popularidad en IGDB.
+
 import logging
 from datetime import datetime, timedelta
 from html import escape
@@ -10,36 +14,37 @@ from core.notifications import notifications
 
 logger = logging.getLogger(__name__)
 
-# Zona horaria usada para definir "hoy"
+# "Hoy" es el día de Madrid, no el de UTC
 MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 
-# Tipos de popularidad de IGDB
+# IDs de popularity_types de IGDB: visitas a su web y "quiero jugarlo"
 POPULARITY_VISITS = 1
 POPULARITY_WANT_TO_PLAY = 2
 
 
-# Peso de cada métrica
+# Puntuación = 0.4 · visitas + 0.6 · quiero jugarlo. Pesa más el interés
+# declarado que las visitas
 VISITS_WEIGHT = 0.4
 WANT_TO_PLAY_WEIGHT = 0.6
 
 
-# Reglas para marcar juegos con ⭐
+# Destacado (⭐): puntuación >= 75 % de la mejor del día y por encima de un
+# mínimo absoluto, para no destacar nada un día sin lanzamientos relevantes
 FEATURED_SCORE_MIN = 0.00002
 FEATURED_RELATIVE_THRESHOLD = 0.75
 MAX_FEATURED_GAMES = 3
 
 
-# Solo para mostrar scores legibles en logs
+# Los valores de IGDB son muy pequeños: solo para leerlos en los logs
 LOG_SCORE_MULTIPLIER = 1_000_000
 
 
-# Margen respecto al límite de Telegram
+# Telegram admite 4096 caracteres por mensaje; el informe se parte antes
 MAX_TELEGRAM_LENGTH = 3900
 
 
 def get_releases_today():
-    # Fecha actual según Madrid
     today = datetime.now(MADRID_TZ).date()
 
     start_datetime = datetime(
@@ -99,7 +104,6 @@ def filter_and_group_releases(releases):
 
 
 def add_popularity_data(games):
-    # No consulta popularidad si no hay juegos
     if not games:
         return games
 
@@ -236,27 +240,17 @@ def build_messages(games):
 
 
 def send_notification(text):
-    # Envía mediante el servicio centralizado
     return notifications.huginn(text, parse_mode="HTML")
 
 
 def main():
     configure_logging()
 
-    # 1. Obtener lanzamientos
     games = get_releases_today()
-
-    # 2. Obtener popularidad
     games = add_popularity_data(games)
-
-    # 3. Marcar destacados
     games = mark_featured_games(games)
 
-    # 4. Construir mensajes
-    messages = build_messages(games)
-
-    # 5. Enviar mediante Huginn
-    for message in messages:
+    for message in build_messages(games):
         send_notification(message)
 
 

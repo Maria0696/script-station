@@ -20,13 +20,7 @@ class FakeResponse:
         return json.loads(self.content)
 
 
-# ============================================================
-# PETICIONES HTTP
-# ============================================================
-
-
 def mock_session(monkeypatch, response):
-    # Sustituye la sesión HTTP y guarda la llamada
     captured = {}
 
     def fake_request(method, url, json, headers, timeout):
@@ -74,7 +68,6 @@ def test_github_request_without_body(monkeypatch):
 
 
 def test_github_request_without_content(monkeypatch):
-    # Por ejemplo, el 204 de workflow_dispatch
     mock_session(monkeypatch, FakeResponse(status_code=204, content=b""))
 
     assert github.github_request("POST", "actions/workflows/x.yml/dispatches") == {}
@@ -90,15 +83,9 @@ def test_github_request_error_includes_response(monkeypatch):
 
 
 def test_session_retries_only_safe_methods():
-    # Lanzar workflows (POST) no se repite: podría duplicarlos
     retry = github.session.get_adapter("https://api.github.com").max_retries
 
     assert set(retry.allowed_methods) == {"GET", "PUT"}
-
-
-# ============================================================
-# WATCHLIST
-# ============================================================
 
 
 def test_get_watchlist(monkeypatch):
@@ -177,11 +164,6 @@ def test_save_watchlist_with_custom_message(monkeypatch):
     github.save_watchlist([], "test-sha", message="chore: custom")
 
     assert captured["message"] == "chore: custom"
-
-
-# ============================================================
-# WORKFLOWS
-# ============================================================
 
 
 def test_dispatch_workflow(monkeypatch):
@@ -268,11 +250,6 @@ def test_rerun_failed_workflow_run(monkeypatch):
     assert captured["data"] is None
 
 
-# ============================================================
-# ACTUALIZAR LA WATCHLIST
-# ============================================================
-
-
 def http_error(code):
     return requests.HTTPError(
         f"HTTP {code}", response=FakeResponse(status_code=code, content=b"")
@@ -318,7 +295,6 @@ def test_update_watchlist_saves_change(monkeypatch):
 
 
 def test_update_watchlist_without_change(monkeypatch):
-    # Sin cambios no hay commit
     saves = mock_storage(monkeypatch, [([1], "sha-1")])
 
     result = github.update_watchlist(lambda watchlist: ("same", False))
@@ -328,7 +304,6 @@ def test_update_watchlist_without_change(monkeypatch):
 
 
 def test_update_watchlist_retries_conflict(monkeypatch):
-    # Otro proceso guardó entretanto: se repite sobre la versión nueva
     saves = mock_storage(
         monkeypatch, [([1], "sha-1"), ([1, 3], "sha-2")], save_errors=[http_error(409)]
     )

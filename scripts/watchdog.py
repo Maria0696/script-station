@@ -1,3 +1,8 @@
+# Vigilante diario: avisa si el cron de Vercel no lanzó los workflows de
+# hoy. Heimdall solo ve workflows que fallan, no los que nunca arrancan.
+# Lo ejecuta el schedule de GitHub (watchdog.yml): no depende de Vercel y
+# un retraso de horas no importa para un vigilante.
+
 import logging
 from datetime import UTC, datetime
 
@@ -10,19 +15,17 @@ logger = logging.getLogger(__name__)
 
 
 def get_today():
-    # El cron diario de Vercel se lanza a las 07:00 UTC
+    # En UTC, como el cron de Vercel (07:00 UTC) y las fechas de GitHub
     return datetime.now(UTC).date()
 
 
 def ran_on(run, workflow_file, day):
-    # Ejecución de ese workflow creada ese día (UTC)
     return run.get("path", "").endswith(f"/{workflow_file}") and run.get(
         "created_at", ""
     ).startswith(day.isoformat())
 
 
 def find_missing_workflows(runs, day):
-    # Workflows diarios sin ninguna ejecución ese día
     return [
         workflow_file
         for workflow_file in DAILY_WORKFLOWS
@@ -47,7 +50,6 @@ def build_missing_message(missing):
 
 
 def build_launch_keyboard(missing):
-    # Un botón por workflow para lanzarlo desde Heimdall
     return {
         "inline_keyboard": [
             [
@@ -62,7 +64,6 @@ def build_launch_keyboard(missing):
 
 
 def check_daily_workflows():
-    # Avisa si el cron de hoy no lanzó algún workflow diario
     missing = find_missing_workflows(get_workflow_runs(), get_today())
 
     if not missing:

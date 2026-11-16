@@ -1,32 +1,15 @@
-# Coverage reports
 coverage/
 coverage-python/
 .coverage
-
-# Python
 __pycache__/
 *.py[cod]
 .venv/
-
-# Python packaging
 *.egg-info/
 build/
 dist/
-
-# Pytest
 .pytest_cache/
-
-# Ruff
 .ruff_cache/
-
-# Logs
 logs/
-
-# Temporary files
 tmp/
-
-# Environment variables
 .env
-
-# IDE
 .idea/

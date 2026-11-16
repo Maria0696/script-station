@@ -4,10 +4,6 @@ import pytest
 
 from scripts import notify
 
-# ============================================================
-# MENSAJE
-# ============================================================
-
 
 def test_build_workflow_failure_message():
     result = notify.build_workflow_failure_message(
@@ -24,22 +20,12 @@ def test_build_workflow_failure_message():
     )
 
 
-# ============================================================
-# BOTÓN
-# ============================================================
-
-
 def test_build_rerun_keyboard():
     result = notify.build_rerun_keyboard("123456")
 
     assert result == {
         "inline_keyboard": [[{"text": "🔄 Re-run", "callback_data": "rerun:123456"}]]
     }
-
-
-# ============================================================
-# NOTIFICACIÓN
-# ============================================================
 
 
 def test_notify_workflow_failure(monkeypatch):
@@ -86,11 +72,6 @@ def test_notify_workflow_failure(monkeypatch):
     assert captured["parse_mode"] is None
 
     assert captured["chat_id"] is None
-
-
-# ============================================================
-# CLI
-# ============================================================
 
 
 def test_main(monkeypatch):

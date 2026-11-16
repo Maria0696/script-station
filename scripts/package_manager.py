@@ -1,3 +1,6 @@
+# Instala el gestor de paquetes del sistema: Chocolatey, Homebrew o Flatpak.
+# Ejecuta los instaladores oficiales; el de Linux solo sirve en Debian/Ubuntu.
+
 import platform
 import subprocess
 

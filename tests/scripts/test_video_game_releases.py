@@ -4,10 +4,6 @@ from datetime import datetime as real_datetime
 
 from scripts import video_game_releases as releases
 
-# ============================================================
-# LANZAMIENTOS
-# ============================================================
-
 
 def test_get_releases_today(monkeypatch):
     captured = {}
@@ -46,11 +42,6 @@ def test_get_releases_today(monkeypatch):
         "start": int(real_datetime(2026, 9, 13, 22, 0, tzinfo=UTC).timestamp()),
         "end": int(real_datetime(2026, 9, 14, 22, 0, tzinfo=UTC).timestamp()),
     }
-
-
-# ============================================================
-# FILTRADO
-# ============================================================
 
 
 def test_filter_and_group_releases():
@@ -94,11 +85,6 @@ def test_filter_and_group_releases():
     assert result[0]["popularity_score"] == 0.0
 
     assert result[0]["featured"] is False
-
-
-# ============================================================
-# POPULARIDAD
-# ============================================================
 
 
 def test_add_popularity_data_empty():
@@ -171,11 +157,6 @@ def test_add_popularity_data(monkeypatch):
     assert result[1]["popularity_score"] == 0.0
 
 
-# ============================================================
-# DESTACADOS
-# ============================================================
-
-
 def test_mark_featured_games_empty():
     assert releases.mark_featured_games([]) == []
 
@@ -201,7 +182,6 @@ def test_mark_featured_games(monkeypatch):
 
 
 def test_mark_featured_games_debug(caplog):
-    # Con DEBUG se registra el detalle de popularidad
     caplog.set_level(logging.DEBUG, logger=releases.__name__)
 
     games = [{"name": "Test Game", "popularity_score": 0.001, "featured": False}]
@@ -222,7 +202,6 @@ def test_mark_featured_games_debug(caplog):
 
 
 def test_mark_featured_games_without_debug(caplog):
-    # Sin DEBUG no se registra el detalle de cada juego
     caplog.set_level(logging.INFO, logger=releases.__name__)
 
     games = [{"name": "Test Game", "popularity_score": 0.001, "featured": False}]
@@ -234,20 +213,10 @@ def test_mark_featured_games_without_debug(caplog):
     assert "PopScore data:" not in caplog.text
 
 
-# ============================================================
-# PLATAFORMAS
-# ============================================================
-
-
 def test_get_platform_labels():
     result = releases.get_platform_labels({6, 167, 471, 386})
 
     assert result == ["🔵 PS5", "💻 PC", "🥽 Meta Quest"]
-
-
-# ============================================================
-# MENSAJES
-# ============================================================
 
 
 def test_build_messages_without_games(monkeypatch):
@@ -321,11 +290,6 @@ def test_build_messages_splits_long_messages(monkeypatch):
     assert "X" * 200 in result[1]
 
 
-# ============================================================
-# NOTIFICACIONES
-# ============================================================
-
-
 def test_send_notification(monkeypatch):
     captured = {}
 
@@ -353,11 +317,6 @@ def test_send_notification(monkeypatch):
     assert captured["parse_mode"] == "HTML"
 
     assert captured["chat_id"] is None
-
-
-# ============================================================
-# MAIN
-# ============================================================
 
 
 def test_main(monkeypatch):

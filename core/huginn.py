@@ -1,3 +1,9 @@
+# Huginn: bot de Telegram para seguir lanzamientos de videojuegos.
+# api/index.py le pasa cada update a handle_huginn_update. Es un bot de un
+# solo usuario: todo lo que no venga de HUGINN_CHAT_ID se ignora.
+# Los avisos automáticos (retrasos, salidas) no salen de aquí sino del
+# monitor diario, scripts/watchlist_monitor.py.
+
 import logging
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
@@ -27,13 +33,7 @@ NEXT_GAME_LIMIT = 5
 ERROR_MESSAGE = "❌ No he podido completar la acción. Inténtalo de nuevo en un rato."
 
 
-# ============================================================
-# ESTILO
-# ============================================================
-
-
 def build_title(title, icon="", indent=0):
-    # Encabezado con posición configurable
     title_text = f"{icon} {title}" if icon else title
 
     return f"━━━━━━━━━━━━━━━━━━━\n{' ' * indent}{title_text}\n━━━━━━━━━━━━━━━━━━━\n\n"
@@ -45,7 +45,6 @@ def build_title(title, icon="", indent=0):
 
 
 def build_help_message():
-    # Lista de comandos de Huginn
     return (
         build_title("COMANDOS", icon="🤖", indent=22)
         + "/watch nombre\n"
@@ -64,37 +63,30 @@ def build_help_message():
 
 
 def build_watch_search_message():
-    # Selección de resultados de búsqueda
     return "¿Qué juego quieres añadir?"
 
 
 def build_watch_added_message(game):
-    # Confirmación al añadir un juego
     return f"✅ Añadido: {game['name']}"
 
 
 def build_already_added_message(game):
-    # Juego que ya estaba guardado
     return f"ℹ️ Ese juego ya estaba en tu lista: {game['name']}"
 
 
 def build_unwatch_message():
-    # Selección de juego a eliminar
     return "¿Qué juego quieres eliminar?"
 
 
 def build_removed_message(game):
-    # Confirmación al eliminar un juego
     return f"🗑️ Eliminado: {game['name']}"
 
 
 def is_archived(game):
-    # Juego que ya ha salido en todas sus plataformas
     return game.get("status") == RELEASED_STATUS
 
 
 def build_watchlist_message():
-    # Construye /watchlist con los juegos pendientes de salir
     watchlist, _ = get_watchlist()
 
     active_games = [game for game in watchlist if not is_archived(game)]
@@ -114,14 +106,14 @@ def build_watchlist_message():
 
         platforms = game.get("platforms", [])
 
-        # Formato actual
         if platforms and isinstance(platforms[0], dict):
             for platform in platforms:
                 lines.append(
                     f"      {platform['label']} — {display_platform_date(platform)}"
                 )
 
-        # Compatibilidad con formato antiguo
+        # Formato antiguo: platforms era una lista de etiquetas con una única
+        # fecha por juego. El monitor lo migra en su siguiente ejecución
         elif platforms:
             release_date = display_release_date(game.get("release_date"))
 
@@ -141,7 +133,6 @@ def build_watchlist_message():
 
 
 def build_released_message():
-    # Construye /released con los juegos archivados, más recientes primero
     watchlist, _ = get_watchlist()
 
     released_games = sorted(
@@ -169,7 +160,6 @@ def build_released_message():
 
 
 def parse_release_date(date_string):
-    # Convierte YYYY-MM-DD a date
     if not date_string:
         return None
 
@@ -181,7 +171,6 @@ def parse_release_date(date_string):
 
 
 def get_upcoming_games():
-    # Obtiene próximos juegos de la lista
     watchlist, _ = get_watchlist()
 
     today = datetime.now(MADRID_TIMEZONE).date()
@@ -196,7 +185,6 @@ def get_upcoming_games():
 
         future_releases = []
 
-        # Fechas por plataforma
         if platforms and isinstance(platforms[0], dict):
             for platform in platforms:
                 date_string = platform.get("release_date")
@@ -215,7 +203,7 @@ def get_upcoming_games():
                     }
                 )
 
-        # Compatibilidad con formato antiguo
+        # Formato antiguo (ver build_watchlist_message)
         else:
             date_string = game.get("release_date")
 
@@ -249,14 +237,12 @@ def get_upcoming_games():
             }
         )
 
-    # Próximos juegos primero
     upcoming_games.sort(key=lambda game: (game["next_date"], game["name"].lower()))
 
     return upcoming_games[:NEXT_GAME_LIMIT]
 
 
 def build_next_message():
-    # Construye /next
     upcoming_games = get_upcoming_games()
 
     if not upcoming_games:
@@ -281,7 +267,7 @@ def build_next_message():
 
 
 def build_search_keyboard(games):
-    # Botones con resultados de IGDB
+    # callback_data admite 64 bytes: solo viaja el id del juego
     buttons = []
 
     for game in games:
@@ -291,7 +277,6 @@ def build_search_keyboard(games):
 
 
 def build_unwatch_keyboard(watchlist):
-    # Botones para eliminar juegos
     buttons = []
 
     for game in watchlist:
@@ -308,7 +293,6 @@ def build_unwatch_keyboard(watchlist):
 
 
 def add_game_to_watchlist(game_id):
-    # Obtiene el juego seleccionado
     game = get_igdb_game(game_id)
 
     if not game:
@@ -319,7 +303,6 @@ def add_game_to_watchlist(game_id):
             (item for item in watchlist if item["id"] == game["id"]), None
         )
 
-        # Devuelve el juego existente
         if existing_game:
             return (existing_game, False), False
 
@@ -336,18 +319,17 @@ def add_game_to_watchlist(game_id):
             }
         )
 
-        # Datos usados en el mensaje
+        # Para el mensaje de confirmación
         game["release_date"] = release_date
         game["platform_data"] = platforms
 
         return (game, True), True
 
-    # Si el monitor guarda a la vez, update_watchlist lo reintenta
+    # add() se repite sobre la versión nueva si el monitor guardó a la vez
     return update_watchlist(add)
 
 
 def remove_game_from_watchlist(game_id):
-    # Elimina un juego de la lista
     def remove(watchlist):
         game = next((item for item in watchlist if item["id"] == game_id), None)
 
@@ -367,7 +349,6 @@ def remove_game_from_watchlist(game_id):
 
 
 def handle_watch_callback(chat_id, game_id):
-    # Añade el juego elegido
     game, added = add_game_to_watchlist(game_id)
 
     if not game:
@@ -384,7 +365,6 @@ def handle_watch_callback(chat_id, game_id):
 
 
 def handle_unwatch_callback(chat_id, game_id):
-    # Elimina el juego elegido
     game, removed = remove_game_from_watchlist(game_id)
 
     if not removed:
@@ -396,7 +376,6 @@ def handle_unwatch_callback(chat_id, game_id):
 
 
 def handle_huginn_callback(callback):
-    # Procesa botones de Huginn
     callback_id = callback.get("id")
 
     callback_data = callback.get("data", "")
@@ -405,19 +384,18 @@ def handle_huginn_callback(callback):
 
     chat_id = str(message.get("chat", {}).get("id", ""))
 
+    # Bot de un solo usuario: otros chats se ignoran sin responder
     if chat_id != HUGINN_CHAT_ID:
         return {"ok": True}
 
     if callback_id:
         answer_huginn_callback(callback_id)
 
-    # Añadir
     if callback_data.startswith("watch:"):
         game_id = int(callback_data.split(":", 1)[1])
 
         handle_watch_callback(chat_id, game_id)
 
-    # Eliminar
     elif callback_data.startswith("unwatch:"):
         game_id = int(callback_data.split(":", 1)[1])
 
@@ -432,7 +410,6 @@ def handle_huginn_callback(callback):
 
 
 def handle_huginn_message(message):
-    # Procesa comandos de Huginn
     chat_id = str(message.get("chat", {}).get("id", ""))
 
     text = message.get("text", "").strip()
@@ -440,23 +417,18 @@ def handle_huginn_message(message):
     if chat_id != HUGINN_CHAT_ID:
         return {"ok": True}
 
-    # Ayuda
     if text == "/help":
         send_huginn_message(chat_id, build_help_message())
 
-    # Próximos lanzamientos
     elif text == "/next":
         send_huginn_message(chat_id, build_next_message())
 
-    # Mostrar lista
     elif text == "/watchlist":
         send_huginn_message(chat_id, build_watchlist_message())
 
-    # Juegos que ya han salido
     elif text == "/released":
         send_huginn_message(chat_id, build_released_message())
 
-    # Eliminar juego
     elif text == "/unwatch":
         watchlist, _ = get_watchlist()
 
@@ -468,7 +440,6 @@ def handle_huginn_message(message):
                 chat_id, build_unwatch_message(), build_unwatch_keyboard(watchlist)
             )
 
-    # Buscar juego
     elif text.startswith("/watch "):
         search_term = text[len("/watch ") :].strip()
 
@@ -487,7 +458,6 @@ def handle_huginn_message(message):
                 chat_id, build_watch_search_message(), build_search_keyboard(games)
             )
 
-    # /watch sin nombre
     elif text == "/watch":
         send_huginn_message(chat_id, ("Uso: /watch nombre del juego"))
 
@@ -500,7 +470,6 @@ def handle_huginn_message(message):
 
 
 def dispatch_huginn_update(update):
-    # Envía el update a su handler
     callback = update.get("callback_query")
 
     if isinstance(callback, dict):
@@ -515,7 +484,6 @@ def dispatch_huginn_update(update):
 
 
 def report_huginn_error(update):
-    # Avisa en el chat en vez de quedarse callado
     chat_id = get_update_chat_id(update)
 
     if chat_id != HUGINN_CHAT_ID:
@@ -529,7 +497,8 @@ def report_huginn_error(update):
 
 
 def handle_huginn_update(update):
-    # Entrada principal de Huginn
+    # Un fallo (IGDB o GitHub caídos) se registra y se avisa en el chat;
+    # a Telegram se le responde OK para que no reenvíe el mismo update
     try:
         return dispatch_huginn_update(update)
 

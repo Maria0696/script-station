@@ -1,7 +1,9 @@
 version: 2
 
 updates:
-  # Python dependencies
+  # Actualiza las versiones fijadas de requirements*.txt, que se generan
+  # desde pyproject.toml: si una PR choca con un rango de pyproject,
+  # regenerarlos con uv (ver README, Dependency Management)
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -18,7 +20,6 @@ updates:
         patterns:
           - "*"
 
-  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

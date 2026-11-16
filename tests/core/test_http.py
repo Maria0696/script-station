@@ -33,7 +33,6 @@ def test_raise_for_status_accepts_success():
 
 
 def test_raise_for_status_message_without_url():
-    # Incluye servicio, acción y respuesta, pero nunca la URL
     response = FakeResponse(503, "x" * 600)
 
     with pytest.raises(requests.HTTPError) as error:

@@ -4,10 +4,6 @@ import pytest
 
 from core import heimdall
 
-# ============================================================
-# ESTILO
-# ============================================================
-
 
 def test_build_title_with_icon():
     result = heimdall.build_title("TEST", icon="🛡️", indent=2)
@@ -19,11 +15,6 @@ def test_build_title_without_icon():
     result = heimdall.build_title("TEST", indent=1)
 
     assert result == ("━━━━━━━━━━━━━━━━━━━\n TEST\n━━━━━━━━━━━━━━━━━━━\n\n")
-
-
-# ============================================================
-# FECHAS
-# ============================================================
 
 
 def test_format_run_time_without_date():
@@ -56,11 +47,6 @@ def test_format_run_time_previous_day(monkeypatch):
     assert result == ("13-09-2026 12:30")
 
 
-# ============================================================
-# ESTADOS
-# ============================================================
-
-
 @pytest.mark.parametrize(
     ("run", "expected"),
     [
@@ -75,11 +61,6 @@ def test_format_run_time_previous_day(monkeypatch):
 )
 def test_workflow_status(run, expected):
     assert heimdall.workflow_status(run) == expected
-
-
-# ============================================================
-# WORKFLOWS
-# ============================================================
 
 
 def test_get_latest_workflows(monkeypatch):
@@ -139,11 +120,6 @@ def test_get_failed_workflows(monkeypatch):
     assert list(result) == ["Watchlist Release Monitor"]
 
 
-# ============================================================
-# STATUS
-# ============================================================
-
-
 def test_build_heimdall_status(monkeypatch):
     latest_runs = {
         "Daily Video Game Releases": {
@@ -179,11 +155,6 @@ def test_build_heimdall_status(monkeypatch):
     assert "⚠️ Incidencias activas: 1" in result
 
     assert result.count("Hoy 12:00") == 2
-
-
-# ============================================================
-# FALLOS
-# ============================================================
 
 
 def test_build_heimdall_failures(monkeypatch):
@@ -256,11 +227,6 @@ def test_build_heimdall_failures_empty():
     assert "✅ No hay fallos activos." in result
 
 
-# ============================================================
-# AYUDA
-# ============================================================
-
-
 def test_build_heimdall_help():
     result = heimdall.build_heimdall_help()
 
@@ -277,11 +243,6 @@ def test_build_heimdall_help():
     assert "/help" in result
 
     assert "Muestra esta ayuda." in result
-
-
-# ============================================================
-# BOTONES
-# ============================================================
 
 
 def test_build_failures_keyboard():
@@ -313,11 +274,6 @@ def test_build_failures_keyboard_empty():
     result = heimdall.build_failures_keyboard({"Quality Checks": {}})
 
     assert result is None
-
-
-# ============================================================
-# CALLBACKS
-# ============================================================
 
 
 def test_handle_heimdall_callback_unauthorized(monkeypatch):
@@ -474,11 +430,6 @@ def test_handle_heimdall_callback_other_action(monkeypatch):
     assert reruns == []
 
 
-# ============================================================
-# COMANDOS
-# ============================================================
-
-
 def test_handle_heimdall_message_ignores_other_chat(monkeypatch):
     sent = []
 
@@ -551,11 +502,6 @@ def test_handle_heimdall_failures(monkeypatch):
     assert sent == [(heimdall.HEIMDALL_CHAT_ID, "FAILURES", keyboard)]
 
 
-# ============================================================
-# HELP
-# ============================================================
-
-
 def test_handle_heimdall_help(monkeypatch):
     sent = []
 
@@ -574,11 +520,6 @@ def test_handle_heimdall_help(monkeypatch):
     assert result == {"ok": True}
 
     assert sent == [(heimdall.HEIMDALL_CHAT_ID, "HELP")]
-
-
-# ============================================================
-# UPDATE ROUTER
-# ============================================================
 
 
 def test_handle_heimdall_update_routes_callback(monkeypatch):
@@ -631,17 +572,11 @@ def test_handle_heimdall_update_empty():
     assert result == {"ok": True}
 
 
-# ============================================================
-# ERRORES
-# ============================================================
-
-
 def failing_dispatch(update):
     raise OSError("GitHub unavailable")
 
 
 def test_update_error_is_reported_in_chat(monkeypatch, caplog):
-    # Si GitHub falla en /status, Heimdall lo dice
     sent = []
 
     monkeypatch.setattr(heimdall, "dispatch_heimdall_update", failing_dispatch)
@@ -686,11 +621,6 @@ def test_update_error_survives_failed_error_message(monkeypatch, caplog):
     assert "Could not send the Heimdall error message" in caplog.text
 
 
-# ============================================================
-# LANZAR WORKFLOWS DIARIOS
-# ============================================================
-
-
 def dispatch_callback(data):
     return {
         "id": "callback-1",
@@ -730,7 +660,6 @@ def test_dispatch_callback_launches_daily_workflow(monkeypatch):
 
 
 def test_dispatch_callback_rejects_unknown_workflow(monkeypatch):
-    # Un botón manipulado no puede lanzar cualquier workflow
     calls = mock_dispatch_io(monkeypatch)
 
     heimdall.handle_heimdall_callback(dispatch_callback("dispatch:quality-checks.yml"))
@@ -759,7 +688,6 @@ def callback_without_id(data):
 
 
 def test_dispatch_callback_without_callback_id(monkeypatch):
-    # Sin id no hay animación que cerrar, pero se lanza igual
     calls = mock_dispatch_io(monkeypatch)
 
     heimdall.handle_heimdall_callback(callback_without_id("dispatch:videogames.yml"))
