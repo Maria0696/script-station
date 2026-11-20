@@ -93,14 +93,18 @@
         "id": 167,
         "label": "🔵 PS5",
         "release_date": "2026-11-19",
-        "date_precision": "day"
+        "date_precision": "day",
+        "release_notified": true
       },
       {
         "id": 169,
         "label": "🟢 Xbox Series",
         "release_date": "2026-11-19",
-        "date_precision": "day"
+        "date_precision": "day",
+        "release_notified": true
       }
-    ]
+    ],
+    "status": "released",
+    "released_on": "2026-11-19"
   }
 ]
