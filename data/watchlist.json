@@ -105,6 +105,7 @@
       }
     ],
     "status": "released",
-    "released_on": "2026-11-19"
+    "released_on": "2026-11-19",
+    "rating_notified": true
   }
 ]
